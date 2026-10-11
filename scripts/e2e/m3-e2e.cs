@@ -38,7 +38,7 @@ async Task<JsonElement> Call(string tool, Dictionary<string, object?>? arguments
     var result = await pending;
     var text = result.Content.OfType<TextContentBlock>().FirstOrDefault()?.Text ?? "{}";
     Console.WriteLine($"== {tool} {string.Join(", ", (arguments ?? []).Select(kv => $"{kv.Key}={kv.Value}"))}{(result.IsError == true ? "  [ERROR]" : "")}");
-    Console.WriteLine(text.Length > 1500 ? text[..1500] + " …" : text);
+    Console.WriteLine(text.Length > 3000 ? text[..3000] + " …" : text);
     Console.WriteLine();
     return JsonDocument.Parse(text).RootElement.Clone();
 }
@@ -51,7 +51,7 @@ using (var b = Process.Start(new ProcessStartInfo("dotnet", "build samples/Fault
 // IDE state
 await Call("vs_instances");
 await Call("debug_status");
-await Call("vs_build");
+await Call("vs_build", new() { ["project"] = "OrderDemo" });                                    // VS may have the whole .slnx open: build only the sample
 await Call("errors_list", new() { ["severity"] = "error,warning,message" });
 await Call("output_read");                                                                   // pane list: no VsMcpDebugger panes
 await Call("output_read", new() { ["pane"] = "build", ["tail"] = 20 });
