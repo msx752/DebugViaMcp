@@ -42,7 +42,9 @@ Rejected alternatives: carrying `callId` in StreamJsonRpc's W3C `traceparent` (o
 - Changed: `EvaluateAsync(string expression, bool allowSideEffects, CallContext ctx, CancellationToken ct)`.
 - `HandshakeResponse` and `StatusInfo` gain `Permissions { Read, Control, Mutate }` (each `Allow` | `Ask` | `Deny`).
   Informational only; the VSIX decides on every call.
-- `HandshakeResponse` gains `LogLevel` and `LogValues` (see §6.1).
+- `HandshakeResponse` gains `LogLevel` (see §6.1).
+- `HandshakeRequest.ClientName` carries the MCP client's name from its `initialize` request (e.g. `claude-code`).
+- `IDebugBridgeEvents` gains `OnAccessRevokedAsync()`, sent just before Disconnect AI closes the connection.
 - New error codes:
 
 | Code | Name | `data` | When |
@@ -140,16 +142,15 @@ Pure logic. `TierOf(Operation)` and `Decide(Operation, IPermissionSettings) → 
 | Connection | Accept AI connections when Visual Studio starts | On |
 | | Show status bar indicator | On |
 | Logging | Log level (Error / Warning / Information / Debug) | Information |
-| | Log variable values (with a warning) | Off |
 | | Log retention (days) | 7 |
-| | Log folder (read-only path, "Open folder") | — |
+| | Log folder (read-only path; opened with Tools → VsMcpDebugger → Open Logs Folder) | — |
 
 - Changes take effect on the next call. Permission changes are audited and clear session grants.
 - Setting Mutate to **Allow** asks for confirmation ("The agent will be able to change program state without
   asking you").
-- **Single place to configure:** the VSIX sends log level and value logging to the MCP host in the handshake; the
-  host follows them. Environment variables (`VSMCPDEBUGGER_LOG_LEVEL`, `VSMCPDEBUGGER_LOG_VALUES`) and
-  `--log-level` remain as overrides. Before the first handshake the host uses its own defaults.
+- **Single place to configure:** the VSIX sends the log level to the MCP host in the handshake; the host follows it.
+  `VSMCPDEBUGGER_LOG_LEVEL` remains as an override. Before the first handshake the host uses its own default.
+- There is no "log variable values" setting: neither side logs debuggee values anywhere, so it would control nothing.
 
 ### 6.2 Commands — Tools → VsMcpDebugger
 Disconnect AI (default `Ctrl+Alt+Shift+F12`, rebindable), Reconnect AI (visible while disconnected), Show Activity,
@@ -160,7 +161,7 @@ Open Logs Folder, Options…
 access is on. Clicking opens the Activity pane. Hidden entirely when the setting is off.
 
 ### 6.4 Consent info bar
-Shown on the active document window, else on the main window. Buttons **[Allow once] [Allow for session]
+Shown on the Visual Studio main window (its info-bar host is always present). Buttons **[Allow once] [Allow for session]
 [Deny]**; the remaining time is shown as text. Closing it with ✕ counts as Deny.
 
 ### 6.5 Output → "VsMcpDebugger Activity"
@@ -182,7 +183,7 @@ The existing "VsMcpDebugger" pane keeps technical logs.
 | User denied | `denied` / `user_denied`: "Denied by the user in Visual Studio. This is the user's decision — do not retry; ask the user how to proceed." |
 | Timeout | `denied` / `timeout`: "The user did not respond in Visual Studio within {n} s. Ask them to check Visual Studio, then retry if they agree." |
 | Setting is Deny | `denied` / `policy`: "Blocked by VsMcpDebugger settings in Visual Studio ({Tier} = Deny)." |
-| Disconnect AI | Connection drops; the next call reconnects and gets `ai_disabled`: "The user disconnected AI access in Visual Studio. Ask them to run Tools → VsMcpDebugger → Reconnect AI." |
+| Disconnect AI | The VSIX sends `OnAccessRevokedAsync`, then closes the pipe. The next call gets `ai_disabled` ("The user disconnected AI access in Visual Studio. Ask them to run Tools → VsMcpDebugger → Reconnect AI.") and keeps the selected instance; the call after that reconnects, so it works once the user chose Reconnect AI. |
 | Expression/value over 500 chars | `invalid_argument` |
 | `set_value` target has side effects | `invalid_argument` with the target hint |
 
