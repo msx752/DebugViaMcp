@@ -105,8 +105,9 @@ public class ConsentGateTests
         session.Revoke();
 
         Assert.Equal(ConsentOutcome.Disconnected, await pending);
-        _prompt.AutoAnswer = ConsentChoice.Deny;
-        Assert.Equal(ConsentOutcome.Denied, await gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None));
+        _prompt.AutoAnswer = ConsentChoice.AllowOnce;
+        Assert.Equal(ConsentOutcome.Disconnected, await gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None));
+        Assert.Equal(2, _prompt.Texts.Count);   // a revoked session never asks again
     }
 
     [Fact]
@@ -186,9 +187,9 @@ public class ConsentGateTests
         late.Answer.SetResult(ConsentChoice.AllowSession);
 
         Assert.Equal(ConsentOutcome.Disconnected, await pending);
-        late.Reset(ConsentChoice.Deny);
-        Assert.Equal(ConsentOutcome.Denied, await gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None));
-        Assert.Equal(2, late.Count);
+        late.Reset(ConsentChoice.AllowOnce);
+        Assert.Equal(ConsentOutcome.Disconnected, await gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None));
+        Assert.Equal(1, late.Count);
     }
 
     /// <summary>Security review: an Allow that lands after the timeout must not count.</summary>

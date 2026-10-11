@@ -308,6 +308,7 @@ public class DebugBridgeServiceTests
     public async Task Current_function_comes_from_the_top_frame()
     {
         var (svc, _, _) = Create();
-        Assert.Equal("Demo.OrderService.Submit(Demo.Order order)", await svc.GetCurrentFunctionAsync(CancellationToken.None));
+        var (function, _) = await svc.GetBreakLocationAsync(CancellationToken.None);
+        Assert.Equal("Demo.OrderService.Submit(Demo.Order order)", function);
     }
 }

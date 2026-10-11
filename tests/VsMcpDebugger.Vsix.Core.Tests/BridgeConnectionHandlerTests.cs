@@ -438,4 +438,113 @@ public class BridgeConnectionHandlerTests
         Assert.Equal((int)BridgeErrorCode.AiDisabled, ex.ErrorCode);
         Assert.DoesNotContain("Step:Over", s.Dte.Calls);
     }
+
+    /// <summary>Final review I1: the pipe drops while the question is being prepared — no question, no change.</summary>
+    [Fact]
+    public async Task Connection_closed_while_preparing_never_prompts_or_assigns()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+        s.Dte.StackGate = new ManualResetEventSlim(false);
+
+        var call = Task.Run(() => s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None));
+        await s.Dte.StackEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        s.Handler.Dispose();
+        s.Dte.StackGate.Set();
+
+        await Assert.ThrowsAsync<LocalRpcException>(() => call);
+        Assert.Empty(s.Prompt.Texts);
+        Assert.Empty(s.Dte.Assignments);
+    }
+
+    /// <summary>Final review I1 (Disconnect AI variant): no stray question after the user disconnected AI.</summary>
+    [Fact]
+    public async Task Disconnect_ai_while_preparing_never_prompts()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+        s.Dte.StackGate = new ManualResetEventSlim(false);
+
+        var call = Task.Run(() => s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None));
+        await s.Dte.StackEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        s.Security.DisconnectAi();
+        s.Dte.StackGate.Set();
+
+        await Assert.ThrowsAsync<LocalRpcException>(() => call);
+        Assert.Empty(s.Prompt.Texts);
+        Assert.Empty(s.Dte.Assignments);
+    }
+
+    /// <summary>Final review I2: consent covers the frame the question named; if the program moved, nothing changes.</summary>
+    [Fact]
+    public async Task Program_moving_while_the_question_is_open_voids_the_consent()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        var call = s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None);
+        await s.Prompt.WaitForPromptsAsync(1);
+        s.Seq.Next();
+        s.Prompt.Answer(ConsentChoice.AllowOnce);
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => call);
+        Assert.Equal((int)BridgeErrorCode.WrongMode, ex.ErrorCode);
+        Assert.Contains("changed", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(s.Dte.Assignments);
+    }
+
+    [Fact]
+    public async Task Program_moving_voids_consent_for_side_effect_evaluation_too()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        var call = s.Handler.EvaluateAsync("order.Touch()", allowSideEffects: true, SecurityHarness.Ctx(), CancellationToken.None);
+        await s.Prompt.WaitForPromptsAsync(1);
+        s.Seq.Next();
+        s.Prompt.Answer(ConsentChoice.AllowOnce);
+
+        await Assert.ThrowsAsync<LocalRpcException>(() => call);
+        Assert.Null(s.Dte.LastEvaluated);
+    }
+
+    /// <summary>Final review I3: a consented call that is then cancelled still leaves exactly one audit entry.</summary>
+    [Fact]
+    public async Task Cancelled_call_after_consent_is_audited_exactly_once()
+    {
+        using var s = new SecurityHarness();
+        s.Dte.OnSetValue = (_, _) => throw new OperationCanceledException();
+        await s.HandshakeAsync();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx("c-000030"), CancellationToken.None));
+
+        Assert.Single(s.AuditLines(), l => l.Contains("c-000030", StringComparison.Ordinal)
+            && l.Contains("\"outcome\":\"cancelled\"", StringComparison.Ordinal)
+            && l.Contains("\"decision\":\"allowOnce\"", StringComparison.Ordinal));
+    }
+
+    /// <summary>Final review I4: a conditional breakpoint that would be rejected never reaches the question.</summary>
+    [Fact]
+    public async Task Invalid_conditional_breakpoint_fails_before_prompting()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+        var specs = new[]
+        {
+            new BreakpointSpec { File = "OrderService.cs", Line = 9, Condition = "order.Id == " + new string('1', 600) },
+            new BreakpointSpec { File = "OrderService.cs", Line = 9, Condition = "order.Touch() > 0" },
+            new BreakpointSpec { File = @"C:\elsewhere\Secret.cs", Line = 1, Condition = "x == 1" },
+            new BreakpointSpec { File = "OrderService.cs", Line = 9, LogMessage = "{order.Touch()}" },
+        };
+
+        foreach (var spec in specs)
+        {
+            var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.SetBreakpointAsync(spec, SecurityHarness.Ctx(), CancellationToken.None));
+            Assert.Equal((int)BridgeErrorCode.InvalidArgument, ex.ErrorCode);
+        }
+
+        Assert.Empty(s.Prompt.Texts);
+        Assert.Empty(s.Dte.Bps);
+    }
 }

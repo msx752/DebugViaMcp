@@ -42,6 +42,7 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
     public async Task<ConsentOutcome> RequestAsync(ConsentSession session, Operation operation, string text, CancellationToken ct)
     {
         if (session is null) throw new ArgumentNullException(nameof(session));
+        if (session.RevokedToken.IsCancellationRequested) return ConsentOutcome.Disconnected;
         if (session.IsGranted(operation)) return ConsentOutcome.AllowedBySessionGrant;
 
         var limit = timeout();
@@ -108,15 +109,12 @@ public sealed class ConsentSession : IDisposable
 {
     private readonly ConsentGate _owner;
     private readonly HashSet<Operation> _granted = [];
-    private CancellationTokenSource _revoked = new();
+    private readonly CancellationTokenSource _revoked = new();
     private int _generation;
 
     internal ConsentSession(ConsentGate owner) => _owner = owner;
 
-    internal CancellationToken RevokedToken
-    {
-        get { lock (_granted) return _revoked.Token; }
-    }
+    internal CancellationToken RevokedToken => _revoked.Token;
 
     internal bool IsGranted(Operation operation)
     {
@@ -149,20 +147,20 @@ public sealed class ConsentSession : IDisposable
         }
     }
 
-    /// <summary>Pending requests end as <see cref="ConsentOutcome.Disconnected"/>; grants are cleared.</summary>
+    /// <summary>
+    /// Pending requests end as <see cref="ConsentOutcome.Disconnected"/>, grants are cleared, and every later request
+    /// on this session ends the same way without asking: a revoked connection never asks again.
+    /// </summary>
     public void Revoke()
     {
-        CancellationTokenSource old;
         lock (_granted)
         {
-            old = _revoked;
-            _revoked = new CancellationTokenSource();
             _granted.Clear();
             _generation++;
         }
 
         // Not disposed: requests in flight may still register on its token.
-        old.Cancel();
+        _revoked.Cancel();
     }
 
     public void Dispose()

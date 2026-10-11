@@ -50,22 +50,8 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         if (spec is null) throw new ArgumentNullException(nameof(spec));
         return ui.RunAsync(() =>
         {
-            if (spec.File is not null)
-            {
-                // Only files inside the solution: otherwise bp_set would be an oracle for any path on disk.
-                var absolute = PathUtil.ToAbsolute(SolutionDir, spec.File);
-                if (!PathUtil.IsUnder(SolutionDir, absolute))
-                    throw new BridgeException(BridgeErrorCode.InvalidArgument, "Breakpoint files must be inside the open solution's directory.", "Use a path relative to the solution directory.");
-                if (!dte.FileExists(absolute))
-                    throw new BridgeException(BridgeErrorCode.InvalidArgument, $"File not found: {PathUtil.ToRelative(SolutionDir, absolute)}", "Use a path relative to the solution directory.");
-                spec.File = absolute;
-            }
-
-            if (spec.Condition is not null) ExpressionPolicy.RequireNoSideEffects(spec.Condition);
-            if (spec.LogMessage is not null)
-            {
-                foreach (var placeholder in PathUtil.Placeholders(spec.LogMessage)) ExpressionPolicy.RequireNoSideEffects(placeholder);
-            }
+            var absolute = CheckBreakpoint(spec);
+            if (absolute is not null) spec.File = absolute;
 
             var id = BreakpointKey.Compute(spec.File, spec.Line, spec.Function, spec.Condition);
             var existing = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id);
@@ -77,6 +63,45 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             log.Info($"Breakpoint {id} set");
             return new SetBreakpointResult { Breakpoint = ToInfo(created) };
         }, ct);
+    }
+
+    /// <summary>Everything SetBreakpointAsync would reject, checked without changing anything (for consent questions).</summary>
+    public Task<bool> ValidateBreakpointAsync(BreakpointSpec spec, CancellationToken ct)
+    {
+        if (spec is null) throw new ArgumentNullException(nameof(spec));
+        return ui.RunAsync(() =>
+        {
+            CheckBreakpoint(spec);
+            return true;
+        }, ct);
+    }
+
+    /// <returns>The absolute file path, or null for a function breakpoint. Caller must be on the UI thread.</returns>
+    private string? CheckBreakpoint(BreakpointSpec spec)
+    {
+        // Shown in full in consent questions, so the same length limit as other agent-supplied expressions.
+        if (spec.Condition is not null) ExpressionPolicy.RequireMutationText(spec.Condition, "condition");
+        if (spec.LogMessage is not null) ExpressionPolicy.RequireMutationText(spec.LogMessage, "logMessage");
+        if (spec.Function is not null) ExpressionPolicy.RequireMutationText(spec.Function, "function");
+
+        string? absolute = null;
+        if (spec.File is not null)
+        {
+            // Only files inside the solution: otherwise bp_set would be an oracle for any path on disk.
+            absolute = PathUtil.ToAbsolute(SolutionDir, spec.File);
+            if (!PathUtil.IsUnder(SolutionDir, absolute))
+                throw new BridgeException(BridgeErrorCode.InvalidArgument, "Breakpoint files must be inside the open solution's directory.", "Use a path relative to the solution directory.");
+            if (!dte.FileExists(absolute))
+                throw new BridgeException(BridgeErrorCode.InvalidArgument, $"File not found: {PathUtil.ToRelative(SolutionDir, absolute)}", "Use a path relative to the solution directory.");
+        }
+
+        if (spec.Condition is not null) ExpressionPolicy.RequireNoSideEffects(spec.Condition);
+        if (spec.LogMessage is not null)
+        {
+            foreach (var placeholder in PathUtil.Placeholders(spec.LogMessage)) ExpressionPolicy.RequireNoSideEffects(placeholder);
+        }
+
+        return absolute;
     }
 
     public Task<int> RemoveBreakpointsAsync(string? id, bool all, CancellationToken ct) => ui.RunAsync(() =>
@@ -120,23 +145,48 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     public static void ValidateSideEffectEvaluation(string? expression) => ExpressionPolicy.RequireMutationText(expression, "expression");
 
-    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CancellationToken ct)
+    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CancellationToken ct) =>
+        EvaluateAsync(expression, allowSideEffects, expectedSeq: null, ct);
+
+    /// <param name="expectedSeq">When set, the event sequence the user saw when approving; any debugger event since then refuses the call.</param>
+    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, long? expectedSeq, CancellationToken ct)
     {
         if (allowSideEffects) ValidateSideEffectEvaluation(expression);
-        return InBreak(() => Shape(dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression))), ct);
+        return InBreak(() =>
+        {
+            RequireUnchanged(expectedSeq);
+            return Shape(dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression)));
+        }, ct);
     }
 
-    public Task<EvaluateResult> SetValueAsync(string expression, string value, CancellationToken ct)
+    public Task<EvaluateResult> SetValueAsync(string expression, string value, CancellationToken ct) =>
+        SetValueAsync(expression, value, expectedSeq: null, ct);
+
+    /// <param name="expectedSeq">When set, the event sequence the user saw when approving; any debugger event since then refuses the call.</param>
+    public Task<EvaluateResult> SetValueAsync(string expression, string value, long? expectedSeq, CancellationToken ct)
     {
         ValidateSetValue(expression, value);
-        return InBreak(() => Shape(dte.SetValue(expression.Trim(), value.Trim())), ct);
+        return InBreak(() =>
+        {
+            RequireUnchanged(expectedSeq);
+            return Shape(dte.SetValue(expression.Trim(), value.Trim()));
+        }, ct);
+    }
+
+    /// <summary>Consent covers the frame the question named: if the program resumed or broke elsewhere since, refuse.</summary>
+    private void RequireUnchanged(long? expectedSeq)
+    {
+        if (expectedSeq is { } expected && seq.Current != expected)
+            throw new BridgeException(BridgeErrorCode.WrongMode,
+                "The program state changed while waiting for approval (it resumed or stopped elsewhere). Nothing was changed.",
+                "Check where the program is now (debug_status), then call again if it still makes sense.");
     }
 
     /// <summary>Shown in consent questions ("… in OrderService.Submit"). Requires Break mode, so a wrong-mode call fails before the user is asked.</summary>
-    public Task<string> GetCurrentFunctionAsync(CancellationToken ct) => InBreak(() =>
+    public Task<(string Function, long Seq)> GetBreakLocationAsync(CancellationToken ct) => InBreak(() =>
     {
         var frames = dte.Stack(1);
-        return frames.Count > 0 ? frames[0].Function : "the current frame";
+        return (frames.Count > 0 ? frames[0].Function : "the current frame", seq.Current);
     }, ct);
 
     private static EvaluateResult Shape(EvaluateResult r)

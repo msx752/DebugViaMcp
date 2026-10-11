@@ -14,7 +14,7 @@ public sealed class SecurityHarness : IDisposable
         Consent = new ConsentGate(Prompt, () => Settings.ConsentTimeout, Delay.Delay);
         Security = new BridgeSecurity(Settings, Consent, Audit, Access);
         Handler = new BridgeConnectionHandler(
-            new DebugBridgeService(Dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), "secret", Security, new NullLog(),
+            new DebugBridgeService(Dte, new InlineUiThread(), Seq, new NullLog(), "0.1.0"), "secret", Security, new NullLog(),
             new ConnectionHooks(() => { }, () =>
             {
                 RevokedNotified = true;
@@ -26,6 +26,7 @@ public sealed class SecurityHarness : IDisposable
     private int _drops;
 
     public FakeDte Dte { get; }
+    public EventSeq Seq { get; } = new();
     public AiAccessSwitch Access { get; } = new(enabled: true);
     public int Drops => Volatile.Read(ref _drops);
     public bool RevokedNotified { get; private set; }

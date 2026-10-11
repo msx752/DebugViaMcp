@@ -54,7 +54,21 @@ public sealed class FakeDte : IDteFacade
     public void Break() => Calls.Add("Break");
     public void Stop() => Calls.Add("Stop");
     public void Step(StepKind kind) { Ui(); Calls.Add("Step:" + kind); }
-    public IReadOnlyList<RawFrame> Stack(int max) { Ui(); return Frames.Take(max).ToList(); }
+    /// <summary>When set, Stack() waits for it (signalling <see cref="StackEntered"/>), to hold a call on the "UI thread".</summary>
+    public ManualResetEventSlim? StackGate { get; set; }
+    public TaskCompletionSource StackEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public IReadOnlyList<RawFrame> Stack(int max)
+    {
+        Ui();
+        if (StackGate is { } gate)
+        {
+            StackEntered.TrySetResult();
+            gate.Wait(TimeSpan.FromSeconds(10));
+        }
+
+        return Frames.Take(max).ToList();
+    }
     public IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems) { Ui(); return Locals.Take(maxItems).ToList(); }
 
     public IReadOnlyList<VariableInfo> Members(string expression, int maxItems)

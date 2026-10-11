@@ -17,6 +17,7 @@ public static class RpcFactory
         if (stream is null) throw new ArgumentNullException(nameof(stream));
         var formatter = new JsonMessageFormatter();
         ProtocolJson.Configure(formatter.JsonSerializer);
-        return new JsonRpc(new HeaderDelimitedMessageHandler(stream, stream, formatter));
+        // A client that goes away cancels the requests it left running (e.g. one waiting for consent).
+        return new JsonRpc(new HeaderDelimitedMessageHandler(stream, stream, formatter)) { CancelLocallyInvokedMethodsWhenConnectionIsClosed = true };
     }
 }

@@ -97,7 +97,11 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             Request.Of(Describe(spec), ("file", spec?.File), ("line", spec?.Line?.ToString(CultureInfo.InvariantCulture)), ("function", spec?.Function),
                 ("condition", spec?.Condition), ("hitCount", spec is { HitCount: > 0 } ? spec.HitCount.ToString(CultureInfo.InvariantCulture) : null), ("logMessage", spec?.LogMessage)),
             spec is { Condition: not null } or { LogMessage: not null }
-                ? () => Task.FromResult(ConsentText.Breakpoint(_client, spec.Function ?? $"{spec.File}:{spec.Line?.ToString(CultureInfo.InvariantCulture)}", spec.Condition, spec.LogMessage))
+                ? async () =>
+                {
+                    await service.ValidateBreakpointAsync(spec, cancellationToken).ConfigureAwait(false);
+                    return ConsentText.Breakpoint(_client, spec.Function ?? $"{spec.File}:{spec.Line?.ToString(CultureInfo.InvariantCulture)}", spec.Condition, spec.LogMessage);
+                }
                 : null,
             cancellationToken);
 
@@ -128,26 +132,39 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         Guard(Operation.Variables, context, () => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken),
             Request.Of(path ?? ScopeName(scope), ("scope", ScopeName(scope)), ("path", path)), null, cancellationToken);
 
-    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken) =>
-        allowSideEffects
-            ? Guard(Operation.EvaluateWithSideEffects, context, () => service.EvaluateAsync(expression, true, cancellationToken),
-                Request.Of(expression, ("expression", expression)),
-                async () =>
-                {
-                    DebugBridgeService.ValidateSideEffectEvaluation(expression);
-                    return ConsentText.EvaluateWithSideEffects(_client, expression, await service.GetCurrentFunctionAsync(cancellationToken).ConfigureAwait(false));
-                }, cancellationToken)
-            : Guard(Operation.Evaluate, context, () => service.EvaluateAsync(expression, false, cancellationToken),
+    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken)
+    {
+        if (!allowSideEffects)
+            return Guard(Operation.Evaluate, context, () => service.EvaluateAsync(expression, false, cancellationToken),
                 Request.Of(expression, ("expression", expression)), null, cancellationToken);
 
-    public Task<EvaluateResult> SetValueAsync(string expression, string value, CallContext context, CancellationToken cancellationToken) =>
-        Guard(Operation.SetValue, context, () => service.SetValueAsync(expression, value, cancellationToken),
+        // Set when the question is prepared: the approval covers the program state the question described.
+        long? askedAt = null;
+        return Guard(Operation.EvaluateWithSideEffects, context, () => service.EvaluateAsync(expression, true, askedAt, cancellationToken),
+            Request.Of(expression, ("expression", expression)),
+            async () =>
+            {
+                DebugBridgeService.ValidateSideEffectEvaluation(expression);
+                var (function, seq) = await service.GetBreakLocationAsync(cancellationToken).ConfigureAwait(false);
+                askedAt = seq;
+                return ConsentText.EvaluateWithSideEffects(_client, expression, function);
+            }, cancellationToken);
+    }
+
+    public Task<EvaluateResult> SetValueAsync(string expression, string value, CallContext context, CancellationToken cancellationToken)
+    {
+        // Set when the question is prepared: the approval covers the program state the question described.
+        long? askedAt = null;
+        return Guard(Operation.SetValue, context, () => service.SetValueAsync(expression, value, askedAt, cancellationToken),
             Request.Of($"{expression} = {value}", ("expression", expression), ("value", value)),
             async () =>
             {
                 DebugBridgeService.ValidateSetValue(expression, value);
-                return ConsentText.SetValue(_client, expression, value, await service.GetCurrentFunctionAsync(cancellationToken).ConfigureAwait(false));
+                var (function, seq) = await service.GetBreakLocationAsync(cancellationToken).ConfigureAwait(false);
+                askedAt = seq;
+                return ConsentText.SetValue(_client, expression, value, function);
             }, cancellationToken);
+    }
 
     /// <summary>
     /// The settings decide first: a denied call never touches Visual Studio. When the user has to be asked,
@@ -186,6 +203,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                         "Ask the user whether to change Tools → Options → VsMcpDebugger → Permissions.", DeniedReasons.Policy);
                 case PermissionLevel.Ask:
                     var text = prepare is null ? null : await prepare().ConfigureAwait(false);
+                    ThrowIfRevoked();
                     prompted = true;
                     var outcome = await security.Consent.RequestAsync(_consent, operation,
                         text ?? ConsentText.Operation(_client, PermissionPolicy.ToolName(operation), request.Summary), ct).ConfigureAwait(false);
@@ -212,8 +230,15 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             Audit(BridgeErrorNames.ToName((BridgeErrorCode)e.ErrorCode));
             throw;
         }
+        catch (OperationCanceledException)
+        {
+            // Spec §8: every control/mutate call leaves exactly one audit entry, cancelled ones included.
+            if (decision == AuditDecision.None) decision = AuditDecision.DeniedCancelled;
+            Audit("cancelled");
+            throw;
+        }
 #pragma warning disable CA1031 // Every unexpected failure must reach the client as a coded error, not a dropped connection.
-        catch (Exception e) when (e is not OperationCanceledException)
+        catch (Exception e)
 #pragma warning restore CA1031
         {
             log.Error($"[{callId}] Unexpected bridge failure", e);
@@ -225,7 +250,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     /// <summary>Fail closed between Disconnect AI and the pipe actually closing; a revoked connection never comes back.</summary>
     private void ThrowIfRevoked()
     {
-        if (_revoked || !security.Access.Enabled)
+        if (_revoked || Volatile.Read(ref _disposed) == 1 || !security.Access.Enabled)
             throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI, then reconnect.");
     }
 
