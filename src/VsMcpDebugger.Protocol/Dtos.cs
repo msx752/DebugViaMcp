@@ -118,6 +118,17 @@ public sealed class StackInfo
     public StackFrameInfo[] Frames { get; set; } = [];
 }
 
+/// <summary>What frame_select selected: enough to continue without a second call.</summary>
+public sealed class FrameSelection
+{
+    public int? ThreadId { get; set; }
+    public int Index { get; set; }
+    public long Epoch { get; set; }
+    public SourceLocation? Location { get; set; }
+    public string[] Source { get; set; } = [];
+    public VariableInfo[] Args { get; set; } = [];
+}
+
 public sealed class EvaluateResult
 {
     public bool IsValid { get; set; }

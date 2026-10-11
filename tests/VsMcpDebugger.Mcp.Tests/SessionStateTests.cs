@@ -16,6 +16,20 @@ public class SessionStateTests
     }
 
     [Fact]
+    public async Task Frame_mirror_follows_frame_events_and_resets_on_break()
+    {
+        var s = Connected();
+        Assert.Equal(new SelectedFrame(0, null), s.Frame);
+
+        await s.OnFrameChangedAsync(new FrameChangedEvent { Seq = 6, Epoch = 1, ThreadId = 7, FrameIndex = 2 });
+        Assert.Equal(new SelectedFrame(2, 7), s.Frame);
+        Assert.Equal(6, s.LastSeq);
+
+        await s.OnBreakAsync(new BreakEvent { Seq = 7, Snapshot = new BreakSnapshot { Reason = BreakReason.Step, ThreadId = 3 } });
+        Assert.Equal(new SelectedFrame(0, 3), s.Frame);
+    }
+
+    [Fact]
     public async Task Break_published_before_wait_is_returned()
     {
         var s = Connected();

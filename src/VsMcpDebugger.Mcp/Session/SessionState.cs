@@ -17,6 +17,24 @@ public sealed class SessionState : IDebugBridgeEvents
     public long LastSeq { get; private set; }
     public BreakEvent? LastBreak { get; private set; }
     public long LastEndSeq { get; private set; }
+    public SelectedFrame Frame { get; private set; } = new(0, null);
+
+    public void SelectFrame(int index, int? threadId)
+    {
+        lock (_gate) Frame = new SelectedFrame(index, threadId);
+    }
+
+    public Task OnFrameChangedAsync(FrameChangedEvent e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        lock (_gate)
+        {
+            LastSeq = Math.Max(LastSeq, e.Seq);
+            Frame = new SelectedFrame(e.FrameIndex, e.ThreadId);
+        }
+
+        return Task.CompletedTask;
+    }
 
     /// <summary>Sequence observed right before the latest resume command; debug_wait waits for a break after it.</summary>
     public long LastResumeSeq { get; private set; }
@@ -47,6 +65,7 @@ public sealed class SessionState : IDebugBridgeEvents
             LastResumeSeq = seq;
             LastEndSeq = 0;
             LastBreak = null;
+            Frame = new SelectedFrame(0, null);
             IsConnected = true;
             AccessRevoked = false;
         }
@@ -86,6 +105,7 @@ public sealed class SessionState : IDebugBridgeEvents
             Mode = DebuggerMode.Break;
             LastSeq = Math.Max(LastSeq, e.Seq);
             LastBreak = e;
+            Frame = new SelectedFrame(0, e.Snapshot.ThreadId);
             for (var i = _waiters.Count - 1; i >= 0; i--)
             {
                 if (e.Seq > _waiters[i].AfterSeq)

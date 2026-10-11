@@ -142,6 +142,40 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return new StackInfo { Epoch = Epoch, ThreadId = threadId ?? dte.CurrentThreadId, Frames = ToFrames(frames) };
     }, ct);
 
+    public Task<FrameSelection> SelectFrameAsync(int index, long epoch, int? threadId, CancellationToken ct) => InBreak(() =>
+    {
+        if (epoch != Epoch)
+            throw new BridgeException(BridgeErrorCode.Stale, "The program resumed since this frame was read.", "Call stack again and pass its epoch.");
+        if (index < 0) throw new BridgeException(BridgeErrorCode.InvalidArgument, "index must be 0 or greater.");
+
+        var frames = threadId is { } id ? dte.ThreadStack(id, index + 1) ?? throw NoSuchThread(id) : dte.Stack(index + 1);
+        if (index >= frames.Count)
+            throw new BridgeException(BridgeErrorCode.NotFound, $"Frame {index} does not exist; the stack has {frames.Count} frames.", "Call stack to see the frames.");
+
+        dte.SelectFrame(threadId, index);
+        var frame = frames[index];
+        return new FrameSelection
+        {
+            ThreadId = threadId ?? dte.CurrentThreadId, Index = index, Epoch = Epoch,
+            Location = ToLocation(frame), Source = SourceOf(frame),
+            Args = dte.Variables(VariableScope.Args, 20).Select(Shape).ToArray(),
+        };
+    }, ct);
+
+    /// <summary>
+    /// Called by the event pump when the thread or frame selection changes (UI thread). Advances the event sequence,
+    /// so consent given while another frame was selected no longer applies.
+    /// </summary>
+    public FrameChangedEvent OnContextChanged() =>
+        new() { Seq = seq.Next(), Epoch = Epoch, ThreadId = dte.CurrentThreadId, FrameIndex = dte.CurrentFrameIndex };
+
+    private SourceLocation ToLocation(RawFrame f) => new()
+    {
+        File = f.File is null ? "" : PathUtil.ToRelative(SolutionDir, f.File), Line = f.Line ?? 0, Function = f.Function,
+    };
+
+    private static string[] SourceOf(RawFrame f) => f.File is not null && f.Line is { } line ? PathUtil.SourceContext(f.File, line) : [];
+
     private static BridgeException NoSuchThread(int id) =>
         new(BridgeErrorCode.NotFound, $"No thread with id {id}.", "Call threads to list them.");
 
@@ -211,8 +245,9 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     /// <summary>Shown in consent questions ("… in OrderService.Submit"). Requires Break mode, so a wrong-mode call fails before the user is asked.</summary>
     public Task<(string Function, long Seq)> GetBreakLocationAsync(CancellationToken ct) => InBreak(() =>
     {
-        var frames = dte.Stack(1);
-        return (frames.Count > 0 ? frames[0].Function : "the current frame", seq.Current);
+        var index = dte.CurrentFrameIndex;
+        var frames = dte.Stack(index + 1);
+        return (frames.Count > index ? frames[index].Function : "the current frame", seq.Current);
     }, ct);
 
     private static EvaluateResult Shape(EvaluateResult r)
@@ -238,13 +273,8 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         {
             Reason = reason,
             BreakpointId = lastHit is null ? null : IdOf(lastHit),
-            Location = top is null ? null : new SourceLocation
-            {
-                File = top.File is null ? "" : PathUtil.ToRelative(SolutionDir, top.File),
-                Line = top.Line ?? 0,
-                Function = top.Function,
-            },
-            Source = top?.File is not null && top.Line is { } line ? PathUtil.SourceContext(top.File, line) : [],
+            Location = top is null ? null : ToLocation(top),
+            Source = top is null ? [] : SourceOf(top),
             Args = dte.Variables(VariableScope.Args, 20).Select(Shape).ToArray(),
             StackTop = frames.Select(f => f.Line is { } l ? $"{f.Function}:{l}" : f.Function).ToArray(),
             ThreadId = dte.CurrentThreadId,

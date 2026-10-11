@@ -162,6 +162,50 @@ internal sealed class DteFacade(DTE2 dte) : IDteFacade
         return frames;
     }
 
+    public int CurrentFrameIndex
+    {
+        get
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var current = dte.Debugger.CurrentStackFrame;
+            var thread = dte.Debugger.CurrentThread;
+            if (current is null || thread is null) return 0;
+            var index = 0;
+            foreach (EnvDTE.StackFrame f in thread.StackFrames)
+            {
+                // Same COM object → same RCW; the field comparison covers a re-created wrapper.
+                if (ReferenceEquals(f, current) || SameFrame(f, current)) return index;
+                if (++index >= DebugBridgeService.MaxStackFrames) break;
+            }
+
+            return 0;
+        }
+    }
+
+    public void SelectFrame(int? threadId, int index)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        if (threadId is { } id)
+            dte.Debugger.CurrentThread = FindThread(id) ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No thread with id {id}.");
+        var i = 0;
+        foreach (EnvDTE.StackFrame f in dte.Debugger.CurrentThread.StackFrames)
+        {
+            if (i++ != index) continue;
+            dte.Debugger.CurrentStackFrame = f;
+            return;
+        }
+
+        throw new BridgeException(BridgeErrorCode.NotFound, $"Frame {index} does not exist.");
+    }
+
+    private static bool SameFrame(EnvDTE.StackFrame a, EnvDTE.StackFrame b)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var a2 = a as StackFrame2;
+        var b2 = b as StackFrame2;
+        return a.FunctionName == b.FunctionName && a2?.FileName == b2?.FileName && a2?.LineNumber == b2?.LineNumber;
+    }
+
     private EnvDTE.Thread? FindThread(int id)
     {
         ThreadHelper.ThrowIfNotOnUIThread();

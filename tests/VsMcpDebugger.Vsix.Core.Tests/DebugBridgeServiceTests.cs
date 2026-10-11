@@ -379,4 +379,80 @@ public class DebugBridgeServiceTests
         dte.CurrentThreadId = 3;
         Assert.Equal(3, svc.OnEnterBreak(BreakReason.Step).ThreadId);
     }
+
+    private static List<RawFrame> TwoFrames() =>
+    [
+        new() { Function = "Demo.OrderService.Calculate(Demo.Order order)", File = @"C:\src\Demo\OrderService.cs", Line = 22, Language = "C#" },
+        new() { Function = "Demo.OrderService.Submit(Demo.Order order)", File = @"C:\src\Demo\OrderService.cs", Line = 7, Language = "C#" },
+    ];
+
+    [Fact]
+    public async Task Frame_select_selects_in_visual_studio_and_describes_the_frame()
+    {
+        var (svc, dte, _) = Create();
+        dte.Frames = TwoFrames();
+        var epoch = svc.OnEnterBreak(BreakReason.Breakpoint).Epoch;
+
+        var selection = await svc.SelectFrameAsync(1, epoch, null, CancellationToken.None);
+
+        Assert.Equal(((int?)null, 1), Assert.Single(dte.Selections));
+        Assert.Equal(1, selection.Index);
+        Assert.Equal(epoch, selection.Epoch);
+        Assert.Equal(7, selection.Location!.Line);
+        Assert.Equal("Demo.OrderService.Submit(Demo.Order order)", selection.Location.Function);
+    }
+
+    /// <summary>Review focus #2.</summary>
+    [Fact]
+    public async Task Frame_select_with_an_old_epoch_is_stale_and_selects_nothing()
+    {
+        var (svc, dte, _) = Create();
+        dte.Frames = TwoFrames();
+        var old = svc.OnEnterBreak(BreakReason.Breakpoint).Epoch;
+        svc.OnEnterBreak(BreakReason.Step);
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.SelectFrameAsync(1, old, null, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.Stale, ex.Code);
+        Assert.Empty(dte.Selections);
+    }
+
+    [Fact]
+    public async Task Frame_select_out_of_range_is_not_found()
+    {
+        var (svc, dte, _) = Create();
+        var epoch = svc.OnEnterBreak(BreakReason.Breakpoint).Epoch;
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.SelectFrameAsync(5, epoch, null, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.NotFound, ex.Code);
+        Assert.Empty(dte.Selections);
+    }
+
+    [Fact]
+    public async Task Frame_select_on_another_thread_switches_the_thread()
+    {
+        var (svc, dte, _) = Create();
+        dte.ThreadStacks[7] = TwoFrames();
+        var epoch = svc.OnEnterBreak(BreakReason.Pause).Epoch;
+
+        var selection = await svc.SelectFrameAsync(0, epoch, 7, CancellationToken.None);
+
+        Assert.Equal(7, selection.ThreadId);
+        Assert.Equal(7, dte.CurrentThreadId);
+    }
+
+    [Fact]
+    public void Context_change_advances_the_sequence_and_reports_the_selection()
+    {
+        var (svc, dte, seq) = Create();
+        dte.CurrentFrameIndex = 1;
+        var before = seq.Current;
+
+        var e = svc.OnContextChanged();
+
+        Assert.Equal(before + 1, e.Seq);
+        Assert.Equal(1, e.FrameIndex);
+        Assert.Equal(1, e.ThreadId);
+    }
 }

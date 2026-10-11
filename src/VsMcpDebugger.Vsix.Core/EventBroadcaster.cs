@@ -28,6 +28,9 @@ public sealed class EventBroadcaster(ILog log)
 
     public void PublishBreak(BreakEvent e) => Publish(nameof(IDebugBridgeEvents.OnBreakAsync), minor => ClientCompat.ForClient(e, minor));
 
+    public void PublishFrameChanged(FrameChangedEvent e) =>
+        Publish(nameof(IDebugBridgeEvents.OnFrameChangedAsync), minor => ClientCompat.ReceivesFrameEvents(minor) ? e : null);
+
     /// <param name="payloadFor">The payload for a client of the given minor; null skips that client.</param>
     private void Publish(string method, Func<int, object?> payloadFor)
     {

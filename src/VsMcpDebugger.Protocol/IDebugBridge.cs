@@ -30,6 +30,12 @@ public interface IDebugBridge
     /// <summary>Protocol 2.1. Stack of <paramref name="threadId"/> (default: the current thread) with the current epoch; does not change the selection.</summary>
     Task<StackInfo> GetThreadStackAsync(int? threadId, int maxFrames, CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Protocol 2.1. Selects frame <paramref name="index"/> of <paramref name="threadId"/> (default: current thread) in
+    /// Visual Studio; vars/eval/set_value then run there. Fails with stale when <paramref name="epoch"/> is not current.
+    /// </summary>
+    Task<FrameSelection> SelectFrameAsync(int index, long epoch, int? threadId, CallContext context, CancellationToken cancellationToken);
+
     Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken);
     Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken);
 

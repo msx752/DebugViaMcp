@@ -1,3 +1,4 @@
+using VsMcpDebugger.Mcp.Session;
 using VsMcpDebugger.Mcp.Tests.Fakes;
 using VsMcpDebugger.Mcp.Tools;
 using VsMcpDebugger.Protocol;
@@ -132,5 +133,32 @@ public class InspectionToolsTests
         var tools = new InspectionTools(new FakeConnectionManager(new FakeDebugBridge()));
         var json = Json(await tools.Threads(CancellationToken.None));
         Assert.True(json.GetProperty("threads")[0].GetProperty("isCurrent").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Frame_select_returns_the_frame_and_updates_the_mirror()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge());
+        var tools = new InspectionTools(cm);
+
+        var json = Json(await tools.FrameSelect(2, 5, threadId: 7, ct: CancellationToken.None));
+
+        Assert.Equal(2, json.GetProperty("frame").GetProperty("index").GetInt32());
+        Assert.Equal(5, json.GetProperty("location").GetProperty("line").GetInt32());
+        Assert.Equal(new SelectedFrame(2, 7), cm.Session.Frame);
+    }
+
+    [Fact]
+    public async Task Vars_and_eval_say_which_frame_they_read()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge());
+        cm.Session.SelectFrame(1, 7);
+        var tools = new InspectionTools(cm);
+
+        var vars = Json(await tools.Vars("locals", null, 1, 50, ct: CancellationToken.None));
+        var eval = Json(await tools.Eval("x", ct: CancellationToken.None));
+
+        Assert.Equal(1, vars.GetProperty("frame").GetProperty("index").GetInt32());
+        Assert.Equal(7, eval.GetProperty("frame").GetProperty("threadId").GetInt32());
     }
 }

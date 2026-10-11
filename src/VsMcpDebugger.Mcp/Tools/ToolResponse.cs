@@ -50,6 +50,13 @@ internal static class ToolResponse
         data = new { args = s.Args }, stackTop = s.StackTop,
     };
 
+    /// <summary>Where vars/eval/set_value ran, so the agent always sees which frame it read.</summary>
+    public static object Frame(SelectedFrame f)
+    {
+        ArgumentNullException.ThrowIfNull(f);
+        return new { index = f.Index, threadId = f.ThreadId };
+    }
+
     public static object FromOutcome(WaitOutcome outcome) => outcome.Kind switch
     {
         WaitOutcomeKind.Break => new { state = "break", snapshot = Snapshot(outcome.Break!.Snapshot) },

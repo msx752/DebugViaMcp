@@ -70,7 +70,7 @@ public sealed class InspectionTools(IConnectionManager connections)
             }
 
             var hasMore = items.Length > page.Count;
-            return ToolResponse.Ok(new { data = page, offset = start, hasMore, nextOffset = hasMore ? start + page.Count : (int?)null });
+            return ToolResponse.Ok(new { data = page, offset = start, hasMore, nextOffset = hasMore ? start + page.Count : (int?)null, frame = ToolResponse.Frame(connections.Session.Frame) });
         }, ct);
     }
 
@@ -85,7 +85,7 @@ public sealed class InspectionTools(IConnectionManager connections)
             return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "expression is empty.");
         var r = await bridge.EvaluateAsync(expression, allowSideEffects, ctx, ct).ConfigureAwait(false);
         return r.IsValid
-            ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated } })
+            ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated }, frame = ToolResponse.Frame(connections.Session.Frame) })
             : ToolResponse.Error(BridgeErrorCode.EvalFailed, r.Value, "Check the expression against the frame's variables (vars).");
     }, ct);
 
@@ -100,8 +100,22 @@ public sealed class InspectionTools(IConnectionManager connections)
             return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "expression and value are required.");
         var r = await bridge.SetValueAsync(expression, value, ctx, ct).ConfigureAwait(false);
         return r.IsValid
-            ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated } })
+            ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated }, frame = ToolResponse.Frame(connections.Session.Frame) })
             : ToolResponse.Error(BridgeErrorCode.EvalFailed, r.Value, "Check that the target exists in this frame and the value has a compatible type.");
+    }, ct);
+
+    [McpServerTool(Name = "frame_select"),
+     Description("Selects a stack frame (and optionally another thread) so vars, eval and set_value run there. Pass the epoch from stack or the break snapshot; after the program resumed it fails with 'stale'. Visual Studio shows the selection to the user. " + UntrustedNote)]
+    public Task<CallToolResult> FrameSelect(
+        [Description("Frame index from stack (0 = top).")] int index,
+        [Description("epoch from stack or the break snapshot.")] long epoch,
+        [Description("Thread id from threads; default: the current thread.")] int? threadId = null,
+        CancellationToken ct = default) => InBreak("frame_select", async (bridge, ctx) =>
+    {
+        if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3) is { } unsupported) return unsupported;
+        var s = await bridge.SelectFrameAsync(index, epoch, threadId, ctx, ct).ConfigureAwait(false);
+        connections.Session.SelectFrame(s.Index, s.ThreadId);   // the frame event confirms it moments later
+        return ToolResponse.Ok(new { frame = ToolResponse.Frame(connections.Session.Frame), epoch = s.Epoch, location = s.Location, source = s.Source, data = new { args = s.Args } });
     }, ct);
 
     private Task<CallToolResult> InBreak(string tool, Func<IDebugBridge, CallContext, Task<CallToolResult>> body, CancellationToken ct) => ToolResponse.RunAsync(connections, tool, async ctx =>

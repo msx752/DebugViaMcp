@@ -53,6 +53,7 @@ public class BridgeConnectionHandlerTests
         await h.RemoveBreakpointsAsync(null, all: true, Ctx, CancellationToken.None);
         await h.GetThreadsAsync(Ctx, CancellationToken.None);
         await h.GetThreadStackAsync(null, 5, Ctx, CancellationToken.None);
+        await h.SelectFrameAsync(0, 0, null, Ctx, CancellationToken.None);
     }
 
     [Fact]
@@ -559,5 +560,40 @@ public class BridgeConnectionHandlerTests
         await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ProtocolMinor = 0 }, CancellationToken.None);
 
         Assert.Equal([0], minors);
+    }
+
+    [Fact]
+    public async Task Consent_question_names_the_selected_frame()
+    {
+        using var s = new SecurityHarness();
+        s.Dte.Frames =
+        [
+            new() { Function = "Demo.OrderService.Calculate(Demo.Order order)", File = @"C:\src\Demo\OrderService.cs", Line = 22, Language = "C#" },
+            new() { Function = "Demo.OrderService.Submit(Demo.Order order)", File = @"C:\src\Demo\OrderService.cs", Line = 7, Language = "C#" },
+        ];
+        s.Dte.CurrentFrameIndex = 1;
+        await s.HandshakeAsync("claude-code");
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Equal("claude-code wants to set total = 0 in Demo.OrderService.Submit(Demo.Order order)", Assert.Single(s.Prompt.Texts));
+    }
+
+    /// <summary>Review focus #1.</summary>
+    [Fact]
+    public async Task Frame_change_while_the_question_is_open_voids_the_consent()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        var call = s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None);
+        await s.Prompt.WaitForPromptsAsync(1);
+        s.Service.OnContextChanged();        // the user clicked another frame in the Call Stack window
+        s.Prompt.Answer(ConsentChoice.AllowOnce);
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => call);
+        Assert.Equal((int)BridgeErrorCode.WrongMode, ex.ErrorCode);
+        Assert.Empty(s.Dte.Assignments);
     }
 }

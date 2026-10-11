@@ -54,6 +54,12 @@ public interface IDteFacade
 
     /// <returns>Null when no thread has that id.</returns>
     IReadOnlyList<RawFrame>? ThreadStack(int threadId, int max);
+
+    /// <summary>Index of Visual Studio's selected frame within the current thread's stack (0 = top).</summary>
+    int CurrentFrameIndex { get; }
+
+    /// <summary>Makes the frame current (and the thread, when given). The caller has validated both exist.</summary>
+    void SelectFrame(int? threadId, int index);
     IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems);
     IReadOnlyList<VariableInfo> Members(string expression, int maxItems);
     EvaluateResult Evaluate(string expression);

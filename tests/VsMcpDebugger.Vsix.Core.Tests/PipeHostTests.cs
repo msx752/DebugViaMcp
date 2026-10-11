@@ -28,6 +28,7 @@ public class PipeHostTests
         public TaskCompletionSource<BreakEvent> Got { get; } = new();
         public Task OnModeChangedAsync(ModeChangedEvent e) => Task.CompletedTask;
         public Task OnBreakAsync(BreakEvent e) { Got.TrySetResult(e); return Task.CompletedTask; }
+        public Task OnFrameChangedAsync(FrameChangedEvent e) => Task.CompletedTask;
         public Task OnAccessRevokedAsync() => Task.CompletedTask;
     }
 
@@ -123,6 +124,7 @@ public class PipeHostTests
         public TaskCompletionSource Revoked { get; } = new();
         public Task OnModeChangedAsync(ModeChangedEvent e) => Task.CompletedTask;
         public Task OnBreakAsync(BreakEvent e) => Task.CompletedTask;
+        public Task OnFrameChangedAsync(FrameChangedEvent e) => Task.CompletedTask;
         public Task OnAccessRevokedAsync()
         {
             Revoked.TrySetResult();

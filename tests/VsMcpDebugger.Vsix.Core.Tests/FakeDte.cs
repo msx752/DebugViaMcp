@@ -45,6 +45,17 @@ public sealed class FakeDte : IDteFacade
 
     public IReadOnlyList<RawThread> Threads() { Ui(); return ThreadList; }
 
+    public int CurrentFrameIndex { get; set; }
+    public List<(int? ThreadId, int Index)> Selections { get; } = [];
+
+    public void SelectFrame(int? threadId, int index)
+    {
+        Ui();
+        Selections.Add((threadId, index));
+        if (threadId is { } id) CurrentThreadId = id;
+        CurrentFrameIndex = index;
+    }
+
     public IReadOnlyList<RawFrame>? ThreadStack(int threadId, int max)
     {
         Ui();
