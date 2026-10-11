@@ -70,6 +70,22 @@ public class RunToTests
         Assert.Single(await svc.ListBreakpointsAsync(CancellationToken.None));
     }
 
+    /// <summary>E2E: Visual Studio binds a new breakpoint asynchronously, after AddBreakpoint has returned.</summary>
+    [Fact]
+    public async Task Breakpoint_that_binds_shortly_after_being_added_is_used()
+    {
+        var (svc, dte) = Create();
+        dte.BoundCountFor = _ => 0;
+
+        var run = svc.RunToAsync("OrderService.cs", 12, Owner, CancellationToken.None);
+        await Task.Delay(150);
+        if (dte.Bps.Count > 0) dte.Bps[^1].BoundCount = 1;
+        var r = await run;
+
+        Assert.Null(r.BindError);
+        Assert.Contains("Go", dte.Calls);
+    }
+
     [Fact]
     public async Task Unbindable_line_is_removed_and_nothing_resumes()
     {

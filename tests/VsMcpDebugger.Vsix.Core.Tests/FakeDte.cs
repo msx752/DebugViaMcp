@@ -71,7 +71,8 @@ public sealed class FakeDte : IDteFacade
     ];
 
     public IReadOnlyList<RawProcess> LocalProcesses() { Ui(); return Processes; }
-    public void Attach(int pid) { Ui(); Calls.Add("Attach:" + pid); }
+    public Action<int>? OnAttach { get; set; }
+    public void Attach(int pid) { Ui(); Calls.Add("Attach:" + pid); OnAttach?.Invoke(pid); }
     public void DetachAll() { Ui(); Calls.Add("DetachAll"); }
 
     public List<RawOutputPane> Panes { get; set; } =

@@ -55,33 +55,64 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public Task<BreakpointInfo[]> ListBreakpointsAsync(CancellationToken ct) =>
         ui.RunAsync(() => dte.Breakpoints().Where(b => !_runTo.Owns(IdOf(b))).Select(ToInfo).ToArray(), ct);
 
-    public Task<RunToResult> RunToAsync(string file, int line, object owner, CancellationToken ct) => ui.RunAsync(() =>
+    public async Task<RunToResult> RunToAsync(string file, int line, object owner, CancellationToken ct)
     {
-        if (dte.Mode == DebuggerMode.Design)
-            throw new BridgeException(BridgeErrorCode.WrongMode, "Requires Break or Run mode; current: Design.", "Start debugging with debug_start.");
-        if (line < 1) throw new BridgeException(BridgeErrorCode.InvalidArgument, "line must be 1 or greater.");
-
-        var spec = new BreakpointSpec { File = file, Line = line };
-        spec.File = CheckBreakpoint(spec);
-        var id = BreakpointKey.Compute(spec.File, spec.Line, null, null);
-        ReleaseRunTo(null);
-
-        var owned = dte.Breakpoints().All(b => IdOf(b) != id);
-        if (owned) dte.AddBreakpoint(spec);
-        var bp = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id)
-            ?? throw new BridgeException(BridgeErrorCode.Internal, "Visual Studio did not create the breakpoint.");
-        if (bp.BoundCount == 0)
+        var (id, owned, spec) = await ui.RunAsync(() =>
         {
-            if (owned) dte.RemoveBreakpoints(b => IdOf(b) == id);
-            return new RunToResult { BindError = "No executable code at this location, or symbols are not loaded." };
-        }
+            if (dte.Mode == DebuggerMode.Design)
+                throw new BridgeException(BridgeErrorCode.WrongMode, "Requires Break or Run mode; current: Design.", "Start debugging with debug_start.");
+            if (line < 1) throw new BridgeException(BridgeErrorCode.InvalidArgument, "line must be 1 or greater.");
 
-        _runTo.Arm(id, owned, owner);
-        var observed = seq.Current;
-        if (dte.Mode == DebuggerMode.Break) dte.Go();
-        log.Info($"Run to {PathUtil.ToRelative(SolutionDir, spec.File!)}:{line}");
-        return new RunToResult { Seq = observed };
-    }, ct);
+            var s = new BreakpointSpec { File = file, Line = line };
+            s.File = CheckBreakpoint(s);
+            var key = BreakpointKey.Compute(s.File, s.Line, null, null);
+            ReleaseRunTo(null);
+
+            var isNew = dte.Breakpoints().All(b => IdOf(b) != key);
+            if (isNew) dte.AddBreakpoint(s);
+            return (key, isNew, s);
+        }, ct).ConfigureAwait(false);
+
+        // Visual Studio binds a new breakpoint a moment after adding it.
+        if (owned) await WaitForBindingAsync(id, ct).ConfigureAwait(false);
+
+        return await ui.RunAsync(() =>
+        {
+            if (dte.Mode == DebuggerMode.Design)
+                throw new BridgeException(BridgeErrorCode.WrongMode, "The debugging session ended before the breakpoint was ready.", "Start debugging with debug_start.");
+            var bp = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id)
+                ?? throw new BridgeException(BridgeErrorCode.Internal, "Visual Studio did not create the breakpoint.");
+            if (bp.BoundCount == 0)
+            {
+                if (owned) dte.RemoveBreakpoints(b => IdOf(b) == id);
+                return new RunToResult { BindError = "No executable code at this location, or symbols are not loaded." };
+            }
+
+            _runTo.Arm(id, owned, owner);
+            var observed = seq.Current;
+            if (dte.Mode == DebuggerMode.Break) dte.Go();
+            log.Info($"Run to {PathUtil.ToRelative(SolutionDir, spec.File!)}:{line}");
+            return new RunToResult { Seq = observed };
+        }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>How long a new breakpoint may take to bind while debugging.</summary>
+    internal static readonly TimeSpan BindWait = TimeSpan.FromSeconds(2);
+
+    private static readonly TimeSpan BindPoll = TimeSpan.FromMilliseconds(50);
+
+    /// <summary>Visual Studio binds a breakpoint asynchronously. Polls without holding the UI thread; gives up after <see cref="BindWait"/>.</summary>
+    private async Task WaitForBindingAsync(string id, CancellationToken ct)
+    {
+        var started = Stopwatch.StartNew();
+        while (started.Elapsed < BindWait)
+        {
+            var settled = await ui.RunAsync(() =>
+                dte.Mode == DebuggerMode.Design || dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id) is not { BoundCount: 0 }, ct).ConfigureAwait(false);
+            if (settled) return;
+            await Task.Delay(BindPoll, ct).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>Called by the event pump when debugging ends (UI thread).</summary>
     public void OnEnterDesign()
@@ -101,21 +132,34 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CancellationToken ct)
     {
         if (spec is null) throw new ArgumentNullException(nameof(spec));
-        return ui.RunAsync(() =>
+        return SetBreakpointCoreAsync(spec, ct);
+    }
+
+    private async Task<SetBreakpointResult> SetBreakpointCoreAsync(BreakpointSpec spec, CancellationToken ct)
+    {
+        var (result, id) = await ui.RunAsync(() =>
         {
             var absolute = CheckBreakpoint(spec);
             if (absolute is not null) spec.File = absolute;
 
-            var id = BreakpointKey.Compute(spec.File, spec.Line, spec.Function, spec.Condition);
-            var existing = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id);
-            if (existing is not null) return new SetBreakpointResult { Breakpoint = ToInfo(existing), AlreadyExisted = true };
+            var key = BreakpointKey.Compute(spec.File, spec.Line, spec.Function, spec.Condition);
+            var existing = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == key);
+            if (existing is not null) return (new SetBreakpointResult { Breakpoint = ToInfo(existing), AlreadyExisted = true }, (string?)null);
 
             dte.AddBreakpoint(spec);
-            var created = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id)
+            var created = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == key)
                 ?? throw new BridgeException(BridgeErrorCode.Internal, "Visual Studio did not create the breakpoint.");
-            log.Info($"Breakpoint {id} set");
-            return new SetBreakpointResult { Breakpoint = ToInfo(created) };
-        }, ct);
+            log.Info($"Breakpoint {key} set");
+            return (new SetBreakpointResult { Breakpoint = ToInfo(created) }, key);
+        }, ct).ConfigureAwait(false);
+
+        // While debugging, Visual Studio binds a new breakpoint a moment after adding it; report the settled state.
+        if (id is null || result.Breakpoint.Bound) return result;
+        var mode = await ui.RunAsync(() => dte.Mode, ct).ConfigureAwait(false);
+        if (mode == DebuggerMode.Design) return result;
+        await WaitForBindingAsync(id, ct).ConfigureAwait(false);
+        return await ui.RunAsync(() =>
+            dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id) is { } now ? new SetBreakpointResult { Breakpoint = ToInfo(now) } : result, ct).ConfigureAwait(false);
     }
 
     /// <summary>Everything SetBreakpointAsync would reject, checked without changing anything (for consent questions).</summary>
@@ -197,8 +241,18 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     {
         var target = RequireAttachable(pid);
         var observed = seq.Current;
-        dte.Attach(pid);
+        // Set first: if Visual Studio attaches and then throws, debug_stop must still detach, never kill the process.
         _attached = true;
+        try
+        {
+            dte.Attach(pid);
+        }
+        catch
+        {
+            if (dte.Mode == DebuggerMode.Design) _attached = false;   // nothing attached; a session started later is stopped normally
+            throw;
+        }
+
         log.Info($"Attached to {target.Name} (pid {pid})");
         return observed;
     }, ct);

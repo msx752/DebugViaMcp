@@ -113,7 +113,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
             (pid, name) = (candidates[0].Pid, candidates[0].Name);
         }
 
-        await bridge.AttachAsync(pid.Value, ctx, ct).ConfigureAwait(false);
+        await connections.Session.IssueAsync(() => bridge.AttachAsync(pid.Value, ctx, ct)).ConfigureAwait(false);
         return ToolResponse.Ok(new { state = "attached", pid, process = name, hint = "Set breakpoints with bp_set, then debug_wait or debug_pause. debug_stop detaches." });
     });
 
@@ -125,8 +125,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
             if (session.Mode != required)
                 return ToolResponse.WrongMode(required, session.Mode, hint);
 
-            var seq = await command(bridge, ctx).ConfigureAwait(false);
-            session.MarkResumed(seq);
+            var seq = await session.IssueAsync(() => command(bridge, ctx)).ConfigureAwait(false);
             var outcome = await session.WaitForBreakAfterAsync(seq, waitForBreak, ct).ConfigureAwait(false);
             return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
         });

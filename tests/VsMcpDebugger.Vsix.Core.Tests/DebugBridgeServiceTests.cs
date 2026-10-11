@@ -505,4 +505,32 @@ public class DebugBridgeServiceTests
         var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.GetExceptionAsync(CancellationToken.None));
         Assert.Equal(BridgeErrorCode.WrongMode, ex.Code);
     }
+
+    /// <summary>E2E: in Break mode a new breakpoint was reported as "will not be hit" before Visual Studio had bound it.</summary>
+    [Fact]
+    public async Task Breakpoint_set_while_debugging_reports_a_binding_that_lands_shortly_after()
+    {
+        var (svc, dte, _) = Create();
+        dte.BoundCountFor = _ => 0;
+
+        var set = svc.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, CancellationToken.None);
+        await Task.Delay(150);
+        if (dte.Bps.Count > 0) dte.Bps[^1].BoundCount = 1;
+        var r = await set;
+
+        Assert.True(r.Breakpoint.Bound);
+        Assert.Null(r.Breakpoint.BindError);
+    }
+
+    [Fact]
+    public async Task Breakpoint_set_in_design_mode_does_not_wait_for_binding()
+    {
+        var (svc, dte, _) = Create(DebuggerMode.Design);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        var r = await svc.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, CancellationToken.None);
+
+        Assert.False(r.Breakpoint.Bound);
+        Assert.True(clock.Elapsed < TimeSpan.FromMilliseconds(500), $"took {clock.Elapsed}");
+    }
 }

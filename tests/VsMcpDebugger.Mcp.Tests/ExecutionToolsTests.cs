@@ -173,6 +173,18 @@ public class ExecutionToolsTests
         Assert.Contains("Attach:400", cm.Bridge.Calls);
     }
 
+    /// <summary>E2E: debug_wait right after debug_attach returned "session ended" because attach never set the resume point.</summary>
+    [Fact]
+    public async Task Attach_sets_the_resume_point_to_the_sequence_it_observed()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge { Seq = 12 }, DebuggerMode.Design);
+        await cm.Session.OnModeChangedAsync(new ModeChangedEvent { Mode = DebuggerMode.Design, Seq = 8 });
+
+        await new ExecutionTools(cm).Attach(processName: "OrderDemo", ct: CancellationToken.None);
+
+        Assert.Equal(12, cm.Session.LastResumeSeq);
+    }
+
     [Fact]
     public async Task Attach_by_ambiguous_name_lists_candidates_and_attaches_nothing()
     {

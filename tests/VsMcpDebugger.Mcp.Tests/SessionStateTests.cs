@@ -129,6 +129,35 @@ public class SessionStateTests
         Assert.Equal(WaitOutcomeKind.Ended, outcome.Kind);
     }
 
+    /// <summary>E2E: a session that ended earlier must not answer a wait that starts after a new command.</summary>
+    [Fact]
+    public async Task Issued_command_moves_the_resume_point_past_an_earlier_session_end()
+    {
+        var s = Connected(DebuggerMode.Break, seq: 3);
+        await s.OnModeChangedAsync(new ModeChangedEvent { Mode = DebuggerMode.Design, Seq = 8 });   // previous session ended
+
+        var seq = await s.IssueAsync(() => Task.FromResult(12L));                                    // e.g. debug_attach
+        await s.OnModeChangedAsync(new ModeChangedEvent { Mode = DebuggerMode.Run, Seq = 13 });
+        var waiting = s.WaitForBreakAfterAsync(s.LastResumeSeq, TimeSpan.FromSeconds(5), CancellationToken.None);
+        await s.OnBreakAsync(Break(14));
+
+        Assert.Equal(12, seq);
+        Assert.Equal(WaitOutcomeKind.Break, (await waiting).Kind);
+    }
+
+    /// <summary>The user pressing F5 in Visual Studio is a resume too: a later wait must not return the old break.</summary>
+    [Fact]
+    public async Task Run_event_moves_the_resume_point_so_an_old_break_is_not_returned()
+    {
+        var s = Connected(DebuggerMode.Run, seq: 3);
+        await s.OnBreakAsync(Break(5));
+        await s.OnModeChangedAsync(new ModeChangedEvent { Mode = DebuggerMode.Run, Seq = 6 });       // user resumed
+
+        var outcome = await s.WaitForBreakAfterAsync(s.LastResumeSeq, TimeSpan.FromMilliseconds(100), CancellationToken.None);
+
+        Assert.Equal(WaitOutcomeKind.Timeout, outcome.Kind);
+    }
+
     [Fact]
     public void Resume_seq_only_moves_forward()
     {

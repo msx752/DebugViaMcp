@@ -102,6 +102,35 @@ public class AttachTests
         Assert.Empty(s.Prompt.Texts);
     }
 
+    /// <summary>Review (architect): Visual Studio can attach and then throw; stop must still detach, never kill the user's process.</summary>
+    [Fact]
+    public async Task Stop_detaches_even_when_the_attach_call_failed_after_attaching()
+    {
+        FakeDte? self = null;
+        var dte = new FakeDte { Mode = DebuggerMode.Design, OnAttach = _ => { self!.Mode = DebuggerMode.Run; throw new InvalidOperationException("late failure"); } };
+        self = dte;                                        // Visual Studio attached (mode Run), then threw
+        var svc = new DebugBridgeService(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.AttachAsync(400, CancellationToken.None));
+
+        await svc.StopAsync(CancellationToken.None);
+
+        Assert.Contains("DetachAll", dte.Calls);
+        Assert.DoesNotContain("Stop", dte.Calls);
+    }
+
+    [Fact]
+    public async Task A_failed_attach_that_never_attached_leaves_stop_a_normal_stop()
+    {
+        var dte = new FakeDte { Mode = DebuggerMode.Design, OnAttach = _ => { throw new InvalidOperationException("refused"); } };
+        var svc = new DebugBridgeService(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.AttachAsync(400, CancellationToken.None));
+        dte.Mode = DebuggerMode.Run;                       // a session started later by the user
+
+        await svc.StopAsync(CancellationToken.None);
+
+        Assert.Contains("Stop", dte.Calls);
+    }
+
     [Fact]
     public async Task Stop_after_attach_detaches_instead_of_terminating()
     {

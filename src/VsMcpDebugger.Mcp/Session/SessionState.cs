@@ -48,6 +48,18 @@ public sealed class SessionState : IDebugBridgeEvents
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Runs a command that can resume or change the debugger's mode and records the sequence it returned as the
+    /// resume point, so every such command is covered by construction (no tool has to remember to mark it).
+    /// </summary>
+    public async Task<long> IssueAsync(Func<Task<long>> command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        var seq = await command().ConfigureAwait(false);
+        MarkResumed(seq);
+        return seq;
+    }
+
     public void MarkResumed(long seq)
     {
         lock (_gate)
@@ -87,6 +99,8 @@ public sealed class SessionState : IDebugBridgeEvents
         {
             Mode = e.Mode;
             LastSeq = Math.Max(LastSeq, e.Seq);
+            // Also covers a resume the user did in Visual Studio itself (F5 in the UI).
+            if (e.Mode == DebuggerMode.Run) LastResumeSeq = Math.Max(LastResumeSeq, e.Seq);
             if (e.Mode == DebuggerMode.Design)
             {
                 LastEndSeq = Math.Max(LastEndSeq, e.Seq);
