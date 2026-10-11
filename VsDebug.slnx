@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/OrderDemo/OrderDemo.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/VsDebug.Protocol/VsDebug.Protocol.csproj" />
   </Folder>
