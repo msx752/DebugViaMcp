@@ -4,4 +4,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <RootNamespace>VsDebug.Protocol</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
 </Project>
