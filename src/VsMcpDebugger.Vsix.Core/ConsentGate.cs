@@ -58,12 +58,16 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
             entered = true;
             if (session.IsGranted(operation)) return ConsentOutcome.AllowedBySessionGrant;
 
+            var generation = session.Generation;
             var choice = await prompt.AskAsync(text, limit, linked.Token).ConfigureAwait(false);
+
+            // Fail closed: an answer that lands after a timeout, cancellation or Disconnect AI does not count.
+            linked.Token.ThrowIfCancellationRequested();
             switch (choice)
             {
                 case ConsentChoice.AllowSession:
-                    session.Grant(operation);
-                    return ConsentOutcome.AllowedForSession;
+                    // Settings changed while the question was open: allow this call, keep no grant.
+                    return session.TryGrant(operation, generation) ? ConsentOutcome.AllowedForSession : ConsentOutcome.AllowedOnce;
                 case ConsentChoice.AllowOnce:
                     return ConsentOutcome.AllowedOnce;
                 default:
@@ -105,6 +109,7 @@ public sealed class ConsentSession : IDisposable
     private readonly ConsentGate _owner;
     private readonly HashSet<Operation> _granted = [];
     private CancellationTokenSource _revoked = new();
+    private int _generation;
 
     internal ConsentSession(ConsentGate owner) => _owner = owner;
 
@@ -118,14 +123,30 @@ public sealed class ConsentSession : IDisposable
         lock (_granted) return _granted.Contains(operation);
     }
 
-    internal void Grant(Operation operation)
+    /// <summary>Changes whenever grants are cleared or the session is revoked.</summary>
+    internal int Generation
     {
-        lock (_granted) _granted.Add(operation);
+        get { lock (_granted) return _generation; }
+    }
+
+    /// <summary>Adds the grant only if nothing cleared grants since <paramref name="generation"/> was read.</summary>
+    internal bool TryGrant(Operation operation, int generation)
+    {
+        lock (_granted)
+        {
+            if (generation != _generation) return false;
+            _granted.Add(operation);
+            return true;
+        }
     }
 
     internal void ClearGrants()
     {
-        lock (_granted) _granted.Clear();
+        lock (_granted)
+        {
+            _granted.Clear();
+            _generation++;
+        }
     }
 
     /// <summary>Pending requests end as <see cref="ConsentOutcome.Disconnected"/>; grants are cleared.</summary>
@@ -137,6 +158,7 @@ public sealed class ConsentSession : IDisposable
             old = _revoked;
             _revoked = new CancellationTokenSource();
             _granted.Clear();
+            _generation++;
         }
 
         // Not disposed: requests in flight may still register on its token.

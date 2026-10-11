@@ -29,6 +29,24 @@ public class ConsentTextTests
         Assert.Equal("a\\r\\tb\\u0007", ConsentText.Visible("a\r\tb\u0007"));
     }
 
+    /// <summary>Security review: invisible characters outside the BMP or in other invisible categories must not pass.</summary>
+    [Fact]
+    public void Invisible_and_ambiguous_characters_are_escaped()
+    {
+        const string bs = "\\";
+        var tag = char.ConvertFromUtf32(0xE0041);           // TAG LATIN CAPITAL LETTER A: invisible, outside the BMP
+        var loneSurrogate = ((char)0xD800).ToString();
+        var privateUse = ((char)0xE000).ToString();
+        var noBreakSpace = ((char)0x00A0).ToString();
+
+        Assert.Equal("a" + bs + "U000e0041b", ConsentText.Visible("a" + tag + "b"));
+        Assert.Equal("a" + bs + "ud800b", ConsentText.Visible("a" + loneSurrogate + "b"));
+        Assert.Equal("a" + bs + "ue000b", ConsentText.Visible("a" + privateUse + "b"));
+        Assert.Equal("a" + bs + "u00a0b", ConsentText.Visible("a" + noBreakSpace + "b"));
+        Assert.Equal("a b", ConsentText.Visible("a b"));
+        Assert.Equal("ş😀", ConsentText.Visible("ş😀"));
+    }
+
     [Fact]
     public void Client_name_is_sanitised_capped_and_defaulted()
     {

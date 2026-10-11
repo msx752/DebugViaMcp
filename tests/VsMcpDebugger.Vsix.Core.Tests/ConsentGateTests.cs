@@ -144,6 +144,81 @@ public class ConsentGateTests
         Assert.Equal(1, _prompt.MaxOpen);
     }
 
+    /// <summary>A prompt whose answer can land after the request was already cancelled, like a UI one beat late.</summary>
+    private sealed class LatePrompt : IConsentPrompt
+    {
+        public TaskCompletionSource<ConsentChoice> Answer { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Shown { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int Count { get; private set; }
+
+        public Task<ConsentChoice> AskAsync(string text, TimeSpan timeout, CancellationToken ct)
+        {
+            Count++;
+            Shown.TrySetResult();
+            return Answer.Task;
+        }
+
+        public void Reset(ConsentChoice? next = null)
+        {
+            Answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Shown = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (next is { } n) Answer.SetResult(n);
+        }
+    }
+
+    /// <summary>Security review: an Allow that lands after Disconnect AI must neither allow nor grant.</summary>
+    [Fact]
+    public async Task Answer_arriving_after_revoke_is_not_allowed_and_grants_nothing()
+    {
+        var late = new LatePrompt();
+        var gate = new ConsentGate(late, () => TimeSpan.FromSeconds(60), _delay.Delay);
+        using var session = gate.CreateSession();
+
+        var pending = gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None);
+        await late.Shown.Task;
+        session.Revoke();
+        late.Answer.SetResult(ConsentChoice.AllowSession);
+
+        Assert.Equal(ConsentOutcome.Disconnected, await pending);
+        late.Reset(ConsentChoice.Deny);
+        Assert.Equal(ConsentOutcome.Denied, await gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None));
+        Assert.Equal(2, late.Count);
+    }
+
+    /// <summary>Security review: an Allow that lands after the timeout must not count.</summary>
+    [Fact]
+    public async Task Answer_arriving_after_timeout_is_timed_out()
+    {
+        var late = new LatePrompt();
+        var gate = new ConsentGate(late, () => TimeSpan.FromSeconds(60), _delay.Delay);
+        using var session = gate.CreateSession();
+
+        var pending = gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None);
+        await late.Shown.Task;
+        _delay.Elapse(0);
+        late.Answer.SetResult(ConsentChoice.AllowOnce);
+
+        Assert.Equal(ConsentOutcome.TimedOut, await pending);
+    }
+
+    /// <summary>Security review: a settings change while the question is open must not leave a session grant behind.</summary>
+    [Fact]
+    public async Task Settings_change_during_prompt_allows_this_call_but_grants_nothing()
+    {
+        var late = new LatePrompt();
+        var gate = new ConsentGate(late, () => TimeSpan.FromSeconds(60), _delay.Delay);
+        using var session = gate.CreateSession();
+
+        var pending = gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None);
+        await late.Shown.Task;
+        gate.ClearGrants();
+        late.Answer.SetResult(ConsentChoice.AllowSession);
+
+        Assert.Equal(ConsentOutcome.AllowedOnce, await pending);
+        late.Reset(ConsentChoice.Deny);
+        Assert.Equal(ConsentOutcome.Denied, await gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None));
+    }
+
     /// <summary>Review focus #1: the queued request's 60 s run while it waits.</summary>
     [Fact]
     public async Task Queued_request_times_out_while_waiting_and_never_prompts()
