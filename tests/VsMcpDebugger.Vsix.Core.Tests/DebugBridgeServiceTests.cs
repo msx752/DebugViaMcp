@@ -178,4 +178,27 @@ public class DebugBridgeServiceTests
 
         Assert.Equal(["v40", "v41", "v42", "v43", "v44"], vars.Select(v => v.Name));
     }
+
+    /// <summary>Security review: the VSIX must enforce its own paging limits, not trust the client.</summary>
+    [Theory]
+    [InlineData(int.MaxValue)]
+    [InlineData(-1)]
+    [InlineData(DebugBridgeService.MaxVariableOffset + 1)]
+    public async Task Out_of_range_offset_is_rejected(int offset)
+    {
+        var (svc, _, _) = Create();
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.GetVariablesAsync(VariableScope.Locals, null, offset, 10, CancellationToken.None));
+        Assert.Equal(BridgeErrorCode.InvalidArgument, ex.Code);
+    }
+
+    [Fact]
+    public async Task Page_size_is_capped_by_the_vsix()
+    {
+        var (svc, dte, _) = Create();
+        dte.Locals = Enumerable.Range(0, 10_000).Select(i => new VariableInfo { Name = "v" + i, Value = "x" }).ToList();
+
+        var vars = await svc.GetVariablesAsync(VariableScope.Locals, null, 0, 1_000_000, CancellationToken.None);
+
+        Assert.Equal(DebugBridgeService.MaxVariablePage, vars.Length);
+    }
 }

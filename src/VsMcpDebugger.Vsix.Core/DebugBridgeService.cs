@@ -10,6 +10,12 @@ namespace VsMcpDebugger.Vsix.Core;
 /// <summary>Implements the bridge operations on top of <see cref="IDteFacade"/>. Handshake lives in BridgeConnectionHandler.</summary>
 public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion)
 {
+    /// <summary>Enforced here, not trusted from the client: deep offsets would enumerate members on the UI thread.</summary>
+    public const int MaxVariableOffset = 100_000;
+
+    /// <summary>The MCP layer asks for at most 200 items + 1 to detect more; anything above is capped.</summary>
+    public const int MaxVariablePage = 201;
+
     public string VsixVersion => vsixVersion;
     public string VsVersion => dte.VsVersion;
     public string? SolutionPath => dte.SolutionPath;
@@ -96,8 +102,10 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CancellationToken ct) => InBreak(() =>
     {
-        var skip = Math.Max(0, offset);
-        var take = Math.Max(0, maxItems);
+        if (offset < 0 || offset > MaxVariableOffset)
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, $"offset must be between 0 and {MaxVariableOffset}.", "Narrow the path instead of paging this deep.");
+        var skip = offset;
+        var take = Math.Min(Math.Max(0, maxItems), MaxVariablePage);
         var items = path is null
             ? dte.Variables(scope, skip + take)
             : dte.Members(ExpressionPolicy.PrepareSideEffectFree(path), skip + take);
