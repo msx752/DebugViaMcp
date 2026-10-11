@@ -7,7 +7,8 @@
       "src/VsDebug.Vsix.Core/VsDebug.Vsix.Core.csproj",
       "tests/VsDebug.Protocol.Tests/VsDebug.Protocol.Tests.csproj",
       "tests/VsDebug.Mcp.Tests/VsDebug.Mcp.Tests.csproj",
-      "tests/VsDebug.Vsix.Core.Tests/VsDebug.Vsix.Core.Tests.csproj"
+      "tests/VsDebug.Vsix.Core.Tests/VsDebug.Vsix.Core.Tests.csproj",
+      "tests/VsDebug.ArchitectureTests/VsDebug.ArchitectureTests.csproj"
     ]
   }
 }
