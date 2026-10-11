@@ -23,6 +23,13 @@ the `vsmcpdebugger` tool are released together with the same version.
 - A failing Activity pane no longer affects the audit file; a connection is registered once even if two handshakes
   race; imported or reset Options take effect immediately.
 - After Disconnect AI, the next call reports `ai_disabled` even if the pipe closed before the notification arrived.
+- `wrong_mode` raised by the extension reached the agent as a generic SDK error: its wire code (-32003) is reserved by
+  StreamJsonRpc. It is now -32014; a 0.2 tool reports the unknown value as `internal` with the message and hint.
+- `set_value` and `eval` with side effects are refused if the user moved the instruction pointer to another line while
+  the question was open. The Options page is now included in Tools → Import and Export Settings; an imported file can
+  never switch Mutate to Allow (it is set to Ask).
+- `output_read` and `threads` no longer fail as a whole when Visual Studio cannot give one pane's text or one thread's
+  location. New breakpoints are given a moment to bind before `bp_set` and `debug_run_to` judge them.
 
 ## 0.2.0 — Safety & control (preview)
 

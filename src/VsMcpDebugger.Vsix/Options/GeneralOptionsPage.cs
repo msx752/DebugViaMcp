@@ -115,8 +115,13 @@ public sealed class GeneralOptionsPage : DialogPage
     /// <summary>Tools → Import and Export Settings: imported values take effect like applied ones.</summary>
     public override void LoadSettingsFromXml(IVsSettingsReader reader)
     {
+        var before = _appliedMutate;
         base.LoadSettingsFromXml(reader);
-        CommitApplied("Imported settings");
+
+        // A settings file must not silently grant Mutate = Allow: the Options dialog asks for confirmation, an import cannot.
+        var downgraded = Mutate == PermissionLevel.Allow && before != PermissionLevel.Allow;
+        if (downgraded) Mutate = PermissionLevel.Ask;
+        CommitApplied(downgraded ? "Imported settings (Mutate = Allow ignored; set it in Options)" : "Imported settings");
     }
 
     public override void ResetSettings()

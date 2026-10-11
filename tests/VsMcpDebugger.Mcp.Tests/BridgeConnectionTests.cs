@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using StreamJsonRpc;
 using VsMcpDebugger.Mcp.Connection;
 using VsMcpDebugger.Mcp.Session;
 using VsMcpDebugger.Mcp.Tests.Fakes;
@@ -97,6 +98,37 @@ public class BridgeConnectionTests
         Assert.Equal(BridgeErrorCode.Internal, ex.Code);
         Assert.Contains("boom", ex.Message, StringComparison.Ordinal);
         Assert.Equal("See the VsMcpDebugger output pane in Visual Studio.", ex.Hint);
+    }
+
+    /// <summary>
+    /// Real-VS finding: StreamJsonRpc reserves -32000..-32003. WrongMode was -32003, so over the pipe it surfaced as
+    /// RemoteSerializationException and the agent saw a generic SDK error instead of wrong_mode.
+    /// NotConnected and AmbiguousInstance are raised by the MCP server itself and never sent over the pipe.
+    /// </summary>
+    [Theory]
+    [InlineData(BridgeErrorCode.WrongMode)]
+    [InlineData(BridgeErrorCode.Busy)]
+    [InlineData(BridgeErrorCode.VersionMismatch)]
+    [InlineData(BridgeErrorCode.Unauthorized)]
+    [InlineData(BridgeErrorCode.InvalidArgument)]
+    [InlineData(BridgeErrorCode.EvalFailed)]
+    [InlineData(BridgeErrorCode.NotFound)]
+    [InlineData(BridgeErrorCode.Denied)]
+    [InlineData(BridgeErrorCode.AiDisabled)]
+    [InlineData(BridgeErrorCode.Stale)]
+    [InlineData(BridgeErrorCode.Unsupported)]
+    [InlineData(BridgeErrorCode.Internal)]
+    public async Task Every_code_the_extension_sends_reaches_the_server_as_a_coded_error(BridgeErrorCode code)
+    {
+        var fake = new FakeDebugBridge();
+        await using var server = new PipeTestServer(fake);
+        await using var connection = await BridgeConnection.ConnectAsync(server.Record, new SessionState(), NullLogger.Instance, CancellationToken.None);
+        fake.OnStatus = () => throw new LocalRpcException("nope") { ErrorCode = (int)code, ErrorData = new BridgeErrorData { Hint = "try this" } };
+
+        var ex = await Assert.ThrowsAsync<RemoteInvocationException>(() => connection.Bridge.GetStatusAsync(new CallContext { CallId = "c-000001" }, CancellationToken.None));
+
+        Assert.Equal(code, BridgeErrors.Read(ex).Code);
+        Assert.Equal("try this", BridgeErrors.Read(ex).Hint);
     }
 
     [Fact]

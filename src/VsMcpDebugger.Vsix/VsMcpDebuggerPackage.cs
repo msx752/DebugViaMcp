@@ -25,6 +25,7 @@ namespace VsMcpDebugger.Vsix;
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideAutoLoad(UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideOptionPage(typeof(GeneralOptionsPage), "VsMcpDebugger", "General", 0, 0, true)]
+[ProvideProfile(typeof(GeneralOptionsPage), "VsMcpDebugger", "General", 0, 0, isToolsOptionPage: true)]
 [ProvideMenuResource("Menus.ctmenu", 1)]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Fields are released in Dispose(bool), which VS invokes through Package.Close.")]
 public sealed class VsMcpDebuggerPackage : AsyncPackage
