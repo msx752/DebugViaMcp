@@ -121,12 +121,16 @@ public sealed class GeneralOptionsPage : DialogPage
         // A settings file must not silently grant Mutate = Allow: the Options dialog asks for confirmation, an import cannot.
         var downgraded = Mutate == PermissionLevel.Allow && before != PermissionLevel.Allow;
         if (downgraded) Mutate = PermissionLevel.Ask;
+
+        // Memory and storage must agree: otherwise the next start would load whatever the file said (security review).
+        SaveSettingsToStorage();
         CommitApplied(downgraded ? "Imported settings (Mutate = Allow ignored; set it in Options)" : "Imported settings");
     }
 
     public override void ResetSettings()
     {
         base.ResetSettings();
+        SaveSettingsToStorage();
         CommitApplied("Reset settings");
     }
 }
