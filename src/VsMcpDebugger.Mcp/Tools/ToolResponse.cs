@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ModelContextProtocol.Protocol;
 using StreamJsonRpc;
 using VsMcpDebugger.Mcp.Connection;
+using VsMcpDebugger.Mcp.Logging;
 using VsMcpDebugger.Mcp.Session;
 using VsMcpDebugger.Protocol;
 
@@ -22,10 +24,10 @@ internal static class ToolResponse
         Content = [new TextContentBlock { Text = JsonSerializer.Serialize(payload, Options) }],
     };
 
-    public static CallToolResult Error(BridgeErrorCode code, string message, string? hint = null) => new()
+    public static CallToolResult Error(BridgeErrorCode code, string message, string? hint = null, string? reason = null) => new()
     {
         IsError = true,
-        Content = [new TextContentBlock { Text = JsonSerializer.Serialize(new { error = new { code = BridgeErrorNames.ToName(code), message, hint } }, Options) }],
+        Content = [new TextContentBlock { Text = JsonSerializer.Serialize(new { error = new { code = BridgeErrorNames.ToName(code), message, hint, reason } }, Options) }],
     };
 
     public static CallToolResult WrongMode(DebuggerMode required, DebuggerMode current, string hint) =>
@@ -39,8 +41,22 @@ internal static class ToolResponse
         _ => new { state = "disconnected", message = "The connection to Visual Studio was lost." },
     };
 
-    /// <summary>Runs a tool body and converts every expected failure into a coded error result.</summary>
-    public static async Task<CallToolResult> RunAsync(Func<Task<CallToolResult>> body)
+    /// <summary>Gives the call a callId, logs its completion inside that scope, and turns expected failures into coded errors.</summary>
+    public static async Task<CallToolResult> RunAsync(IConnectionManager connections, string tool, Func<CallContext, Task<CallToolResult>> body)
+    {
+        ArgumentNullException.ThrowIfNull(connections);
+        var context = CallIds.Next();
+        var logger = connections.Logger;
+        using var scope = Log.BeginCallScope(logger, context.CallId);
+        var started = Stopwatch.GetTimestamp();
+        var result = await RunCoreAsync(() => body(context)).ConfigureAwait(false);
+        var durationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        var code = ResultCode(result);
+        Log.ToolCompleted(logger, tool, context.CallId, durationMs, code);
+        return result;
+    }
+
+    private static async Task<CallToolResult> RunCoreAsync(Func<Task<CallToolResult>> body)
     {
         try
         {
@@ -52,12 +68,19 @@ internal static class ToolResponse
         }
         catch (RemoteInvocationException e)
         {
-            var code = Enum.IsDefined(typeof(BridgeErrorCode), e.ErrorCode) ? (BridgeErrorCode)e.ErrorCode : BridgeErrorCode.Internal;
-            return Error(code, e.Message, e.ErrorData?.ToString());
+            var (code, hint, reason) = BridgeErrors.Read(e);
+            return Error(code, e.Message, hint, reason);
         }
         catch (ConnectionLostException e)
         {
             return Error(BridgeErrorCode.NotConnected, e.Message, "Call vs_instances, then vs_select.");
         }
+    }
+
+    private static string ResultCode(CallToolResult result)
+    {
+        if (result.IsError != true) return "ok";
+        using var doc = JsonDocument.Parse(((TextContentBlock)result.Content[0]).Text);
+        return doc.RootElement.TryGetProperty("error", out var e) && e.TryGetProperty("code", out var c) ? c.GetString() ?? "error" : "error";
     }
 }

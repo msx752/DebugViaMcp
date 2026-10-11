@@ -7,6 +7,8 @@ namespace VsMcpDebugger.Vsix.Core.Tests;
 
 public class BridgeConnectionHandlerTests
 {
+    private static readonly CallContext Ctx = new() { CallId = "c-test" };
+
     private static BridgeConnectionHandler Create(FakeDte? dte = null, Action? onAuthenticated = null) =>
         new(new DebugBridgeService(dte ?? new FakeDte(), new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), "secret", new NullLog(), onAuthenticated);
 
@@ -28,21 +30,21 @@ public class BridgeConnectionHandlerTests
         var h = Create(new FakeDte { EnforceUiThread = true });
         await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
 
-        await h.GetStatusAsync(CancellationToken.None);
-        await h.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, CancellationToken.None);
-        await h.ListBreakpointsAsync(CancellationToken.None);
-        await h.GetStackAsync(5, CancellationToken.None);
-        await h.GetVariablesAsync(VariableScope.Args, null, 0, 10, CancellationToken.None);
-        await h.EvaluateAsync("x", CancellationToken.None);
-        await h.StepAsync(StepKind.Over, CancellationToken.None);
-        await h.RemoveBreakpointsAsync(null, all: true, CancellationToken.None);
+        await h.GetStatusAsync(Ctx, CancellationToken.None);
+        await h.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, Ctx, CancellationToken.None);
+        await h.ListBreakpointsAsync(Ctx, CancellationToken.None);
+        await h.GetStackAsync(5, Ctx, CancellationToken.None);
+        await h.GetVariablesAsync(VariableScope.Args, null, 0, 10, Ctx, CancellationToken.None);
+        await h.EvaluateAsync("x", Ctx, CancellationToken.None);
+        await h.StepAsync(StepKind.Over, Ctx, CancellationToken.None);
+        await h.RemoveBreakpointsAsync(null, all: true, Ctx, CancellationToken.None);
     }
 
     [Fact]
     public async Task Calls_before_handshake_are_unauthorized()
     {
         var h = Create();
-        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => h.GetStatusAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => h.GetStatusAsync(Ctx, CancellationToken.None));
         Assert.Equal((int)BridgeErrorCode.Unauthorized, ex.ErrorCode);
     }
 
@@ -87,7 +89,7 @@ public class BridgeConnectionHandlerTests
 
         Assert.Equal(ProtocolInfo.Major, r.ProtocolMajor);
         Assert.Equal("0.1.0", r.VsixVersion);
-        Assert.Equal(DebuggerMode.Break, (await h.GetStatusAsync(CancellationToken.None)).Mode);
+        Assert.Equal(DebuggerMode.Break, (await h.GetStatusAsync(Ctx, CancellationToken.None)).Mode);
     }
 
     [Fact]
@@ -97,9 +99,9 @@ public class BridgeConnectionHandlerTests
         await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
 
         var ex = await Assert.ThrowsAsync<LocalRpcException>(() =>
-            h.SetBreakpointAsync(new BreakpointSpec { File = "missing.cs", Line = 1 }, CancellationToken.None));
+            h.SetBreakpointAsync(new BreakpointSpec { File = "missing.cs", Line = 1 }, Ctx, CancellationToken.None));
 
         Assert.Equal((int)BridgeErrorCode.InvalidArgument, ex.ErrorCode);
-        Assert.Equal("Use a path relative to the solution directory.", ex.ErrorData);
+        Assert.Equal("Use a path relative to the solution directory.", Assert.IsType<BridgeErrorData>(ex.ErrorData).Hint);
     }
 }

@@ -20,15 +20,15 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
 
     [McpServerTool(Name = "debug_start"), Description("Starts debugging the solution's startup project (F5). Waits up to 30 s for the first break.")]
     public Task<CallToolResult> Start(CancellationToken ct) =>
-        Resume(DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", b => b.StartAsync(ct), ct);
+        Resume("debug_start", DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", (b, ctx) => b.StartAsync(ctx, ct), ct);
 
     [McpServerTool(Name = "debug_continue"), Description("Resumes execution (F5) and waits up to 30 s for the next break.")]
     public Task<CallToolResult> Continue(CancellationToken ct) =>
-        Resume(DebuggerMode.Break, "Call debug_pause or debug_wait first.", b => b.ContinueAsync(ct), ct);
+        Resume("debug_continue", DebuggerMode.Break, "Call debug_pause or debug_wait first.", (b, ctx) => b.ContinueAsync(ctx, ct), ct);
 
     [McpServerTool(Name = "debug_pause"), Description("Breaks into the running program (Break All).")]
     public Task<CallToolResult> Pause(CancellationToken ct) =>
-        Resume(DebuggerMode.Run, "The program is not running.", b => b.PauseAsync(ct), ct);
+        Resume("debug_pause", DebuggerMode.Run, "The program is not running.", (b, ctx) => b.PauseAsync(ctx, ct), ct);
 
     [McpServerTool(Name = "debug_step"), Description("Steps 'into', 'over' or 'out' and returns where execution stopped.")]
     public Task<CallToolResult> Step([Description("'into', 'over' or 'out'.")] string kind, CancellationToken ct)
@@ -36,11 +36,11 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
         StepKind? stepKind = kind switch { "into" => StepKind.Into, "over" => StepKind.Over, "out" => StepKind.Out, _ => null };
         if (stepKind is null)
             return Task.FromResult(ToolResponse.Error(BridgeErrorCode.InvalidArgument, $"Unknown step kind '{kind}'.", "Use 'into', 'over' or 'out'."));
-        return Resume(DebuggerMode.Break, "Call debug_pause or debug_wait first.", b => b.StepAsync(stepKind.Value, ct), ct);
+        return Resume("debug_step", DebuggerMode.Break, "Call debug_pause or debug_wait first.", (b, ctx) => b.StepAsync(stepKind.Value, ctx, ct), ct);
     }
 
     [McpServerTool(Name = "debug_wait", ReadOnly = true), Description("Waits for the next break (breakpoint, exception, pause) up to timeoutSec (max 120).")]
-    public Task<CallToolResult> Wait(int timeoutSec = 30, CancellationToken ct = default) => ToolResponse.RunAsync(async () =>
+    public Task<CallToolResult> Wait(int timeoutSec = 30, CancellationToken ct = default) => ToolResponse.RunAsync(connections, "debug_wait", async _ =>
     {
         await connections.GetBridgeAsync(ct).ConfigureAwait(false);
         var session = connections.Session;
@@ -53,24 +53,24 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
     });
 
     [McpServerTool(Name = "debug_stop", Destructive = true), Description("Stops debugging (Shift+F5).")]
-    public Task<CallToolResult> Stop(CancellationToken ct) => ToolResponse.RunAsync(async () =>
+    public Task<CallToolResult> Stop(CancellationToken ct) => ToolResponse.RunAsync(connections, "debug_stop", async ctx =>
     {
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
         if (connections.Session.Mode == DebuggerMode.Design)
             return ToolResponse.Ok(new { state = "design", message = "Not debugging." });
-        await bridge.StopAsync(ct).ConfigureAwait(false);
+        await bridge.StopAsync(ctx, ct).ConfigureAwait(false);
         return ToolResponse.Ok(new { state = "design" });
     });
 
-    private Task<CallToolResult> Resume(DebuggerMode required, string hint, Func<IDebugBridge, Task<long>> command, CancellationToken ct) =>
-        ToolResponse.RunAsync(async () =>
+    private Task<CallToolResult> Resume(string tool, DebuggerMode required, string hint, Func<IDebugBridge, CallContext, Task<long>> command, CancellationToken ct) =>
+        ToolResponse.RunAsync(connections, tool, async ctx =>
         {
             var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
             var session = connections.Session;
             if (session.Mode != required)
                 return ToolResponse.WrongMode(required, session.Mode, hint);
 
-            var seq = await command(bridge).ConfigureAwait(false);
+            var seq = await command(bridge, ctx).ConfigureAwait(false);
             session.MarkResumed(seq);
             var outcome = await session.WaitForBreakAfterAsync(seq, waitForBreak, ct).ConfigureAwait(false);
             return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));

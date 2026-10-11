@@ -26,7 +26,8 @@ builder.Services.AddSingleton<IConnectionManager>(sp =>
     return new ConnectionManager(
         discovery.List,
         (record, session, ct) => BridgeConnection.ConnectAsync(record, session, logger, ct),
-        sp.GetRequiredService<SessionState>());
+        sp.GetRequiredService<SessionState>(),
+        logger);
 });
 
 builder.Services

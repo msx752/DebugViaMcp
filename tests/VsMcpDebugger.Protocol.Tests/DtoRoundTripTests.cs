@@ -19,6 +19,14 @@ public class DtoRoundTripTests
     }
 
     [Fact]
+    public void Call_context_and_error_data_wire_format()
+    {
+        Assert.Equal("{\"callId\":\"c-000001\"}", ProtocolJson.Serialize(new CallContext { CallId = "c-000001" }));
+        Assert.Equal("{\"hint\":\"h\",\"reason\":\"timeout\"}", ProtocolJson.Serialize(new BridgeErrorData { Hint = "h", Reason = DeniedReasons.Timeout }));
+        Assert.Equal("{\"hint\":\"h\"}", ProtocolJson.Serialize(new BridgeErrorData { Hint = "h" }));
+    }
+
+    [Fact]
     public void BreakEvent_round_trips()
     {
         var original = new BreakEvent

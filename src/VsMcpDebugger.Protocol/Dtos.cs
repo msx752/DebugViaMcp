@@ -102,3 +102,21 @@ public sealed class EvaluateResult
     public string Type { get; set; } = "";
     public bool Truncated { get; set; }
 }
+
+/// <summary>JSON-RPC <c>error.data</c> of every bridge error.</summary>
+public sealed class BridgeErrorData
+{
+    public string? Hint { get; set; }
+
+    /// <summary>Only for <see cref="BridgeErrorCode.Denied"/>; one of <see cref="DeniedReasons"/>.</summary>
+    public string? Reason { get; set; }
+}
+
+public static class DeniedReasons
+{
+    public const string UserDenied = "user_denied";
+    public const string Timeout = "timeout";
+    public const string Policy = "policy";
+    public const string Cancelled = "cancelled";
+    public const string Disconnected = "disconnected";
+}

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using VsMcpDebugger.Mcp.Session;
 using VsMcpDebugger.Protocol;
 
@@ -6,6 +7,7 @@ namespace VsMcpDebugger.Mcp.Connection;
 public interface IConnectionManager
 {
     SessionState Session { get; }
+    ILogger Logger { get; }
     InstanceRecord? Current { get; }
     IReadOnlyList<InstanceRecord> ListInstances();
     Task<HandshakeResponse> SelectAsync(int pid, CancellationToken ct);
@@ -17,13 +19,15 @@ public interface IConnectionManager
 public sealed class ConnectionManager(
     Func<IReadOnlyList<InstanceRecord>> listInstances,
     Func<InstanceRecord, SessionState, CancellationToken, Task<BridgeConnection>> connect,
-    SessionState session) : IConnectionManager, IAsyncDisposable
+    SessionState session,
+    ILogger logger) : IConnectionManager, IAsyncDisposable
 {
     private readonly SemaphoreSlim _lock = new(1, 1);
     private BridgeConnection? _connection;
     private int? _selectedPid;
 
     public SessionState Session => session;
+    public ILogger Logger => logger;
     public InstanceRecord? Current => _connection?.Instance;
 
     public IReadOnlyList<InstanceRecord> ListInstances() => listInstances();

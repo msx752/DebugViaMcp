@@ -11,19 +11,19 @@ namespace VsMcpDebugger.Protocol;
 public interface IDebugBridge
 {
     Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken);
-    Task<StatusInfo> GetStatusAsync(CancellationToken cancellationToken);
-    Task<BreakpointInfo[]> ListBreakpointsAsync(CancellationToken cancellationToken);
-    Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CancellationToken cancellationToken);
+    Task<StatusInfo> GetStatusAsync(CallContext context, CancellationToken cancellationToken);
+    Task<BreakpointInfo[]> ListBreakpointsAsync(CallContext context, CancellationToken cancellationToken);
+    Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CallContext context, CancellationToken cancellationToken);
 
     /// <returns>Number of breakpoints removed.</returns>
-    Task<int> RemoveBreakpointsAsync(string? id, bool all, CancellationToken cancellationToken);
+    Task<int> RemoveBreakpointsAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken);
 
-    Task<long> StartAsync(CancellationToken cancellationToken);
-    Task StopAsync(CancellationToken cancellationToken);
-    Task<long> ContinueAsync(CancellationToken cancellationToken);
-    Task<long> PauseAsync(CancellationToken cancellationToken);
-    Task<long> StepAsync(StepKind kind, CancellationToken cancellationToken);
-    Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CancellationToken cancellationToken);
-    Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CancellationToken cancellationToken);
-    Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken cancellationToken);
+    Task<long> StartAsync(CallContext context, CancellationToken cancellationToken);
+    Task StopAsync(CallContext context, CancellationToken cancellationToken);
+    Task<long> ContinueAsync(CallContext context, CancellationToken cancellationToken);
+    Task<long> PauseAsync(CallContext context, CancellationToken cancellationToken);
+    Task<long> StepAsync(StepKind kind, CallContext context, CancellationToken cancellationToken);
+    Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken);
+    Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken);
+    Task<EvaluateResult> EvaluateAsync(string expression, CallContext context, CancellationToken cancellationToken);
 }

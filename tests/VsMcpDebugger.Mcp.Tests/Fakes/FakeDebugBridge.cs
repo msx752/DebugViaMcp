@@ -13,6 +13,7 @@ public sealed class FakeDebugBridge : IDebugBridge
     public List<string> Calls { get; } = [];
     public Exception? HandshakeFailure { get; set; }
     public int LastOffset { get; private set; } = -1;
+    public List<string> CallIds { get; } = [];
 
     public Func<StepKind, long> OnStep { get; set; } = _ => 10;
     public Func<long> OnContinue { get; set; } = () => 10;
@@ -20,8 +21,12 @@ public sealed class FakeDebugBridge : IDebugBridge
         spec => new SetBreakpointResult { Breakpoint = new BreakpointInfo { Id = "bp-1", File = spec.File, Line = spec.Line, Enabled = true } };
     public Func<string, EvaluateResult> OnEvaluate { get; set; } =
         e => new EvaluateResult { IsValid = true, Value = "42", Type = "int" };
+    public Func<StatusInfo> OnStatus { get; set; }
+
     public Func<VariableScope, string?, int, VariableInfo[]> OnVariables { get; set; } =
         (_, _, _) => [new VariableInfo { Name = "x", Type = "int", Value = "1" }];
+
+    public FakeDebugBridge() => OnStatus = () => new StatusInfo { Mode = Mode, Seq = Seq };
 
     public Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)
     {
@@ -37,16 +42,16 @@ public sealed class FakeDebugBridge : IDebugBridge
         });
     }
 
-    public Task<StatusInfo> GetStatusAsync(CancellationToken cancellationToken) { Calls.Add("GetStatus"); return Task.FromResult(new StatusInfo { Mode = Mode, Seq = Seq }); }
-    public Task<BreakpointInfo[]> ListBreakpointsAsync(CancellationToken cancellationToken) { Calls.Add("ListBreakpoints"); return Task.FromResult(Array.Empty<BreakpointInfo>()); }
-    public Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CancellationToken cancellationToken) { Calls.Add("SetBreakpoint"); return Task.FromResult(OnSetBreakpoint(spec)); }
-    public Task<int> RemoveBreakpointsAsync(string? id, bool all, CancellationToken cancellationToken) { Calls.Add("RemoveBreakpoints"); return Task.FromResult(1); }
-    public Task<long> StartAsync(CancellationToken cancellationToken) { Calls.Add("Start"); return Task.FromResult(Seq); }
-    public Task StopAsync(CancellationToken cancellationToken) { Calls.Add("Stop"); return Task.CompletedTask; }
-    public Task<long> ContinueAsync(CancellationToken cancellationToken) { Calls.Add("Continue"); return Task.FromResult(OnContinue()); }
-    public Task<long> PauseAsync(CancellationToken cancellationToken) { Calls.Add("Pause"); return Task.FromResult(Seq); }
-    public Task<long> StepAsync(StepKind kind, CancellationToken cancellationToken) { Calls.Add("Step:" + kind); return Task.FromResult(OnStep(kind)); }
-    public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CancellationToken cancellationToken) { Calls.Add("GetStack"); return Task.FromResult(new[] { new StackFrameInfo { Index = 0, Function = "A.M", File = "a.cs", Line = 1, Language = "C#" } }); }
-    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CancellationToken cancellationToken) { Calls.Add("GetVariables"); LastOffset = offset; return Task.FromResult(OnVariables(scope, path, maxItems)); }
-    public Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken cancellationToken) { Calls.Add("Evaluate"); return Task.FromResult(OnEvaluate(expression)); }
+    public Task<StatusInfo> GetStatusAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetStatus"); return Task.FromResult(OnStatus()); }
+    public Task<BreakpointInfo[]> ListBreakpointsAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("ListBreakpoints"); return Task.FromResult(Array.Empty<BreakpointInfo>()); }
+    public Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("SetBreakpoint"); return Task.FromResult(OnSetBreakpoint(spec)); }
+    public Task<int> RemoveBreakpointsAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("RemoveBreakpoints"); return Task.FromResult(1); }
+    public Task<long> StartAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Start"); return Task.FromResult(Seq); }
+    public Task StopAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Stop"); return Task.CompletedTask; }
+    public Task<long> ContinueAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Continue"); return Task.FromResult(OnContinue()); }
+    public Task<long> PauseAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Pause"); return Task.FromResult(Seq); }
+    public Task<long> StepAsync(StepKind kind, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Step:" + kind); return Task.FromResult(OnStep(kind)); }
+    public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetStack"); return Task.FromResult(new[] { new StackFrameInfo { Index = 0, Function = "A.M", File = "a.cs", Line = 1, Language = "C#" } }); }
+    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetVariables"); LastOffset = offset; return Task.FromResult(OnVariables(scope, path, maxItems)); }
+    public Task<EvaluateResult> EvaluateAsync(string expression, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Evaluate"); return Task.FromResult(OnEvaluate(expression)); }
 }

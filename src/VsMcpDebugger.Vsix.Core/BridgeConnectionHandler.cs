@@ -58,20 +58,20 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         return response;
     }
 
-    public Task<StatusInfo> GetStatusAsync(CancellationToken cancellationToken) => Guard(() => service.GetStatusAsync(cancellationToken));
-    public Task<BreakpointInfo[]> ListBreakpointsAsync(CancellationToken cancellationToken) => Guard(() => service.ListBreakpointsAsync(cancellationToken));
-    public Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CancellationToken cancellationToken) => Guard(() => service.SetBreakpointAsync(spec, cancellationToken));
-    public Task<int> RemoveBreakpointsAsync(string? id, bool all, CancellationToken cancellationToken) => Guard(() => service.RemoveBreakpointsAsync(id, all, cancellationToken));
-    public Task<long> StartAsync(CancellationToken cancellationToken) => Guard(() => service.StartAsync(cancellationToken));
-    public Task StopAsync(CancellationToken cancellationToken) => Guard(async () => { await service.StopAsync(cancellationToken).ConfigureAwait(false); return true; });
-    public Task<long> ContinueAsync(CancellationToken cancellationToken) => Guard(() => service.ContinueAsync(cancellationToken));
-    public Task<long> PauseAsync(CancellationToken cancellationToken) => Guard(() => service.PauseAsync(cancellationToken));
-    public Task<long> StepAsync(StepKind kind, CancellationToken cancellationToken) => Guard(() => service.StepAsync(kind, cancellationToken));
-    public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CancellationToken cancellationToken) => Guard(() => service.GetStackAsync(maxFrames, cancellationToken));
-    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CancellationToken cancellationToken) => Guard(() => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken));
-    public Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken cancellationToken) => Guard(() => service.EvaluateAsync(expression, cancellationToken));
+    public Task<StatusInfo> GetStatusAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.GetStatusAsync(cancellationToken));
+    public Task<BreakpointInfo[]> ListBreakpointsAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.ListBreakpointsAsync(cancellationToken));
+    public Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.SetBreakpointAsync(spec, cancellationToken));
+    public Task<int> RemoveBreakpointsAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.RemoveBreakpointsAsync(id, all, cancellationToken));
+    public Task<long> StartAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.StartAsync(cancellationToken));
+    public Task StopAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, async () => { await service.StopAsync(cancellationToken).ConfigureAwait(false); return true; });
+    public Task<long> ContinueAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.ContinueAsync(cancellationToken));
+    public Task<long> PauseAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.PauseAsync(cancellationToken));
+    public Task<long> StepAsync(StepKind kind, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.StepAsync(kind, cancellationToken));
+    public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.GetStackAsync(maxFrames, cancellationToken));
+    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken));
+    public Task<EvaluateResult> EvaluateAsync(string expression, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.EvaluateAsync(expression, cancellationToken));
 
-    private async Task<T> Guard<T>(Func<Task<T>> call)
+    private async Task<T> Guard<T>(CallContext? context, Func<Task<T>> call)
     {
         if (!_authenticated) throw Rpc(BridgeErrorCode.Unauthorized, "Handshake required.", null);
         try
@@ -86,13 +86,13 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         catch (Exception e) when (e is not LocalRpcException and not OperationCanceledException)
 #pragma warning restore CA1031
         {
-            log.Error("Unexpected bridge failure", e);
+            log.Error($"[{context?.CallId}] Unexpected bridge failure", e);
             throw Rpc(BridgeErrorCode.Internal, e.Message, "See the VsMcpDebugger output pane in Visual Studio.");
         }
     }
 
-    private static LocalRpcException Rpc(BridgeErrorCode code, string message, string? hint) =>
-        new(message) { ErrorCode = (int)code, ErrorData = hint };
+    private static LocalRpcException Rpc(BridgeErrorCode code, string message, string? hint, string? reason = null) =>
+        new(message) { ErrorCode = (int)code, ErrorData = new BridgeErrorData { Hint = hint, Reason = reason } };
 
     /// <summary>Constant-time comparison (netstandard2.0 has no CryptographicOperations.FixedTimeEquals).</summary>
     private static bool TokenEquals(string? a, string b)

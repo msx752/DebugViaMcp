@@ -12,6 +12,8 @@ public enum BridgeErrorCode
     InvalidArgument = -32007,
     EvalFailed = -32008,
     NotFound = -32009,
+    Denied = -32010,
+    AiDisabled = -32011,
     Internal = -32099,
 }
 
@@ -28,6 +30,8 @@ public static class BridgeErrorNames
         BridgeErrorCode.InvalidArgument => "invalid_argument",
         BridgeErrorCode.EvalFailed => "eval_failed",
         BridgeErrorCode.NotFound => "not_found",
+        BridgeErrorCode.Denied => "denied",
+        BridgeErrorCode.AiDisabled => "ai_disabled",
         _ => "internal",
     };
 }

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using VsMcpDebugger.Mcp.Connection;
 using VsMcpDebugger.Mcp.Session;
 using VsMcpDebugger.Protocol;
@@ -15,7 +16,7 @@ public class ConnectionManagerTests
     [Fact]
     public async Task No_instances_gives_not_connected_with_doctor_hint()
     {
-        await using var manager = new ConnectionManager(() => [], NeverConnect, new SessionState());
+        await using var manager = new ConnectionManager(() => [], NeverConnect, new SessionState(), NullLogger.Instance);
 
         var ex = await Assert.ThrowsAsync<McpBridgeException>(() => manager.GetBridgeAsync(CancellationToken.None));
 
@@ -26,7 +27,7 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Several_instances_without_selection_is_ambiguous()
     {
-        await using var manager = new ConnectionManager(() => [Rec(1), Rec(2)], NeverConnect, new SessionState());
+        await using var manager = new ConnectionManager(() => [Rec(1), Rec(2)], NeverConnect, new SessionState(), NullLogger.Instance);
 
         var ex = await Assert.ThrowsAsync<McpBridgeException>(() => manager.GetBridgeAsync(CancellationToken.None));
 
@@ -37,7 +38,7 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Select_unknown_pid_is_not_found()
     {
-        await using var manager = new ConnectionManager(() => [Rec(1)], NeverConnect, new SessionState());
+        await using var manager = new ConnectionManager(() => [Rec(1)], NeverConnect, new SessionState(), NullLogger.Instance);
 
         var ex = await Assert.ThrowsAsync<McpBridgeException>(() => manager.SelectAsync(99, CancellationToken.None));
 

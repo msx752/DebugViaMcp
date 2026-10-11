@@ -118,7 +118,8 @@ public class BridgeConnectionTests
         await using var manager = new ConnectionManager(
             () => [server.Record],
             (record, s, ct) => BridgeConnection.ConnectAsync(record, s, NullLogger.Instance, ct),
-            session);
+            session,
+            NullLogger.Instance);
         await manager.GetBridgeAsync(CancellationToken.None);
 
         await server.DropAsync();

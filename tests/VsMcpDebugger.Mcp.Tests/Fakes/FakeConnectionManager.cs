@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using VsMcpDebugger.Mcp.Connection;
 using VsMcpDebugger.Mcp.Session;
 using VsMcpDebugger.Protocol;
@@ -16,6 +17,8 @@ public sealed class FakeConnectionManager : IConnectionManager
     public SessionState Session { get; } = new();
     public InstanceRecord? Current { get; } = new() { Pid = 1, PipeName = "p", SolutionPath = @"C:\src\OrderDemo.sln" };
     public McpBridgeException? FailWith { get; set; }
+    public CapturingLogger Logger { get; } = new();
+    ILogger IConnectionManager.Logger => Logger;
 
     public IReadOnlyList<InstanceRecord> ListInstances() => [Current!];
 
