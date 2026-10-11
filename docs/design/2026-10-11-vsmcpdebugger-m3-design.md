@@ -71,8 +71,10 @@ field or event changes meaning.
 
 ### 3.1 Epochs
 
-The VSIX keeps an epoch counter that increments on every resume it observes (continue, step, run_to, and resumes
-the user starts in the VS UI). It is carried in `BreakSnapshot`, `StatusInfo`, `StackInfo` and
+The VSIX keeps an epoch counter that increments on every break it observes, however the program got there
+(continue, step, run_to, or the user in the VS UI). Every resume ends in a new break, or in Run/Design mode where
+`frame_select` fails with `wrong_mode` anyway, so "read before the latest resume" and "read in an earlier break" are
+the same condition, and counting breaks needs no resume detection. It is carried in `BreakSnapshot`, `StatusInfo`, `StackInfo` and
 `FrameChangedEvent`. The VSIX is the source of truth: `SelectFrameAsync` with an epoch other than the current one
 throws `stale` ("program resumed since this frame was read"). The parent spec's binding of variable paths to
 epochs is satisfied by the same rule: paths are evaluated in the selected frame, and the selection is
@@ -89,6 +91,10 @@ location/source/args, so the agent needs no second call.
 mirrors the selection from `OnFrameChangedAsync` and adds `frame: { index, threadId }` to these tools' responses,
 so the agent always sees where it is looking. On every resume Visual Studio resets the selection to frame 0 of the
 stopping thread; the next break event resets the mirror. No other state is kept.
+
+A thread or frame change (by the agent or the user) advances the event sequence, and consent questions name the
+selected frame's function. If the user picks another frame while a `set_value` question is open, the approval no
+longer applies (the M2 rule that consent covers the program state the question described).
 
 `threads` returns `{ id, name, location, isCurrent }` per thread. `stack(threadId?)` shows another thread's stack
 without changing the selection.
@@ -113,12 +119,12 @@ Allowed in Break and Run mode.
 
 - Candidates come from `Debugger.LocalProcesses`, filtered to processes owned by the same user, compared by token
   SID (this also holds when Visual Studio runs elevated). The VSIX's own process is excluded.
-- A `processName` matching several processes returns `invalid_argument` with `candidates: [{ pid, name }]`;
-  matching none returns `not_found`. Window titles are not returned; they can leak data.
+- A `processName` matching several processes returns `invalid_argument` whose hint lists the candidates
+  (`"1234 FaultDemo, 5678 FaultDemo"`); matching none returns `not_found`. Window titles are not returned; they can leak data.
 - The consent text names the process and pid and states that Visual Studio will be able to read and change that
   process's memory.
-- `Process.Attach()` lets VS choose the engine. Afterwards the session behaves like a started one; `debug_stop`
-  detaches rather than terminating, which is Visual Studio's behaviour for attached processes (verified in E2E).
+- `Process.Attach()` lets VS choose the engine. Afterwards the session behaves like a started one, except that
+  `debug_stop` calls `Debugger.DetachAll()`: the process keeps running.
 
 ### 3.5 Build
 
@@ -128,8 +134,9 @@ Allowed in Break and Run mode.
   `BuildEvents.OnBuildDone`.
 - If a build is already running (started by the agent or the user), it waits for that build instead of starting
   another.
-- On completion returns `{ succeeded, failedProjects, errors, warnings, durationMs }`; counts come from the Error
-  List after the build. On timeout returns `{ state: "building" }`; calling `vs_build` again joins the running
+- On completion returns `{ state: "done", succeeded, failedProjects, durationMs }` and points the agent at
+  `errors_list`. Error/warning counts are not included: the Error List refreshes asynchronously after
+  `OnBuildDone`, so counts read at that moment can be stale. On timeout returns `{ state: "building" }`; calling `vs_build` again joins the running
   build.
 - An unknown `project` returns `not_found` with the solution's project names in the hint.
 
@@ -140,7 +147,7 @@ Allowed in Break and Run mode.
 | `threads` | Read | Break | §3.2 |
 | `stack(threadId?, max = 20)` | Read | Break | Response gains `epoch`, `threadId` |
 | `frame_select(index, epoch, threadId?)` | Read | Break | §3.2 |
-| `exception` | Read | Break | Type, message, inner chain (max 5), stack trace (truncated at 4 KB), throw site; `{ exception: null }` when none. All in `data`, untrusted |
+| `exception` | Read | Break | Type, message, inner chain (max 5), stack trace (truncated at 4 KB), throw site; `{ active: false }` when none. All in `data`, untrusted |
 | `diag(tail = 50)` | — | any | MCP host only: tail of its own log file (≤ 500 lines), already masked by the logging policy. Not a bridge call, not audited by the VSIX |
 | `bp_enable(id, enabled)` | Control; Mutate when enabling a breakpoint with a condition or tracepoint message | any | Same rule as `bp_set`: enabled, that expression runs in the debuggee on every hit. Unknown id → `notFound: true` |
 | `debug_run_to(file, line)` | Control | Break, Run | §3.3; waits like `debug_continue` |
@@ -172,7 +179,8 @@ Every bridge call is audited as in M2.
 
 - Source is the table API (`IErrorList.TableControl.Entries`), not DTE `ErrorItems`: DTE lacks the error code and
   the build/IntelliSense origin.
-- Returns all entries regardless of the user's current Error List filter.
+- Returns the entries the Error List control holds, so the user's scope filter (e.g. *Current Document*)
+  applies; unfiltered access would need a custom table sink. The tool description says so.
 - Each item: `{ severity, code, message, project, file, line, column, origin }`, file relative to the solution.
   Messages are truncated at 1 KB and returned in `data` (untrusted).
 - Sorted by severity, then file, then line. The response includes the totals
@@ -202,7 +210,9 @@ Each gets a failing test first, then the fix:
 5. The `AuditLog` activity sink call moves inside the `try`, so a failing sink cannot break auditing.
 6. Concurrent handshakes cannot leak an access registration.
 7. Import/Export Settings refreshes the applied settings snapshot.
-8. A pipe closing before `OnAccessRevoked` arrives reports `ai_disabled`, not `not_connected`.
+8. A pipe closing before `OnAccessRevoked` arrives reports `ai_disabled`, not `not_connected`. The VSIX waits
+   100 ms after sending the notification before closing. When the pipe is lost and the same instance is still listed,
+   the MCP host makes one 300 ms reconnect probe; `ai_disabled` from it is reported and the selection is kept.
 
 The manual E2E also checks very long text wrapping in the info bar.
 
