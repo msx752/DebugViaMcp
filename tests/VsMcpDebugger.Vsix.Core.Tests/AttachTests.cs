@@ -18,6 +18,39 @@ public class AttachTests
         Assert.Equal([100, 200, 400], AttachCandidates.Filter(all, null).Select(p => p.Pid));
     }
 
+    /// <summary>
+    /// User review: with several Visual Studio instances open, attaching to another one would expose its memory (its
+    /// pipe token, sources, credentials). Visual Studio and the vsmcpdebugger server are never attach targets.
+    /// </summary>
+    [Theory]
+    [InlineData("devenv")]
+    [InlineData("DEVENV.exe")]
+    [InlineData("vsmcpdebugger")]
+    [InlineData("VsMcpDebugger.Mcp")]
+    public void Other_visual_studio_instances_and_the_mcp_server_are_never_candidates(string name)
+    {
+        var all = new[] { new RawProcess { Pid = 500, Name = name.Replace(".exe", "", StringComparison.OrdinalIgnoreCase), OwnedByCurrentUser = true } };
+
+        Assert.Empty(AttachCandidates.Filter(all, null));
+        Assert.Empty(AttachCandidates.Filter(all, name));
+    }
+
+    [Fact]
+    public async Task Attach_to_another_visual_studio_by_pid_is_not_found_before_asking()
+    {
+        var dte = new FakeDte { Mode = DebuggerMode.Design };
+        dte.Processes.Add(new RawProcess { Pid = 600, Name = "devenv", OwnedByCurrentUser = true });
+        using var s = new SecurityHarness(dte);
+        await s.HandshakeAsync();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;   // even an approving user must never get this far
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.AttachAsync(600, SecurityHarness.Ctx(), CancellationToken.None));
+
+        Assert.Equal((int)BridgeErrorCode.NotFound, ex.ErrorCode);
+        Assert.Empty(s.Prompt.Texts);
+        Assert.DoesNotContain("Attach:600", dte.Calls);
+    }
+
     [Fact]
     public async Task Attach_asks_with_process_name_pid_and_memory_warning()
     {
