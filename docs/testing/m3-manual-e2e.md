@@ -84,5 +84,7 @@ Findings of this part, fixed with a test each: the extension's `wrong_mode` reac
 wire code (-32003) is reserved by StreamJsonRpc (now -32014; pinned for every code the extension sends); the Options page was not
 registered for Import and Export Settings; an imported file could have granted Mutate = Allow without the Options confirmation.
 
-Not yet verified on a real Visual Studio: after importing a Mutate = Allow file and restarting Visual Studio, `debug_status` must
-still show `mutate: ask` (the fix saves the downgraded value; unit tests cannot reach the profile storage).
+Persistence (real Visual Studio, restart): a file with Read = Deny and Mutate = Allow was imported with
+`Tools.ImportandExportSettings /import:` (through DTE). Read became Deny, Mutate stayed Ask. After closing and starting Visual
+Studio again, importing the original settings reported `Read: Deny → Allow` and no Mutate change, so Read = Deny had been
+stored and Mutate had been stored as Ask, not Allow.
