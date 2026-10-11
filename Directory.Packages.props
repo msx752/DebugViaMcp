@@ -1,9 +1,15 @@
 <Project>
+  <PropertyGroup>
+    <!-- Lets the pins below override vulnerable transitive versions. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="StreamJsonRpc" Version="2.22.11" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- StreamJsonRpc 2.22.11 pulls MessagePack 2.5.192 (GHSA advisories); 2.5.307 is the patched 2.5 line. -->
+    <PackageVersion Include="MessagePack" Version="2.5.307" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
@@ -13,6 +19,5 @@
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-    <PackageVersion Include="Verify.XunitV3" Version="33.3.3" />
   </ItemGroup>
 </Project>

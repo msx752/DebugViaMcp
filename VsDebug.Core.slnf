@@ -3,7 +3,9 @@
     "path": "VsDebug.slnx",
     "projects": [
       "src/VsDebug.Protocol/VsDebug.Protocol.csproj",
-      "tests/VsDebug.Protocol.Tests/VsDebug.Protocol.Tests.csproj"
+      "src/VsDebug.Mcp/VsDebug.Mcp.csproj",
+      "tests/VsDebug.Protocol.Tests/VsDebug.Protocol.Tests.csproj",
+      "tests/VsDebug.Mcp.Tests/VsDebug.Mcp.Tests.csproj"
     ]
   }
 }

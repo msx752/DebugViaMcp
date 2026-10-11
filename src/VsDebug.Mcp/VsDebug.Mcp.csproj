@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>VsDebug.Mcp</RootNamespace>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>vsdebug</ToolCommandName>
+    <PackageId>VsDebug.Mcp</PackageId>
+    <Description>MCP server that lets AI agents drive the Visual Studio debugger.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="StreamJsonRpc" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="Serilog.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Formatting.Compact" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VsDebug.Protocol\VsDebug.Protocol.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="VsDebug.Mcp.Tests" />
+  </ItemGroup>
+</Project>
