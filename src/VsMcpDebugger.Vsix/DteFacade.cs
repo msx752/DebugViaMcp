@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using EnvDTE;
 using EnvDTE80;
 using EnvDTE90a;
@@ -153,6 +154,25 @@ internal sealed class DteFacade(DTE2 dte) : IDteFacade
         ThreadHelper.ThrowIfNotOnUIThread();
         var e = dte.Debugger.GetExpression(expression, true, EvalTimeoutMs);
         return new EvaluateResult { IsValid = e.IsValidValue, Value = e.Value, Type = e.Type };
+    }
+
+    public EvaluateResult SetValue(string expression, string value)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var target = dte.Debugger.GetExpression(expression, true, EvalTimeoutMs);
+        if (!target.IsValidValue)
+            return new EvaluateResult { IsValid = false, Value = target.Value, Type = target.Type };
+        try
+        {
+            target.Value = value;
+        }
+        catch (COMException e)
+        {
+            return new EvaluateResult { IsValid = false, Value = $"Visual Studio could not assign the value: {e.Message}", Type = target.Type };
+        }
+
+        var after = dte.Debugger.GetExpression(expression + ", nse", true, EvalTimeoutMs);
+        return new EvaluateResult { IsValid = after.IsValidValue, Value = after.Value, Type = after.Type };
     }
 
     private static RawFrame ToFrame(EnvDTE.StackFrame f)

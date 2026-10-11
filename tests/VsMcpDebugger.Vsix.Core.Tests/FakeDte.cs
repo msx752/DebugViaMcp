@@ -63,6 +63,18 @@ public sealed class FakeDte : IDteFacade
         return Locals.Take(maxItems).ToList();
     }
 
+    public List<(string Expression, string Value)> Assignments { get; } = [];
+
+    public Func<string, string, EvaluateResult> OnSetValue { get; set; } =
+        (_, value) => new EvaluateResult { IsValid = true, Value = value, Type = "decimal" };
+
+    public EvaluateResult SetValue(string expression, string value)
+    {
+        Ui();
+        Assignments.Add((expression, value));
+        return OnSetValue(expression, value);
+    }
+
     public EvaluateResult Evaluate(string expression)
     {
         Ui();

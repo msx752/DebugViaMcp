@@ -29,6 +29,30 @@ public static class ExpressionPolicy
     // Escapes (\), interpolation ($, braces), backticks and non-ASCII punctuation never reach the evaluator.
     private static readonly Regex ConditionAllowlist = new(@"^[\p{L}\p{N}_ \t.\[\]()<>=!&|+\-*/%?:""',@^~]*$", RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
+    /// <summary>Longest expression or value the user can be asked to approve; it is always shown in full.</summary>
+    public const int MaxMutationLength = 500;
+
+    /// <summary>For anything shown in a consent question: present, single line, at most <see cref="MaxMutationLength"/> chars.</summary>
+    public static void RequireMutationText(string? text, string name)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, $"{name} is required.");
+        if (text!.Length > MaxMutationLength)
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, $"{name} is longer than {MaxMutationLength} characters.",
+                "Shorten it: the user has to read it in full before approving.");
+        RejectNeutralizers(text);
+    }
+
+    /// <summary>set_value targets: a variable, field, property or element — nothing that runs code or assigns.</summary>
+    public static void RequireAssignableTarget(string? expression)
+    {
+        RequireMutationText(expression, "expression");
+        if (!ConditionAllowlist.IsMatch(expression!) || SideEffects.IsMatch(expression!))
+            throw new BridgeException(BridgeErrorCode.InvalidArgument,
+                "The set_value target must not call methods, assign, use ++/-- or special characters.",
+                "Target must be a variable, field, property or element, e.g. total or order.Lines[2].Quantity.");
+    }
+
     public static string PrepareSideEffectFree(string expression)
     {
         if (expression is null) throw new ArgumentNullException(nameof(expression));

@@ -45,4 +45,7 @@ public interface IDteFacade
     IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems);
     IReadOnlyList<VariableInfo> Members(string expression, int maxItems);
     EvaluateResult Evaluate(string expression);
+
+    /// <summary>Assigns <paramref name="value"/> to <paramref name="expression"/> and reads it back. Invalid result when VS rejects it.</summary>
+    EvaluateResult SetValue(string expression, string value);
 }

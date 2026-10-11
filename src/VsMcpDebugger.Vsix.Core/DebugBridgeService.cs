@@ -112,12 +112,38 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return items.Skip(skip).Take(take).Select(Shape).ToArray();
     }, ct);
 
-    public Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken ct) => InBreak(() =>
+    public static void ValidateSetValue(string? expression, string? value)
     {
-        var r = dte.Evaluate(ExpressionPolicy.PrepareSideEffectFree(expression));
+        ExpressionPolicy.RequireAssignableTarget(expression);
+        ExpressionPolicy.RequireMutationText(value, "value");
+    }
+
+    public static void ValidateSideEffectEvaluation(string? expression) => ExpressionPolicy.RequireMutationText(expression, "expression");
+
+    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CancellationToken ct)
+    {
+        if (allowSideEffects) ValidateSideEffectEvaluation(expression);
+        return InBreak(() => Shape(dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression))), ct);
+    }
+
+    public Task<EvaluateResult> SetValueAsync(string expression, string value, CancellationToken ct)
+    {
+        ValidateSetValue(expression, value);
+        return InBreak(() => Shape(dte.SetValue(expression.Trim(), value.Trim())), ct);
+    }
+
+    /// <summary>Shown in consent questions ("… in OrderService.Submit"). Requires Break mode, so a wrong-mode call fails before the user is asked.</summary>
+    public Task<string> GetCurrentFunctionAsync(CancellationToken ct) => InBreak(() =>
+    {
+        var frames = dte.Stack(1);
+        return frames.Count > 0 ? frames[0].Function : "the current frame";
+    }, ct);
+
+    private static EvaluateResult Shape(EvaluateResult r)
+    {
         var (value, truncated) = ValueShaper.Truncate(r.Value);
         return new EvaluateResult { IsValid = r.IsValid, Value = value, Type = r.Type, Truncated = truncated };
-    }, ct);
+    }
 
     /// <summary>Builds the snapshot for the current break. Caller must be on the UI thread.</summary>
     public BreakSnapshot BuildSnapshot(BreakReason reason)

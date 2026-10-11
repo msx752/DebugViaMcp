@@ -149,7 +149,7 @@ public class DebugBridgeServiceTests
     {
         var (svc, dte, _) = Create();
 
-        var r = await svc.EvaluateAsync("order.Note", CancellationToken.None);
+        var r = await svc.EvaluateAsync("order.Note", allowSideEffects: false, CancellationToken.None);
 
         Assert.Equal(ExpressionPolicy.PrepareSideEffectFree("order.Note"), dte.LastEvaluated);
         Assert.True(r.Truncated);
@@ -200,5 +200,114 @@ public class DebugBridgeServiceTests
         var vars = await svc.GetVariablesAsync(VariableScope.Locals, null, 0, 1_000_000, CancellationToken.None);
 
         Assert.Equal(DebugBridgeService.MaxVariablePage, vars.Length);
+    }
+
+    [Fact]
+    public async Task SetValue_assigns_and_returns_the_new_value()
+    {
+        var (svc, dte, _) = Create();
+
+        var r = await svc.SetValueAsync("total", "0", CancellationToken.None);
+
+        Assert.Equal(("total", "0"), Assert.Single(dte.Assignments));
+        Assert.True(r.IsValid);
+        Assert.Equal("0", r.Value);
+    }
+
+    [Fact]
+    public async Task SetValue_requires_break_mode()
+    {
+        var (svc, dte, _) = Create(DebuggerMode.Run);
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.SetValueAsync("total", "0", CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.WrongMode, ex.Code);
+        Assert.Empty(dte.Assignments);
+    }
+
+    [Theory]
+    [InlineData("GetOrder().Total")]
+    [InlineData("x = 5")]
+    [InlineData("i++")]
+    [InlineData("$\"{x}\"")]
+    public async Task SetValue_target_must_be_assignable_without_side_effects(string target)
+    {
+        var (svc, dte, _) = Create();
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.SetValueAsync(target, "0", CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.InvalidArgument, ex.Code);
+        Assert.Contains("Target must be a variable, field, property or element", ex.Hint, StringComparison.Ordinal);
+        Assert.Empty(dte.Assignments);
+    }
+
+    [Theory]
+    [InlineData("order.Lines[2].Quantity")]
+    [InlineData("total")]
+    public async Task SetValue_accepts_members_and_elements(string target)
+    {
+        var (svc, dte, _) = Create();
+        await svc.SetValueAsync(target, "1", CancellationToken.None);
+        Assert.Single(dte.Assignments);
+    }
+
+    [Fact]
+    public async Task SetValue_rejects_values_over_500_chars_and_multiline_values()
+    {
+        var (svc, dte, _) = Create();
+
+        var tooLong = await Assert.ThrowsAsync<BridgeException>(() => svc.SetValueAsync("total", new string('1', 501), CancellationToken.None));
+        var multiline = await Assert.ThrowsAsync<BridgeException>(() => svc.SetValueAsync("total", "0" + (char)10 + "x = 1", CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.InvalidArgument, tooLong.Code);
+        Assert.Equal(BridgeErrorCode.InvalidArgument, multiline.Code);
+        Assert.Empty(dte.Assignments);
+    }
+
+    [Fact]
+    public async Task SetValue_reports_visual_studio_rejection_as_invalid_result()
+    {
+        var (svc, dte, _) = Create();
+        dte.OnSetValue = (_, _) => new EvaluateResult { IsValid = false, Value = "Cannot convert 'abc' to decimal" };
+
+        var r = await svc.SetValueAsync("total", "\"abc\"", CancellationToken.None);
+
+        Assert.False(r.IsValid);
+        Assert.Contains("Cannot convert", r.Value, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Evaluate_with_side_effects_does_not_append_nse()
+    {
+        var (svc, dte, _) = Create();
+
+        await svc.EvaluateAsync("order.Touch()", allowSideEffects: true, CancellationToken.None);
+
+        Assert.Equal("order.Touch()", dte.LastEvaluated);
+    }
+
+    [Fact]
+    public async Task Evaluate_without_side_effects_still_appends_nse()
+    {
+        var (svc, dte, _) = Create();
+
+        await svc.EvaluateAsync("order.Touch()", allowSideEffects: false, CancellationToken.None);
+
+        Assert.Equal("order.Touch(), nse", dte.LastEvaluated);
+    }
+
+    [Fact]
+    public async Task Evaluate_with_side_effects_is_limited_to_500_chars()
+    {
+        var (svc, _, _) = Create();
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.EvaluateAsync(new string('x', 501), allowSideEffects: true, CancellationToken.None));
+        Assert.Equal(BridgeErrorCode.InvalidArgument, ex.Code);
+    }
+
+    [Fact]
+    public async Task Current_function_comes_from_the_top_frame()
+    {
+        var (svc, _, _) = Create();
+        Assert.Equal("Demo.OrderService.Submit(Demo.Order order)", await svc.GetCurrentFunctionAsync(CancellationToken.None));
     }
 }
