@@ -3,6 +3,8 @@
     <TargetFramework>net48</TargetFramework>
     <RootNamespace>VsDebug.Vsix</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Keep in sync with source.extension.vsixmanifest Identity/@Version (MinVer takes over in M4). -->
+    <Version>0.1.0</Version>
     <!-- Lets Microsoft.VSSDK.BuildTools wire the VSIX targets into an SDK-style project. -->
     <VSSDKBuildToolsAutoSetup>true</VSSDKBuildToolsAutoSetup>
     <GeneratePkgDefFile>true</GeneratePkgDefFile>

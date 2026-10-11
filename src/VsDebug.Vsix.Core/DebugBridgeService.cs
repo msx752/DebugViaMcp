@@ -17,6 +17,18 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     public Task<(DebuggerMode Mode, long Seq)> GetModeAsync(CancellationToken ct) => ui.RunAsync(() => (dte.Mode, seq.Current), ct);
 
+    /// <summary>Everything the handshake reports, read in one UI-thread hop (DTE members are UI-thread only).</summary>
+    public Task<HandshakeResponse> GetHandshakeInfoAsync(CancellationToken ct) => ui.RunAsync(() => new HandshakeResponse
+    {
+        ProtocolMajor = ProtocolInfo.Major,
+        ProtocolMinor = ProtocolInfo.Minor,
+        VsVersion = dte.VsVersion,
+        VsixVersion = vsixVersion,
+        SolutionPath = dte.SolutionPath,
+        Mode = dte.Mode,
+        Seq = seq.Current,
+    }, ct);
+
     public Task<StatusInfo> GetStatusAsync(CancellationToken ct) => ui.RunAsync(() => new StatusInfo
     {
         Mode = dte.Mode,

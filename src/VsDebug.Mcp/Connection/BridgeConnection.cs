@@ -82,11 +82,13 @@ public sealed class BridgeConnection : IAsyncDisposable
         {
             rpc.Dispose();
             await stream.DisposeAsync().ConfigureAwait(false);
-            var code = e.ErrorCode == (int)BridgeErrorCode.VersionMismatch ? BridgeErrorCode.VersionMismatch : BridgeErrorCode.Unauthorized;
-            throw new McpBridgeException(code, "Handshake with Visual Studio failed: " + e.Message,
-                code == BridgeErrorCode.VersionMismatch
-                    ? "Update the VsDebug extension and the vsdebug tool to the same release."
-                    : "Restart Visual Studio so it writes a fresh instance file, then retry.", e);
+            var (code, hint) = e.ErrorCode switch
+            {
+                (int)BridgeErrorCode.VersionMismatch => (BridgeErrorCode.VersionMismatch, "Update the VsDebug extension and the vsdebug tool to the same release."),
+                (int)BridgeErrorCode.Unauthorized => (BridgeErrorCode.Unauthorized, "Restart Visual Studio so it writes a fresh instance file, then retry."),
+                _ => (BridgeErrorCode.Internal, e.ErrorData?.ToString() ?? "See the VsDebug output pane in Visual Studio."),
+            };
+            throw new McpBridgeException(code, "Handshake with Visual Studio failed: " + e.Message, hint, e);
         }
 
         if (handshake.ProtocolMajor != ProtocolInfo.Major)

@@ -31,7 +31,23 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             throw Rpc(BridgeErrorCode.VersionMismatch, $"VSIX speaks protocol {ProtocolInfo.Major}.x.", "Update VsDebug.Mcp and the extension to the same release.");
         }
 
-        var (mode, seq) = await service.GetModeAsync(cancellationToken).ConfigureAwait(false);
+        HandshakeResponse response;
+        try
+        {
+            response = await service.GetHandshakeInfoAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (BridgeException e)
+        {
+            throw Rpc(e.Code, e.Message, e.Hint);
+        }
+#pragma warning disable CA1031 // Report as internal, never as an authentication failure.
+        catch (Exception e) when (e is not OperationCanceledException)
+#pragma warning restore CA1031
+        {
+            log.Error("Handshake failed while reading Visual Studio state", e);
+            throw Rpc(BridgeErrorCode.Internal, e.Message, "See the VsDebug output pane in Visual Studio.");
+        }
+
         if (!_authenticated)
         {
             _authenticated = true;
@@ -39,12 +55,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         }
 
         log.Info($"Client '{request.ClientName}' connected");
-        return new HandshakeResponse
-        {
-            ProtocolMajor = ProtocolInfo.Major, ProtocolMinor = ProtocolInfo.Minor,
-            VsVersion = service.VsVersion, VsixVersion = service.VsixVersion, SolutionPath = service.SolutionPath,
-            Mode = mode, Seq = seq,
-        };
+        return response;
     }
 
     public Task<StatusInfo> GetStatusAsync(CancellationToken cancellationToken) => Guard(() => service.GetStatusAsync(cancellationToken));

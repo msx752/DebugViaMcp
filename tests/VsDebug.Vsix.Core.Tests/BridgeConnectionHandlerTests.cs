@@ -10,6 +10,34 @@ public class BridgeConnectionHandlerTests
     private static BridgeConnectionHandler Create(FakeDte? dte = null, Action? onAuthenticated = null) =>
         new(new DebugBridgeService(dte ?? new FakeDte(), new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), "secret", new NullLog(), onAuthenticated);
 
+    /// <summary>Found by the M1 end-to-end run: the handshake read DTE state off the UI thread.</summary>
+    [Fact]
+    public async Task Handshake_reads_vs_state_on_the_ui_thread()
+    {
+        var h = Create(new FakeDte { EnforceUiThread = true });
+
+        var r = await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
+
+        Assert.Equal("18.10", r.VsVersion);
+        Assert.Equal(@"C:\src\Demo\Demo.sln", r.SolutionPath);
+    }
+
+    [Fact]
+    public async Task Every_operation_touches_vs_only_on_the_ui_thread()
+    {
+        var h = Create(new FakeDte { EnforceUiThread = true });
+        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
+
+        await h.GetStatusAsync(CancellationToken.None);
+        await h.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, CancellationToken.None);
+        await h.ListBreakpointsAsync(CancellationToken.None);
+        await h.GetStackAsync(5, CancellationToken.None);
+        await h.GetVariablesAsync(VariableScope.Args, null, 10, CancellationToken.None);
+        await h.EvaluateAsync("x", CancellationToken.None);
+        await h.StepAsync(StepKind.Over, CancellationToken.None);
+        await h.RemoveBreakpointsAsync(null, all: true, CancellationToken.None);
+    }
+
     [Fact]
     public async Task Calls_before_handshake_are_unauthorized()
     {

@@ -82,6 +82,23 @@ public class BridgeConnectionTests
         Assert.DoesNotContain(nameof(FakeDebugBridge.HandshakeAsync), server.Bridge.Calls);
     }
 
+    /// <summary>Found by the M1 end-to-end run: an internal VSIX failure was reported as "unauthorized, restart VS".</summary>
+    [Fact]
+    public async Task Internal_handshake_failure_is_not_reported_as_unauthorized()
+    {
+        await using var server = new PipeTestServer(new FakeDebugBridge
+        {
+            HandshakeFailure = new StreamJsonRpc.LocalRpcException("boom") { ErrorCode = (int)BridgeErrorCode.Internal, ErrorData = "See the VsDebug output pane in Visual Studio." },
+        });
+
+        var ex = await Assert.ThrowsAsync<McpBridgeException>(() =>
+            BridgeConnection.ConnectAsync(server.Record, new SessionState(), NullLogger.Instance, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.Internal, ex.Code);
+        Assert.Contains("boom", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("See the VsDebug output pane in Visual Studio.", ex.Hint);
+    }
+
     [Fact]
     public async Task Missing_pipe_fails_with_not_connected()
     {

@@ -1,3 +1,4 @@
+using StreamJsonRpc;
 using VsDebug.Protocol;
 
 namespace VsDebug.Mcp.Tests.Fakes;
@@ -10,6 +11,7 @@ public sealed class FakeDebugBridge : IDebugBridge
     public DebuggerMode Mode { get; set; } = DebuggerMode.Break;
     public long Seq { get; set; } = 10;
     public List<string> Calls { get; } = [];
+    public Exception? HandshakeFailure { get; set; }
 
     public Func<StepKind, long> OnStep { get; set; } = _ => 10;
     public Func<long> OnContinue { get; set; } = () => 10;
@@ -24,7 +26,9 @@ public sealed class FakeDebugBridge : IDebugBridge
     {
         Calls.Add(nameof(HandshakeAsync));
         if (request.Token != ExpectedToken)
-            throw new InvalidOperationException("bad token");
+            throw new LocalRpcException("Invalid token.") { ErrorCode = (int)BridgeErrorCode.Unauthorized };
+        if (HandshakeFailure is { } failure)
+            throw failure;
         return Task.FromResult(new HandshakeResponse
         {
             ProtocolMajor = ProtocolMajor, ProtocolMinor = 0, VsVersion = "18.10", VsixVersion = "0.1.0",
