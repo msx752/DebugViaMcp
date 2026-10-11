@@ -254,7 +254,11 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         var program = dte.Debugger.CurrentProgram;
         if (program is null) return result;
         foreach (EnvDTE.Thread t in program.Threads)
-            result.Add(new RawThread { Id = t.ID, Name = t.Name ?? "", Location = string.IsNullOrEmpty(t.Location) ? null : t.Location });
+        {
+            // Location fails for threads without managed frames; the thread is still listed.
+            var hasLocation = ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return t.Location; }, out var location);
+            result.Add(new RawThread { Id = t.ID, Name = t.Name ?? "", Location = hasLocation && !string.IsNullOrEmpty(location) ? location : null });
+        }
         return result;
     }
 
@@ -360,7 +364,9 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         foreach (OutputWindowPane pane in dte.ToolWindows.OutputWindow.OutputWindowPanes)
         {
             if (!Guid.TryParse(pane.Guid, out var id)) continue;
-            result.Add(new RawOutputPane { Id = id, Name = pane.Name, Lines = LineCount(pane.TextDocument) });
+            // TextDocument fails for a pane Visual Studio has not created text for yet: list it, size unknown.
+            var known = ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return LineCount(pane.TextDocument); }, out var lines);
+            result.Add(new RawOutputPane { Id = id, Name = pane.Name, Lines = known ? lines : null });
         }
 
         return result;

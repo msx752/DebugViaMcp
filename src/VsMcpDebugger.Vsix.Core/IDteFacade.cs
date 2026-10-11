@@ -57,8 +57,8 @@ public sealed class RawOutputPane
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
 
-    /// <summary>Number of lines, not counting the empty line after a trailing newline.</summary>
-    public int Lines { get; set; }
+    /// <summary>Number of lines, not counting the empty line after a trailing newline. Null when Visual Studio has no text document for the pane yet.</summary>
+    public int? Lines { get; set; }
 }
 
 public sealed class RawErrorItem

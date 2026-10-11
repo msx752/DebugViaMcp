@@ -332,7 +332,10 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public Task<OutputPage> ReadOutputAsync(string pane, int tail, int offset, CancellationToken ct) => ui.RunAsync(() =>
     {
         var target = ResolvePane(pane);
-        return OutputPaging.Page(target.Name, target.Lines, tail, offset, (first, count) => dte.OutputLines(target.Id, first, count));
+        if (target.Lines is not { } total)
+            throw new BridgeException(BridgeErrorCode.Busy, $"The text of the '{target.Name}' pane is not available yet.",
+                "Show it once in Visual Studio's Output window (View → Output), then retry.");
+        return OutputPaging.Page(target.Name, total, tail, offset, (first, count) => dte.OutputLines(target.Id, first, count));
     }, ct);
 
     public Task<ErrorListPage> GetErrorListAsync(ErrorSeverity[] severities, int offset, int max, CancellationToken ct) =>

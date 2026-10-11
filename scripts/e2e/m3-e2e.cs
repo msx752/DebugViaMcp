@@ -9,7 +9,13 @@ using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
-var server = args.Length > 0 ? args[0] : Path.GetFullPath("src/VsMcpDebugger.Mcp/bin/Debug/net10.0/VsMcpDebugger.Mcp.dll");
+var built = args.Length > 0 ? args[0] : Path.GetFullPath("src/VsMcpDebugger.Mcp/bin/Debug/net10.0/VsMcpDebugger.Mcp.dll");
+
+// Run a private copy: vs_build may build this very project, and a running server locks its own output files.
+var copy = Path.Combine(Path.GetTempPath(), "vsmcpdebugger-e2e-" + Environment.ProcessId);
+Directory.CreateDirectory(copy);
+foreach (var f in Directory.GetFiles(Path.GetDirectoryName(built)!)) File.Copy(f, Path.Combine(copy, Path.GetFileName(f)), overwrite: true);
+var server = Path.Combine(copy, Path.GetFileName(built));
 var clicker = Path.GetFullPath("scripts/e2e/click-infobar.ps1");
 var faultDemo = Path.GetFullPath("samples/FaultDemo/bin/Debug/net10.0/FaultDemo.exe");
 await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
@@ -43,6 +49,8 @@ Process StartFaultDemo(string arguments) =>
 using (var b = Process.Start(new ProcessStartInfo("dotnet", "build samples/FaultDemo -v q") { UseShellExecute = false })!) await b.WaitForExitAsync();
 
 // IDE state
+await Call("vs_instances");
+await Call("debug_status");
 await Call("vs_build");
 await Call("errors_list", new() { ["severity"] = "error,warning,message" });
 await Call("output_read");                                                                   // pane list: no VsMcpDebugger panes

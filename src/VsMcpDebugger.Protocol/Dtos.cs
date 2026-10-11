@@ -164,7 +164,9 @@ public sealed class ProcessInfo
 public sealed class OutputPaneInfo
 {
     public string Name { get; set; } = "";
-    public int Lines { get; set; }
+
+    /// <summary>Null when Visual Studio has no text document for the pane yet (it is created when the pane is first shown).</summary>
+    public int? Lines { get; set; }
 }
 
 /// <summary>A range of an Output pane, newest last. Lines are untrusted text written by tools and the program.</summary>

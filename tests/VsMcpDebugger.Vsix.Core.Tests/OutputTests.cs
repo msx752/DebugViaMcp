@@ -83,6 +83,33 @@ public class OutputTests
         Assert.Equal(["Build"], (await Service(new FakeDte()).ListOutputPanesAsync(CancellationToken.None)).Select(p => p.Name));
     }
 
+    /// <summary>E2E: a pane whose text document Visual Studio cannot give yet made the whole pane list fail.</summary>
+    [Fact]
+    public async Task Pane_without_a_readable_text_document_is_listed_with_unknown_size()
+    {
+        var dte = new FakeDte();
+        dte.Panes.Add(new RawOutputPane { Id = Guid.NewGuid(), Name = "Package Manager", Lines = null });
+
+        var panes = await Service(dte).ListOutputPanesAsync(CancellationToken.None);
+
+        Assert.Equal(["Build", "Package Manager"], panes.Select(p => p.Name));
+        Assert.Null(panes.Single(p => p.Name == "Package Manager").Lines);
+        Assert.Equal(3, panes.Single(p => p.Name == "Build").Lines);
+    }
+
+    [Fact]
+    public async Task Reading_a_pane_whose_text_is_unavailable_says_so_and_how_to_fix_it()
+    {
+        var dte = new FakeDte();
+        dte.Panes.Add(new RawOutputPane { Id = Guid.NewGuid(), Name = "Package Manager", Lines = null });
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => Service(dte).ReadOutputAsync("Package Manager", 10, 0, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.Busy, ex.Code);
+        Assert.Contains("Output window", ex.Hint, StringComparison.Ordinal);
+        Assert.Empty(dte.OutputReads);
+    }
+
     [Fact]
     public async Task Unknown_pane_is_not_found_with_the_pane_names()
     {
