@@ -94,6 +94,9 @@ To keep that adapter free of changes to Protocol or Mcp:
   | Windows | `%LOCALAPPDATA%\VsDebug` |
   | macOS | `~/Library/Application Support/VsDebug` |
   | Linux | `$XDG_DATA_HOME/VsDebug` or `~/.local/share/VsDebug` |
+  On Windows the local-app-data directory is taken from the user's real profile
+  (`GetUserProfileDirectory` on the process token), not from `USERPROFILE`/`LOCALAPPDATA`, so a
+  normally started Visual Studio and an MCP host launched from a customized shell agree.
   `VSDEBUG_HOME` overrides it (tests, portable setups).
 - **Transport per OS:** Windows named pipe with a user-only ACL. On macOS/Linux the instance file's
   `pipeName` is an absolute Unix-domain-socket path inside the VsDebug home; the directory is

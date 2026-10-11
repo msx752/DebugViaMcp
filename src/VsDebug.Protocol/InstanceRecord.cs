@@ -25,7 +25,7 @@ public static class DiscoveryPaths
         Environment.GetEnvironmentVariable,
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
         RuntimeInformation.IsOSPlatform(OSPlatform.OSX),
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        WindowsProfile.LocalAppData() ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
     public static string InstancesDirectory { get; } = Path.Combine(Root, "instances");
