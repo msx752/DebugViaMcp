@@ -3,8 +3,6 @@
     <TargetFramework>net48</TargetFramework>
     <RootNamespace>VsMcpDebugger.Vsix</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
-    <!-- Keep in sync with source.extension.vsixmanifest Identity/@Version (MinVer takes over in M4). -->
-    <Version>0.1.0</Version>
     <!-- Lets Microsoft.VSSDK.BuildTools wire the VSIX targets into an SDK-style project. -->
     <VSSDKBuildToolsAutoSetup>true</VSSDKBuildToolsAutoSetup>
     <GeneratePkgDefFile>true</GeneratePkgDefFile>
@@ -41,6 +39,9 @@
     <None Include="source.extension.vsixmanifest" SubType="Designer" />
     <VSCTCompile Include="VsMcpDebuggerPackage.vsct" ResourceName="Menus.ctmenu" />
     <Content Include="..\..\LICENSE" Link="LICENSE" IncludeInVSIX="true" />
+    <Content Include="..\..\CHANGELOG.md" Link="CHANGELOG.md" IncludeInVSIX="true" />
+    <Content Include="Resources\icon.png" IncludeInVSIX="true" />
+    <Content Include="Resources\preview.png" IncludeInVSIX="true" />
   </ItemGroup>
   <ItemGroup>
     <!-- Visual Studio ships these; bundling our own copies would risk version conflicts in devenv.exe. -->

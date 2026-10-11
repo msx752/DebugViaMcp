@@ -18,6 +18,19 @@ breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 - Logs: `%LOCALAPPDATA%\VsMcpDebugger\logs` and the **VsMcpDebugger** Output pane in Visual Studio; every call has a
   `callId` that appears in both the MCP server and Visual Studio logs
 
+## Install (local build)
+
+1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/VsMcpDebugger.vsix` and
+   `artifacts/VsMcpDebugger.<version>.nupkg` (nothing is published).
+2. Install the extension: double-click `artifacts/VsMcpDebugger.vsix` (Visual Studio 2022 17.14+ or 2026).
+3. Install the MCP server and register it with Claude Code:
+
+       dotnet tool install -g VsMcpDebugger --add-source artifacts
+       claude mcp add vsmcpdebugger -- vsmcpdebugger serve
+
+Once published, steps 1–2 become "install VsMcpDebugger from the Visual Studio Marketplace" and step 3 drops
+`--add-source`. Release notes: [CHANGELOG.md](CHANGELOG.md).
+
 ## Build from source
 
     powershell -File build.ps1

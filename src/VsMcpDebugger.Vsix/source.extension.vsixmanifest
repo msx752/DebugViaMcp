@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="VsMcpDebugger.Vsix.6f1d2c3a-9b5e-4c7a-8e21-3f4b5a6c7d8e" Version="0.1.0" Language="en-US" Publisher="VsMcpDebugger contributors" />
+    <Identity Id="VsMcpDebugger.Vsix.6f1d2c3a-9b5e-4c7a-8e21-3f4b5a6c7d8e" Version="0.2.0" Language="en-US" Publisher="msx752" />
     <DisplayName>VsMcpDebugger</DisplayName>
-    <Description xml:space="preserve">Lets AI coding agents drive the Visual Studio debugger over MCP: breakpoints, stepping, call stacks, variables and evaluation.</Description>
+    <Description xml:space="preserve">Lets AI coding agents such as Claude Code drive the Visual Studio debugger over MCP: breakpoints, stepping, call stacks, variables and evaluation — with a consent prompt before anything changes your program.</Description>
+    <MoreInfo>https://github.com/msx752/VsMcpDebugger</MoreInfo>
     <License>LICENSE</License>
-    <Tags>debugger;mcp;ai;claude</Tags>
+    <GettingStartedGuide>https://github.com/msx752/VsMcpDebugger#readme</GettingStartedGuide>
+    <ReleaseNotes>CHANGELOG.md</ReleaseNotes>
+    <Icon>Resources\icon.png</Icon>
+    <PreviewImage>Resources\preview.png</PreviewImage>
+    <Tags>debugger;debugging;mcp;model context protocol;ai;agent;claude;claude code;breakpoints</Tags>
+    <Preview>true</Preview>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.14,19.0)">
