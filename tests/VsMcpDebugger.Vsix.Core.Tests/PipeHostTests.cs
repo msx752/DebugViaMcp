@@ -129,4 +129,25 @@ public class PipeHostTests
             return Task.CompletedTask;
         }
     }
+
+    /// <summary>Security review: a client that never reads must not keep a revoked connection open.</summary>
+    [Fact]
+    public async Task Revoked_connection_closes_even_if_the_notification_never_completes()
+    {
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await PipeHost.NotifyThenCloseAsync(() => new TaskCompletionSource().Task, () => closed.TrySetResult(), TimeSpan.FromMilliseconds(100));
+
+        Assert.True(closed.Task.IsCompleted);
+    }
+
+    [Fact]
+    public async Task Revoked_connection_closes_even_if_the_notification_fails()
+    {
+        var closed = false;
+
+        await PipeHost.NotifyThenCloseAsync(() => Task.FromException(new IOException("pipe broken")), () => closed = true, TimeSpan.FromSeconds(1));
+
+        Assert.True(closed);
+    }
 }

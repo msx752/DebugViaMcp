@@ -149,11 +149,15 @@ public class ConsentGateTests
     {
         public TaskCompletionSource<ConsentChoice> Answer { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Shown { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Completes when the gate cancels the question (timeout, caller, revoke).</summary>
+        public TaskCompletionSource Cancelled { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int Count { get; private set; }
 
         public Task<ConsentChoice> AskAsync(string text, TimeSpan timeout, CancellationToken ct)
         {
             Count++;
+            ct.Register(() => Cancelled.TrySetResult());
             Shown.TrySetResult();
             return Answer.Task;
         }
@@ -162,6 +166,7 @@ public class ConsentGateTests
         {
             Answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
             Shown = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Cancelled = new(TaskCreationOptions.RunContinuationsAsynchronously);
             if (next is { } n) Answer.SetResult(n);
         }
     }
@@ -177,6 +182,7 @@ public class ConsentGateTests
         var pending = gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None);
         await late.Shown.Task;
         session.Revoke();
+        await late.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
         late.Answer.SetResult(ConsentChoice.AllowSession);
 
         Assert.Equal(ConsentOutcome.Disconnected, await pending);
@@ -196,6 +202,7 @@ public class ConsentGateTests
         var pending = gate.RequestAsync(session, Operation.SetValue, "t", CancellationToken.None);
         await late.Shown.Task;
         _delay.Elapse(0);
+        await late.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
         late.Answer.SetResult(ConsentChoice.AllowOnce);
 
         Assert.Equal(ConsentOutcome.TimedOut, await pending);

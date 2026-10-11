@@ -58,15 +58,28 @@ public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<C
         }
     }
 
-    private static async Task RevokeAndCloseAsync(JsonRpc rpc)
+    /// <summary>How long a revoked client gets to receive the notification before the pipe is closed anyway.</summary>
+    internal static readonly TimeSpan RevokeGrace = TimeSpan.FromSeconds(1);
+
+    private static Task RevokeAndCloseAsync(JsonRpc rpc) =>
+        NotifyThenCloseAsync(() => rpc.NotifyAsync(nameof(IDebugBridgeEvents.OnAccessRevokedAsync)), rpc.Dispose, RevokeGrace);
+
+    /// <summary>Fail closed: the connection is closed after <paramref name="grace"/> even if the notification hangs or fails.</summary>
+    internal static async Task NotifyThenCloseAsync(Func<Task> notify, Action close, TimeSpan grace)
     {
         try
         {
-            await rpc.NotifyAsync(nameof(IDebugBridgeEvents.OnAccessRevokedAsync)).ConfigureAwait(false);
+            var sending = notify();
+            await Task.WhenAny(sending, Task.Delay(grace)).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // Whatever happened to the notification, the connection must close.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
         }
         finally
         {
-            rpc.Dispose();
+            close();
         }
     }
 

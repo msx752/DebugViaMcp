@@ -410,4 +410,32 @@ public class BridgeConnectionHandlerTests
         Assert.Equal((int)BridgeErrorCode.Denied, ex.ErrorCode);
         Assert.Equal(DeniedReasons.Policy, ((BridgeErrorData)ex.ErrorData!).Reason);
     }
+
+    /// <summary>Security review: once the user chose Disconnect AI, nothing on that connection may run, even before the pipe closes.</summary>
+    [Fact]
+    public async Task Calls_after_disconnect_ai_are_refused_even_before_the_pipe_closes()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        s.Security.DisconnectAi();
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.StepAsync(StepKind.Over, SecurityHarness.Ctx(), CancellationToken.None));
+        Assert.Equal((int)BridgeErrorCode.AiDisabled, ex.ErrorCode);
+        Assert.DoesNotContain("Step:Over", s.Dte.Calls);
+    }
+
+    [Fact]
+    public async Task Reconnect_ai_does_not_revive_a_revoked_connection()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        s.Security.DisconnectAi();
+        s.Security.ReconnectAi();
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.StepAsync(StepKind.Over, SecurityHarness.Ctx(), CancellationToken.None));
+        Assert.Equal((int)BridgeErrorCode.AiDisabled, ex.ErrorCode);
+        Assert.DoesNotContain("Step:Over", s.Dte.Calls);
+    }
 }

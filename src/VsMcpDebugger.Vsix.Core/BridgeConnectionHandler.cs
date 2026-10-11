@@ -19,6 +19,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 {
     private readonly ConsentSession _consent = security.Consent.CreateSession();
     private volatile bool _authenticated;
+    private volatile bool _revoked;
     private IDisposable? _registration;
     private string _client = "";
     private int _disposed;
@@ -156,6 +157,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     private async Task<T> Guard<T>(Operation operation, CallContext? context, Func<Task<T>> call, Request? request, Func<Task<string>>? prepare, CancellationToken ct)
     {
         if (!_authenticated) throw Rpc(BridgeErrorCode.Unauthorized, "Handshake required.", null);
+        ThrowIfRevoked();
         request ??= Request.Empty;
         var callId = context?.CallId ?? "";
         var tier = PermissionPolicy.TierOf(operation);
@@ -195,6 +197,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                     break;
             }
 
+            ThrowIfRevoked();
             var result = await call().ConfigureAwait(false);
             Audit("ok");
             return result;
@@ -217,6 +220,13 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             Audit("internal");
             throw Rpc(BridgeErrorCode.Internal, e.Message, "See the VsMcpDebugger output pane in Visual Studio.");
         }
+    }
+
+    /// <summary>Fail closed between Disconnect AI and the pipe actually closing; a revoked connection never comes back.</summary>
+    private void ThrowIfRevoked()
+    {
+        if (_revoked || !security.Access.Enabled)
+            throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Tools → VsMcpDebugger → Reconnect AI, then reconnect.");
     }
 
     private void ThrowIfDenied(ConsentOutcome outcome)
@@ -271,6 +281,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     /// <summary>Disconnect AI: pending consent ends as denied:disconnected, then the client is told and the pipe closes.</summary>
     private void Revoke()
     {
+        _revoked = true;
         _consent.Revoke();
         if (hooks is null) return;
         _ = hooks.RevokeAndClose().ContinueWith(
