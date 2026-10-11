@@ -102,6 +102,21 @@ public class AttachTests
         Assert.Empty(s.Prompt.Texts);
     }
 
+    /// <summary>Final review #5: the pid of the approved process was reused by another of the user's processes.</summary>
+    [Fact]
+    public async Task Attach_refuses_when_the_pid_now_names_another_process()
+    {
+        var dte = new FakeDte { Mode = DebuggerMode.Design };
+        var svc = new DebugBridgeService(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0");
+        var approved = await svc.DescribeAttachTargetAsync(400, CancellationToken.None);
+        dte.Processes.Single(p => p.Pid == 400).Name = "Notepad";      // the approved process exited; the pid was reused
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.AttachAsync(400, approved, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.NotFound, ex.Code);
+        Assert.DoesNotContain("Attach:400", dte.Calls);
+    }
+
     /// <summary>Review (architect): Visual Studio can attach and then throw; stop must still detach, never kill the user's process.</summary>
     [Fact]
     public async Task Stop_detaches_even_when_the_attach_call_failed_after_attaching()

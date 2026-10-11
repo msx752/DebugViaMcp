@@ -70,6 +70,59 @@ public class RunToTests
         Assert.Single(await svc.ListBreakpointsAsync(CancellationToken.None));
     }
 
+    /// <summary>Final review #1: a cancel or dropped connection during the bind wait must not leave a breakpoint in the solution.</summary>
+    [Fact]
+    public async Task Cancel_during_the_bind_wait_removes_the_owned_breakpoint()
+    {
+        var (svc, dte) = Create();
+        dte.BoundCountFor = _ => 0;
+        using var cts = new CancellationTokenSource();
+
+        var run = svc.RunToAsync("OrderService.cs", 12, Owner, cts.Token);
+        await Task.Delay(100);
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Empty(dte.Bps);
+        Assert.DoesNotContain("Go", dte.Calls);
+    }
+
+    [Fact]
+    public async Task Connection_closing_during_the_bind_wait_removes_the_owned_breakpoint()
+    {
+        var (svc, dte) = Create();
+        dte.BoundCountFor = _ => 0;
+
+        var run = svc.RunToAsync("OrderService.cs", 12, Owner, CancellationToken.None);
+        await Task.Delay(100);
+        await svc.ReleaseRunToAsync(Owner);                  // what Dispose does when the pipe closes
+        await run;
+
+        Assert.Empty(dte.Bps);
+        Assert.DoesNotContain("Go", dte.Calls);
+    }
+
+    /// <summary>Final review #2: reaching the target while still binding is the run-to; it must not be resumed past.</summary>
+    [Fact]
+    public async Task Run_mode_hit_during_the_bind_wait_is_the_run_to_and_does_not_resume()
+    {
+        var (svc, dte) = Create(DebuggerMode.Run);
+        dte.BoundCountFor = _ => 0;
+
+        var run = svc.RunToAsync("OrderService.cs", 12, Owner, CancellationToken.None);
+        await Task.Delay(100);
+        dte.Bps[^1].BoundCount = 1;
+        HitLast(dte);
+        dte.Mode = DebuggerMode.Break;
+        var snapshot = svc.OnEnterBreak(BreakReason.Breakpoint);
+        var r = await run;
+
+        Assert.Equal(BreakReason.RunTo, snapshot.Reason);
+        Assert.Null(r.BindError);
+        Assert.DoesNotContain("Go", dte.Calls);
+        Assert.Empty(dte.Bps);
+    }
+
     /// <summary>E2E: Visual Studio binds a new breakpoint asynchronously, after AddBreakpoint has returned.</summary>
     [Fact]
     public async Task Breakpoint_that_binds_shortly_after_being_added_is_used()

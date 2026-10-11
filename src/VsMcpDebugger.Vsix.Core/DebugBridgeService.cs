@@ -57,7 +57,9 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     public async Task<RunToResult> RunToAsync(string file, int line, object owner, CancellationToken ct)
     {
-        var (id, owned, spec) = await ui.RunAsync(() =>
+        // Hop 1 registers the run-to (and its breakpoint, if we created it) at once, so that a cancel, a closing
+        // connection or a break while Visual Studio is still binding is always cleaned up or recognised.
+        var (id, owned, observed, spec) = await ui.RunAsync(() =>
         {
             if (dte.Mode == DebuggerMode.Design)
                 throw new BridgeException(BridgeErrorCode.WrongMode, "Requires Break or Run mode; current: Design.", "Start debugging with debug_start.");
@@ -69,31 +71,43 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             ReleaseRunTo(null);
 
             var isNew = dte.Breakpoints().All(b => IdOf(b) != key);
+            var before = seq.Current;
             if (isNew) dte.AddBreakpoint(s);
-            return (key, isNew, s);
+            _runTo.Arm(key, isNew, owner);
+            return (key, isNew, before, s);
         }, ct).ConfigureAwait(false);
 
-        // Visual Studio binds a new breakpoint a moment after adding it.
-        if (owned) await WaitForBindingAsync(id, ct).ConfigureAwait(false);
-
-        return await ui.RunAsync(() =>
+        try
         {
-            if (dte.Mode == DebuggerMode.Design)
-                throw new BridgeException(BridgeErrorCode.WrongMode, "The debugging session ended before the breakpoint was ready.", "Start debugging with debug_start.");
-            var bp = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id)
-                ?? throw new BridgeException(BridgeErrorCode.Internal, "Visual Studio did not create the breakpoint.");
-            if (bp.BoundCount == 0)
-            {
-                if (owned) dte.RemoveBreakpoints(b => IdOf(b) == id);
-                return new RunToResult { BindError = "No executable code at this location, or symbols are not loaded." };
-            }
+            // Visual Studio binds a new breakpoint a moment after adding it.
+            if (owned) await WaitForBindingAsync(id, ct).ConfigureAwait(false);
 
-            _runTo.Arm(id, owned, owner);
-            var observed = seq.Current;
-            if (dte.Mode == DebuggerMode.Break) dte.Go();
-            log.Info($"Run to {PathUtil.ToRelative(SolutionDir, spec.File!)}:{line}");
-            return new RunToResult { Seq = observed };
-        }, ct).ConfigureAwait(false);
+            return await ui.RunAsync(() =>
+            {
+                // Disarmed meanwhile: a break already used it up (reported as runTo, the waiting side sees it through
+                // 'observed'), or the connection closed. Either way nothing more to do, and never resume past it.
+                if (_runTo.TargetId != id) return new RunToResult { Seq = observed };
+
+                if (dte.Mode == DebuggerMode.Design)
+                    throw new BridgeException(BridgeErrorCode.WrongMode, "The debugging session ended before the breakpoint was ready.", "Start debugging with debug_start.");
+                var bp = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id)
+                    ?? throw new BridgeException(BridgeErrorCode.Internal, "Visual Studio did not create the breakpoint.");
+                if (bp.BoundCount == 0)
+                {
+                    ReleaseRunTo(owner);
+                    return new RunToResult { BindError = "No executable code at this location, or symbols are not loaded." };
+                }
+
+                if (dte.Mode == DebuggerMode.Break) dte.Go();
+                log.Info($"Run to {PathUtil.ToRelative(SolutionDir, spec.File!)}:{line}");
+                return new RunToResult { Seq = observed };
+            }, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            await ReleaseRunToAsync(owner).ConfigureAwait(false);   // cancelled, timed out or failed: leave nothing behind
+            throw;
+        }
     }
 
     /// <summary>How long a new breakpoint may take to bind while debugging.</summary>
@@ -237,9 +251,14 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     /// <summary>The process name for the consent question; validates mode and target first, so a doomed request never asks.</summary>
     public Task<string> DescribeAttachTargetAsync(int pid, CancellationToken ct) => ui.RunAsync(() => RequireAttachable(pid).Name, ct);
 
-    public Task<long> AttachAsync(int pid, CancellationToken ct) => ui.RunAsync(() =>
+    public Task<long> AttachAsync(int pid, CancellationToken ct) => AttachAsync(pid, expectedName: null, ct);
+
+    /// <param name="expectedName">The process name the user approved; a reused pid that now names another process is refused.</param>
+    public Task<long> AttachAsync(int pid, string? expectedName, CancellationToken ct) => ui.RunAsync(() =>
     {
         var target = RequireAttachable(pid);
+        if (expectedName is not null && !string.Equals(target.Name, expectedName, StringComparison.Ordinal))
+            throw new BridgeException(BridgeErrorCode.NotFound, $"Process {pid} is no longer '{expectedName}'.", "Call debug_attach again.");
         var observed = seq.Current;
         // Set first: if Visual Studio attaches and then throws, debug_stop must still detach, never kill the process.
         _attached = true;
