@@ -12,6 +12,8 @@ using Microsoft.VisualStudio.Shell.Interop;
 using VsMcpDebugger.Protocol;
 using VsMcpDebugger.Vsix.Core;
 using VsMcpDebugger.Vsix.Logging;
+using VsMcpDebugger.Vsix.Options;
+using VsMcpDebugger.Vsix.Ui;
 using Task = System.Threading.Tasks.Task;
 
 namespace VsMcpDebugger.Vsix;
@@ -20,6 +22,7 @@ namespace VsMcpDebugger.Vsix;
 [Guid(PackageGuid)]
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideAutoLoad(UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
+[ProvideOptionPage(typeof(GeneralOptionsPage), "VsMcpDebugger", "General", 0, 0, true)]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Fields are released in Dispose(bool), which VS invokes through Package.Close.")]
 public sealed class VsMcpDebuggerPackage : AsyncPackage
 {
@@ -31,6 +34,9 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
     private DebuggerEventPump? _pump;
     private SolutionEvents? _solutionEvents;
 
+    internal BridgeSecurity? Security { get; private set; }
+    internal ActivityPane? Activity { get; private set; }
+
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
         await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -41,9 +47,16 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
         outputWindow.CreatePane(ref paneGuid, "VsMcpDebugger", 1, 1);
         outputWindow.GetPane(ref paneGuid, out var pane);
 
+        var page = (GeneralOptionsPage)GetDialogPage(typeof(GeneralOptionsPage));
+        var activityGuid = ActivityPane.PaneGuid;
+        outputWindow.CreatePane(ref activityGuid, "VsMcpDebugger Activity", 1, 1);
+        outputWindow.GetPane(ref activityGuid, out var activityPane);
+        Activity = new ActivityPane(activityPane, () => { ThreadHelper.ThrowIfNotOnUIThread(); dte.ExecuteCommand("View.Output"); });
+
         int pid;
         using (var self = System.Diagnostics.Process.GetCurrentProcess()) pid = self.Id;
-        var log = new CompositeLog(new OutputPaneLog(pane), new FileLog(DiscoveryPaths.LogsDirectory, pid));
+        var log = new LevelFilterLog(new CompositeLog(new OutputPaneLog(pane), new FileLog(DiscoveryPaths.LogsDirectory, pid)), () => page.LogLevel);
+        LogRetention.Prune(DiscoveryPaths.LogsDirectory, "vsix-", page.LogRetentionDays, DateTimeOffset.UtcNow);
         var vsixVersion = typeof(VsMcpDebuggerPackage).Assembly.GetName().Version.ToString(3);
 
         try
@@ -55,9 +68,13 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
 
             var token = DiscoveryWriter.NewToken();
             var pipeName = DiscoveryWriter.NewPipeName();
-            var settings = new DefaultBridgeSettings();
-            var security = new BridgeSecurity(settings, new ConsentGate(new DenyAllPrompt(), () => settings.ConsentTimeout),
-                new AuditLog(DiscoveryPaths.LogsDirectory, () => 7, new NullActivitySink(), log), new AiAccessSwitch(enabled: true));
+            var settings = new OptionsBridgeSettings(page);
+            var access = new AiAccessSwitch(page.AcceptConnectionsOnStartup);
+            var consent = new ConsentGate(new InfoBarConsentPrompt(this, JoinableTaskFactory), () => settings.ConsentTimeout);
+            var audit = new AuditLog(DiscoveryPaths.LogsDirectory, () => page.LogRetentionDays, Activity, log);
+            var security = new BridgeSecurity(settings, consent, audit, access);
+            Security = security;
+            page.Applied += (_, summary) => security.SettingsChanged(summary);
             _host = new PipeHost(pipeName, new SecurePipeFactory(), hooks => new BridgeConnectionHandler(service, token, security, log, hooks), broadcaster, log);
             _host.Start();
 
@@ -104,24 +121,3 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
     }
 }
 
-/// <summary>Temporary until the Options page exists: spec defaults.</summary>
-internal sealed class DefaultBridgeSettings : IBridgeSettings
-{
-    public PermissionSet Permissions { get; } = new();
-    public TimeSpan ConsentTimeout => TimeSpan.FromSeconds(60);
-    public LogVerbosity LogLevel => LogVerbosity.Information;
-}
-
-/// <summary>Temporary until the info bar exists: every consent question is answered Deny (fail closed).</summary>
-internal sealed class DenyAllPrompt : IConsentPrompt
-{
-    public System.Threading.Tasks.Task<ConsentChoice> AskAsync(string text, TimeSpan timeout, CancellationToken ct) =>
-        System.Threading.Tasks.Task.FromResult(ConsentChoice.Deny);
-}
-
-internal sealed class NullActivitySink : IActivitySink
-{
-    public void Write(string line)
-    {
-    }
-}
