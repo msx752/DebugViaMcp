@@ -19,8 +19,11 @@ public static class ExpressionPolicy
     // Comments or statement/line breaks would swallow an appended ', nse' or smuggle a second statement.
     private static readonly Regex Neutralizers = new(@"//|/\*|\*/|[\r\n;]", RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
-    // Invocation "name(" / "x)(" / "a[0](", assignment "=" (incl. += etc., excluding ==, !=, <=, >=, =>), ++ and --.
-    private static readonly Regex SideEffects = new(@"[\w\]\)]\s*\(|(?<![=!<>])=(?![=>])|\+\+|--", RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+    // Invocation "name(" / "x)(" / "a[0](" / generic "M<T>(" (also rejects "a > (b)": drop the parentheses),
+    // shift-assignments "<<=" ">>=" ">>>=", any other assignment "=" (incl. += ??= etc., excluding ==, !=, <=, >=, =>), ++ and --.
+    // Property getters and indexers can still run arbitrary code; that residual risk is documented (spec §6) and
+    // closed by the M2 consent gate, not by this filter.
+    private static readonly Regex SideEffects = new(@"[\w\]\)>]\s*\(|(<<|>>>?)=|(?<![=!<>])=(?![=>])|\+\+|--", RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
     public static string PrepareSideEffectFree(string expression)
     {

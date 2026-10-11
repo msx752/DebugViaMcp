@@ -33,6 +33,19 @@ public class PathUtilTests
         }
     }
 
+    [Theory]
+    [InlineData(@"C:\repo\src\A.cs", true)]
+    [InlineData(@"C:\REPO\src\A.cs", true)]
+    [InlineData(@"C:\repo-other\A.cs", false)]
+    [InlineData(@"C:\repo\src\A.cs:hidden", false)]
+    [InlineData(@"C:\repo\src\A.cs::$DATA", false)]
+    [InlineData(@"\\?\C:\repo\src\A.cs", false)]
+    [InlineData(@"\\.\C:\repo\src\A.cs", false)]
+    [InlineData(@"\\server\share\repo\A.cs", false)]
+    [InlineData(@"C:\repo\src\*.cs", false)]
+    public void IsUnder_accepts_only_plain_paths_inside_the_directory(string path, bool expected)
+        => Assert.Equal(expected, PathUtil.IsUnder(@"C:\repo", path));
+
     [Fact]
     public void Source_context_of_missing_file_is_empty()
         => Assert.Empty(PathUtil.SourceContext(@"C:\does\not\exist.cs", 3));

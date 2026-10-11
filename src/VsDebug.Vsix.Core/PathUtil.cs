@@ -26,10 +26,16 @@ public static class PathUtil
         return Path.GetFullPath(Path.Combine(solutionDir!, native));
     }
 
-    /// <summary>True when <paramref name="absolutePath"/> (already normalized) lies inside <paramref name="directory"/>.</summary>
+    /// <summary>
+    /// True when <paramref name="absolutePath"/> (already normalized) is a plain drive path inside
+    /// <paramref name="directory"/>. Device (\\?\, \\.\) and UNC prefixes, alternate data streams
+    /// ("file.cs:stream") and wildcards are rejected so the prefix comparison cannot be sidestepped.
+    /// </summary>
     public static bool IsUnder(string? directory, string absolutePath)
     {
         if (string.IsNullOrEmpty(directory) || absolutePath is null) return false;
+        if (absolutePath.StartsWith(@"\\", StringComparison.Ordinal)) return false;
+        if (absolutePath.IndexOf(':', 2) >= 0 || absolutePath.IndexOfAny(['*', '?']) >= 0) return false;
         var root = Path.GetFullPath(directory!).TrimEnd('\\', '/') + "\\";
         return absolutePath.StartsWith(root, StringComparison.OrdinalIgnoreCase);
     }

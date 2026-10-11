@@ -34,6 +34,12 @@ public class ExpressionPolicyTests
     [InlineData("i++ > 3")]
     [InlineData("--i == 0")]
     [InlineData("x // comment")]
+    [InlineData("order.Get<int>() > 0")]
+    [InlineData("order .Touch () > 0")]
+    [InlineData("x <<= 1")]
+    [InlineData("x >>= 1")]
+    [InlineData("x >>>= 1")]
+    [InlineData("x ??= y")]
     public void Rejects_possible_side_effects_in_conditions(string expression)
         => Assert.Equal(BridgeErrorCode.InvalidArgument,
             Assert.Throws<BridgeException>(() => ExpressionPolicy.RequireNoSideEffects(expression)).Code);
