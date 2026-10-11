@@ -377,9 +377,10 @@ Results are file/line lists the agent can act on; `vs_open` also shows the locat
 **IDE state the CLI cannot see (tier `read`)**: Error List / build diagnostics, Test Explorer results, active
 document and selection.
 
-**Project and repository operations (tier `control`, consent-gated where they change files)**: Git history for a
-file (incl. blame), csproj edits through the project system, NuGet add/update through Visual Studio's NuGet
-services (conflict resolution, project reload).
+**Source history (tier `read`)**: Git history of a file and blame for a line range, as Visual Studio shows them.
+
+**Out of scope**: tools that change code or project files (csproj edits, NuGet add/update, code fixes). The agent
+already edits files itself; VsDebug stays a read/inspect/debug surface.
 
 ## 14. Open risks
 

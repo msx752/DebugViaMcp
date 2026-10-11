@@ -19,7 +19,7 @@
 | M3 Full tool set & tooling | `debug_attach`, `debug_run_to`, `threads`, `frame_select` + break epochs/`stale`, `exception`, `bp_enable`, `diag`, `debug_start(project)`, `vsdebug doctor`, `vsdebug setup claude`, optional `instance` (pid or solution) parameter on every tool with per-instance connections/sessions so one MCP server can drive several VS instances at once | §3 rest, §4.2, §5 doctor |
 | M4 Release readiness | Automated E2E (VS experimental instance), generated `docs/tools.md`, all docs + ADRs, CI workflows (local only; Mcp tests on Windows + macOS), packaging, MinVer | §9, §10, §11, §12 |
 | M5 VS Code adapter | TypeScript extension implementing `IDebugBridge` over `vscode.debug` (macOS, Linux, Windows); separate spec | §2.4 |
-| Phase 2 | Code navigation (open file, definition, references, implementations, call hierarchy via Roslyn), IDE state (Error List, Test Explorer, selection), git history / csproj / NuGet via VS services; separate specs | §13 |
+| Phase 2 | Code navigation (open file, definition, references, implementations, call hierarchy via Roslyn), IDE state (Error List, Test Explorer, selection), file git history and blame; no code-changing tools; separate specs | §13 |
 
 M1 refinements of the spec (recorded here, folded into the spec in M4):
 - A fourth project, `VsDebug.Vsix.Core` (netstandard2.0), holds all VS-independent VSIX logic. This realises the spec's `IDteFacade` testing approach.
