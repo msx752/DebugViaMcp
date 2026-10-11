@@ -45,6 +45,15 @@ public sealed class FakeDte : IDteFacade
 
     public IReadOnlyList<RawThread> Threads() { Ui(); return ThreadList; }
 
+    public RawExceptionInfo? ThrownException { get; set; }
+
+    public RawExceptionInfo? CurrentException(int maxInner)
+    {
+        Ui();
+        if (ThrownException is not { } e) return null;
+        return new RawExceptionInfo { Type = e.Type, Message = e.Message, StackTrace = e.StackTrace, Inner = e.Inner.Take(maxInner).ToList() };
+    }
+
     public int CurrentFrameIndex { get; set; }
     public List<(int? ThreadId, int Index)> Selections { get; } = [];
 

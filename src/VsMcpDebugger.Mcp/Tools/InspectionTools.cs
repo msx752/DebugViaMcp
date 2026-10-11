@@ -118,6 +118,17 @@ public sealed class InspectionTools(IConnectionManager connections)
         return ToolResponse.Ok(new { frame = ToolResponse.Frame(connections.Session.Frame), epoch = s.Epoch, location = s.Location, source = s.Source, data = new { args = s.Args } });
     }, ct);
 
+    [McpServerTool(Name = "exception", ReadOnly = true),
+     Description("The exception the program stopped on: type, message, inner exceptions (up to 5), stack trace and throw site. active=false when this break is not about an exception. " + UntrustedNote)]
+    public Task<CallToolResult> CurrentException(CancellationToken ct = default) => InBreak("exception", async (bridge, ctx) =>
+    {
+        if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3) is { } unsupported) return unsupported;
+        var info = await bridge.GetExceptionAsync(ctx, ct).ConfigureAwait(false);
+        return info is null
+            ? ToolResponse.Ok(new { active = false, message = "No exception in this break." })
+            : ToolResponse.Ok(new { active = true, data = info });
+    }, ct);
+
     private Task<CallToolResult> InBreak(string tool, Func<IDebugBridge, CallContext, Task<CallToolResult>> body, CancellationToken ct) => ToolResponse.RunAsync(connections, tool, async ctx =>
     {
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);

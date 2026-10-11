@@ -161,4 +161,21 @@ public class InspectionToolsTests
         Assert.Equal(1, vars.GetProperty("frame").GetProperty("index").GetInt32());
         Assert.Equal(7, eval.GetProperty("frame").GetProperty("threadId").GetInt32());
     }
+
+    [Fact]
+    public async Task Exception_is_returned_as_untrusted_data()
+    {
+        var bridge = new FakeDebugBridge { OnException = () => new ExceptionInfo { Type = "System.InvalidOperationException", Message = "boom" } };
+        var json = Json(await new InspectionTools(new FakeConnectionManager(bridge)).CurrentException(CancellationToken.None));
+
+        Assert.True(json.GetProperty("active").GetBoolean());
+        Assert.Equal("boom", json.GetProperty("data").GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task No_exception_is_inactive()
+    {
+        var json = Json(await new InspectionTools(new FakeConnectionManager(new FakeDebugBridge())).CurrentException(CancellationToken.None));
+        Assert.False(json.GetProperty("active").GetBoolean());
+    }
 }

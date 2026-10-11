@@ -169,6 +169,24 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public FrameChangedEvent OnContextChanged() =>
         new() { Seq = seq.Next(), Epoch = Epoch, ThreadId = dte.CurrentThreadId, FrameIndex = dte.CurrentFrameIndex };
 
+    public const int MaxInnerExceptions = 5;
+    public const int MaxStackTraceLength = 4096;
+
+    public Task<ExceptionInfo?> GetExceptionAsync(CancellationToken ct) => InBreak<ExceptionInfo?>(() =>
+    {
+        var raw = dte.CurrentException(MaxInnerExceptions);
+        if (raw is null) return null;
+        var (message, messageCut) = ValueShaper.Truncate(raw.Message);
+        var (trace, traceCut) = raw.StackTrace is null ? ((string?)null, false) : ValueShaper.Truncate(raw.StackTrace, MaxStackTraceLength);
+        var top = dte.Stack(1);
+        return new ExceptionInfo
+        {
+            Type = raw.Type, Message = message, StackTrace = trace, Truncated = messageCut || traceCut,
+            ThrowSite = top.Count > 0 ? ToLocation(top[0]) : null,
+            Inner = raw.Inner.Take(MaxInnerExceptions).Select(i => new InnerExceptionInfo { Type = i.Type, Message = ValueShaper.Truncate(i.Message).Value }).ToArray(),
+        };
+    }, ct);
+
     private SourceLocation ToLocation(RawFrame f) => new()
     {
         File = f.File is null ? "" : PathUtil.ToRelative(SolutionDir, f.File), Line = f.Line ?? 0, Function = f.Function,

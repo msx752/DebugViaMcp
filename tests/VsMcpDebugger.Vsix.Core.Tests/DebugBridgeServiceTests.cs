@@ -455,4 +455,40 @@ public class DebugBridgeServiceTests
         Assert.Equal(1, e.FrameIndex);
         Assert.Equal(1, e.ThreadId);
     }
+
+    [Fact]
+    public async Task Exception_reports_type_message_inner_chain_and_throw_site()
+    {
+        var (svc, dte, _) = Create();
+        dte.ThrownException = new RawExceptionInfo
+        {
+            Type = "System.InvalidOperationException", Message = "Order 7 failed", StackTrace = new string('s', 10_000),
+            Inner = Enumerable.Range(1, 8).Select(i => ("System.ArgumentException", "inner " + i)).ToList(),
+        };
+
+        var info = await svc.GetExceptionAsync(CancellationToken.None);
+
+        Assert.Equal("System.InvalidOperationException", info!.Type);
+        Assert.Equal("Order 7 failed", info.Message);
+        Assert.Equal(DebugBridgeService.MaxInnerExceptions, info.Inner.Length);
+        Assert.Equal("inner 1", info.Inner[0].Message);
+        Assert.True(info.Truncated);
+        Assert.Equal(DebugBridgeService.MaxStackTraceLength, info.StackTrace!.Length);
+        Assert.Equal(9, info.ThrowSite!.Line);
+    }
+
+    [Fact]
+    public async Task No_current_exception_is_null()
+    {
+        var (svc, _, _) = Create();
+        Assert.Null(await svc.GetExceptionAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Exception_requires_break_mode()
+    {
+        var (svc, _, _) = Create(DebuggerMode.Run);
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.GetExceptionAsync(CancellationToken.None));
+        Assert.Equal(BridgeErrorCode.WrongMode, ex.Code);
+    }
 }

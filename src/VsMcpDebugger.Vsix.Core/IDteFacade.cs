@@ -33,6 +33,14 @@ public sealed class RawThread
     public string? Location { get; set; }
 }
 
+public sealed class RawExceptionInfo
+{
+    public string Type { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string? StackTrace { get; set; }
+    public List<(string Type, string Message)> Inner { get; set; } = [];
+}
+
 /// <summary>Everything the bridge needs from Visual Studio. All members must be called on the UI thread.</summary>
 public interface IDteFacade
 {
@@ -60,6 +68,9 @@ public interface IDteFacade
 
     /// <summary>Makes the frame current (and the thread, when given). The caller has validated both exist.</summary>
     void SelectFrame(int? threadId, int index);
+
+    /// <summary>$exception of the current break with up to <paramref name="maxInner"/> inner exceptions; null when there is none.</summary>
+    RawExceptionInfo? CurrentException(int maxInner);
     IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems);
     IReadOnlyList<VariableInfo> Members(string expression, int maxItems);
     EvaluateResult Evaluate(string expression);

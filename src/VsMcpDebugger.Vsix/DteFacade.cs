@@ -198,6 +198,50 @@ internal sealed class DteFacade(DTE2 dte) : IDteFacade
         throw new BridgeException(BridgeErrorCode.NotFound, $"Frame {index} does not exist.");
     }
 
+    public RawExceptionInfo? CurrentException(int maxInner)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var e = dte.Debugger.GetExpression("$exception", false, EvalTimeoutMs);
+        if (e is null || !e.IsValidValue) return null;
+        var result = new RawExceptionInfo { Type = RuntimeType(e.Type), Message = MemberValue(e, "Message") ?? "", StackTrace = MemberValue(e, "StackTrace") };
+        var inner = Member(e, "InnerException");
+        while (inner is not null && inner.IsValidValue && inner.Value != "null" && result.Inner.Count < maxInner)
+        {
+            result.Inner.Add((RuntimeType(inner.Type), MemberValue(inner, "Message") ?? ""));
+            inner = Member(inner, "InnerException");
+        }
+
+        return result;
+    }
+
+    private static Expression? Member(Expression parent, string name)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        foreach (Expression m in parent.DataMembers)
+        {
+            if (m.Name == name) return m;
+        }
+
+        return null;
+    }
+
+    private static string? MemberValue(Expression parent, string name)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var m = Member(parent, name);
+        if (m is null || !m.IsValidValue || m.Value == "null") return null;
+        var v = m.Value;
+        return v.Length >= 2 && v[0] == '"' && v[v.Length - 1] == '"' ? v.Substring(1, v.Length - 2) : v;
+    }
+
+    /// <summary>"System.Exception {System.ArgumentException}" (declared {runtime}) → the runtime type.</summary>
+    private static string RuntimeType(string type)
+    {
+        var open = type.IndexOf('{');
+        var close = type.LastIndexOf('}');
+        return open >= 0 && close > open ? type.Substring(open + 1, close - open - 1) : type;
+    }
+
     private static bool SameFrame(EnvDTE.StackFrame a, EnvDTE.StackFrame b)
     {
         ThreadHelper.ThrowIfNotOnUIThread();

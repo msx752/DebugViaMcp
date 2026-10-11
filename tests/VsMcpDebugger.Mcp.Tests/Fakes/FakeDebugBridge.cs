@@ -47,6 +47,9 @@ public sealed class FakeDebugBridge : IDebugBridge
 
     public Task<FrameSelection> SelectFrameAsync(int index, long epoch, int? threadId, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("SelectFrame"); return Task.FromResult(OnSelectFrame(index, epoch, threadId)); }
 
+    public Func<ExceptionInfo?> OnException { get; set; } = () => null;
+    public Task<ExceptionInfo?> GetExceptionAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetException"); return Task.FromResult(OnException()); }
+
     public FakeDebugBridge() => OnStatus = () => new StatusInfo { Mode = Mode, Seq = Seq };
 
     public Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)

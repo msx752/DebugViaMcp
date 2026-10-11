@@ -36,6 +36,9 @@ public interface IDebugBridge
     /// </summary>
     Task<FrameSelection> SelectFrameAsync(int index, long epoch, int? threadId, CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>Protocol 2.1. The current exception in Break mode, or null when the break is not about one.</summary>
+    Task<ExceptionInfo?> GetExceptionAsync(CallContext context, CancellationToken cancellationToken);
+
     Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken);
     Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken);
 

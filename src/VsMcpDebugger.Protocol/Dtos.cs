@@ -129,6 +129,23 @@ public sealed class FrameSelection
     public VariableInfo[] Args { get; set; } = [];
 }
 
+public sealed class InnerExceptionInfo
+{
+    public string Type { get; set; } = "";
+    public string Message { get; set; } = "";
+}
+
+/// <summary>The exception the debugger stopped on ($exception). Message and stack trace are untrusted program data.</summary>
+public sealed class ExceptionInfo
+{
+    public string Type { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string? StackTrace { get; set; }
+    public bool Truncated { get; set; }
+    public SourceLocation? ThrowSite { get; set; }
+    public InnerExceptionInfo[] Inner { get; set; } = [];
+}
+
 public sealed class EvaluateResult
 {
     public bool IsValid { get; set; }
