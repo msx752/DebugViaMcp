@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,12 +11,16 @@ using VsMcpDebugger.Protocol;
 namespace VsMcpDebugger.Vsix.Core;
 
 /// <summary>
-/// One per pipe connection. Rejects everything until a handshake with the right token succeeds, and only
-/// then calls <c>onAuthenticated</c> (which registers the connection for debugger events).
+/// One per pipe connection. Rejects everything until a handshake with the right token succeeds. Every later request
+/// goes through <see cref="Guard{T}"/>: permission policy → consent → the call → audit.
 /// </summary>
-public sealed class BridgeConnectionHandler(DebugBridgeService service, string token, ILog log, Action? onAuthenticated = null) : IDebugBridge
+public sealed class BridgeConnectionHandler(DebugBridgeService service, string token, BridgeSecurity security, ILog log, Action? onAuthenticated = null)
+    : IDebugBridge, IDisposable
 {
+    private readonly ConsentSession _consent = security.Consent.CreateSession();
     private volatile bool _authenticated;
+    private string _client = "";
+    private int _disposed;
 
     public async Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)
     {
@@ -48,47 +55,210 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             throw Rpc(BridgeErrorCode.Internal, e.Message, "See the VsMcpDebugger output pane in Visual Studio.");
         }
 
+        response.Permissions = security.Settings.Permissions;
+        response.LogLevel = security.Settings.LogLevel;
+
         if (!_authenticated)
         {
+            _client = ConsentText.ClientName(request.ClientName);
             _authenticated = true;
             onAuthenticated?.Invoke();
+            security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "connect", Outcome = "ok", Summary = _client });
         }
 
-        log.Info($"Client '{request.ClientName}' connected");
+        log.Info($"Client '{_client}' connected");
         return response;
     }
 
-    public Task<StatusInfo> GetStatusAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.GetStatusAsync(cancellationToken));
-    public Task<BreakpointInfo[]> ListBreakpointsAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.ListBreakpointsAsync(cancellationToken));
-    public Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.SetBreakpointAsync(spec, cancellationToken));
-    public Task<int> RemoveBreakpointsAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.RemoveBreakpointsAsync(id, all, cancellationToken));
-    public Task<long> StartAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.StartAsync(cancellationToken));
-    public Task StopAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, async () => { await service.StopAsync(cancellationToken).ConfigureAwait(false); return true; });
-    public Task<long> ContinueAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.ContinueAsync(cancellationToken));
-    public Task<long> PauseAsync(CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.PauseAsync(cancellationToken));
-    public Task<long> StepAsync(StepKind kind, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.StepAsync(kind, cancellationToken));
-    public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.GetStackAsync(maxFrames, cancellationToken));
-    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken));
-    public Task<EvaluateResult> EvaluateAsync(string expression, CallContext context, CancellationToken cancellationToken) => Guard(context, () => service.EvaluateAsync(expression, allowSideEffects: false, cancellationToken));
+    public Task<StatusInfo> GetStatusAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Status, context, async () =>
+        {
+            var status = await service.GetStatusAsync(cancellationToken).ConfigureAwait(false);
+            status.Permissions = security.Settings.Permissions;
+            return status;
+        }, null, null, cancellationToken);
 
-    private async Task<T> Guard<T>(CallContext? context, Func<Task<T>> call)
+    public Task<BreakpointInfo[]> ListBreakpointsAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.ListBreakpoints, context, () => service.ListBreakpointsAsync(cancellationToken), null, null, cancellationToken);
+
+    public Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.SetBreakpoint, context, () => service.SetBreakpointAsync(spec, cancellationToken),
+            Request.Of(Describe(spec), ("file", spec?.File), ("line", spec?.Line?.ToString(CultureInfo.InvariantCulture)), ("function", spec?.Function),
+                ("condition", spec?.Condition), ("hitCount", spec is { HitCount: > 0 } ? spec.HitCount.ToString(CultureInfo.InvariantCulture) : null), ("logMessage", spec?.LogMessage)), null, cancellationToken);
+
+    public Task<int> RemoveBreakpointsAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.RemoveBreakpoints, context, () => service.RemoveBreakpointsAsync(id, all, cancellationToken),
+            Request.Of(all ? "all" : id ?? "", ("id", id), ("all", all ? "true" : null)), null, cancellationToken);
+
+    public Task<long> StartAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Start, context, () => service.StartAsync(cancellationToken), null, null, cancellationToken);
+
+    public Task StopAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Stop, context, async () => { await service.StopAsync(cancellationToken).ConfigureAwait(false); return true; }, null, null, cancellationToken);
+
+    public Task<long> ContinueAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Continue, context, () => service.ContinueAsync(cancellationToken), null, null, cancellationToken);
+
+    public Task<long> PauseAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Pause, context, () => service.PauseAsync(cancellationToken), null, null, cancellationToken);
+
+    public Task<long> StepAsync(StepKind kind, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Step, context, () => service.StepAsync(kind, cancellationToken),
+            Request.Of(KindName(kind), ("kind", KindName(kind))), null, cancellationToken);
+
+    public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Stack, context, () => service.GetStackAsync(maxFrames, cancellationToken), null, null, cancellationToken);
+
+    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Variables, context, () => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken),
+            Request.Of(path ?? ScopeName(scope), ("scope", ScopeName(scope)), ("path", path)), null, cancellationToken);
+
+    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken) =>
+        allowSideEffects
+            ? Guard(Operation.EvaluateWithSideEffects, context, () => service.EvaluateAsync(expression, true, cancellationToken),
+                Request.Of(expression, ("expression", expression)),
+                async () =>
+                {
+                    DebugBridgeService.ValidateSideEffectEvaluation(expression);
+                    return ConsentText.EvaluateWithSideEffects(_client, expression, await service.GetCurrentFunctionAsync(cancellationToken).ConfigureAwait(false));
+                }, cancellationToken)
+            : Guard(Operation.Evaluate, context, () => service.EvaluateAsync(expression, false, cancellationToken),
+                Request.Of(expression, ("expression", expression)), null, cancellationToken);
+
+    public Task<EvaluateResult> SetValueAsync(string expression, string value, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.SetValue, context, () => service.SetValueAsync(expression, value, cancellationToken),
+            Request.Of($"{ConsentText.Visible(expression)} = {ConsentText.Visible(value)}", ("expression", expression), ("value", value)),
+            async () =>
+            {
+                DebugBridgeService.ValidateSetValue(expression, value);
+                return ConsentText.SetValue(_client, expression, value, await service.GetCurrentFunctionAsync(cancellationToken).ConfigureAwait(false));
+            }, cancellationToken);
+
+    /// <summary>
+    /// Validation and the consent text are prepared first (<paramref name="prepare"/>), so a request that would fail
+    /// anyway never bothers the user. Read calls are audited only when the user was asked.
+    /// </summary>
+    private async Task<T> Guard<T>(Operation operation, CallContext? context, Func<Task<T>> call, Request? request, Func<Task<string>>? prepare, CancellationToken ct)
     {
         if (!_authenticated) throw Rpc(BridgeErrorCode.Unauthorized, "Handshake required.", null);
+        request ??= Request.Empty;
+        var callId = context?.CallId ?? "";
+        var tier = PermissionPolicy.TierOf(operation);
+        var started = Stopwatch.StartNew();
+        var decision = AuditDecision.None;
+        var prompted = false;
+
+        void Audit(string outcome)
+        {
+            if (tier == PermissionTier.Read && !prompted) return;
+            security.Audit.Record(new AuditEntry
+            {
+                Ts = DateTimeOffset.UtcNow, CallId = callId, Client = _client, Operation = PermissionPolicy.ToolName(operation),
+                Tier = PermissionPolicy.TierName(tier), Params = request.Params, Decision = decision, Outcome = outcome,
+                DurationMs = started.ElapsedMilliseconds, Summary = request.Summary,
+            });
+        }
+
         try
         {
-            return await call().ConfigureAwait(false);
+            var text = prepare is null ? null : await prepare().ConfigureAwait(false);
+            switch (PermissionPolicy.Decide(operation, security.Settings.Permissions))
+            {
+                case PermissionLevel.Deny:
+                    decision = AuditDecision.DeniedPolicy;
+                    throw Rpc(BridgeErrorCode.Denied, $"Blocked by VsMcpDebugger settings in Visual Studio ({Capitalized(tier)} = Deny).",
+                        "Ask the user whether to change Tools → Options → VsMcpDebugger → Permissions.", DeniedReasons.Policy);
+                case PermissionLevel.Ask:
+                    prompted = true;
+                    var outcome = await security.Consent.RequestAsync(_consent, operation,
+                        text ?? ConsentText.Operation(_client, PermissionPolicy.ToolName(operation), request.Summary), ct).ConfigureAwait(false);
+                    decision = ToDecision(outcome);
+                    ThrowIfDenied(outcome);
+                    break;
+                default:
+                    decision = AuditDecision.Allow;
+                    break;
+            }
+
+            var result = await call().ConfigureAwait(false);
+            Audit("ok");
+            return result;
         }
         catch (BridgeException e)
         {
+            Audit(BridgeErrorNames.ToName(e.Code));
             throw Rpc(e.Code, e.Message, e.Hint);
         }
+        catch (LocalRpcException e)
+        {
+            Audit(BridgeErrorNames.ToName((BridgeErrorCode)e.ErrorCode));
+            throw;
+        }
 #pragma warning disable CA1031 // Every unexpected failure must reach the client as a coded error, not a dropped connection.
-        catch (Exception e) when (e is not LocalRpcException and not OperationCanceledException)
+        catch (Exception e) when (e is not OperationCanceledException)
 #pragma warning restore CA1031
         {
-            log.Error($"[{context?.CallId}] Unexpected bridge failure", e);
+            log.Error($"[{callId}] Unexpected bridge failure", e);
+            Audit("internal");
             throw Rpc(BridgeErrorCode.Internal, e.Message, "See the VsMcpDebugger output pane in Visual Studio.");
         }
+    }
+
+    private void ThrowIfDenied(ConsentOutcome outcome)
+    {
+        switch (outcome)
+        {
+            case ConsentOutcome.Denied:
+                throw Rpc(BridgeErrorCode.Denied, "Denied by the user in Visual Studio.",
+                    "This is the user's decision — do not retry; ask the user how to proceed.", DeniedReasons.UserDenied);
+            case ConsentOutcome.TimedOut:
+                var seconds = ((int)security.Settings.ConsentTimeout.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+                throw Rpc(BridgeErrorCode.Denied, $"The user did not respond in Visual Studio within {seconds} s.",
+                    "Ask the user to check Visual Studio, then retry if they agree.", DeniedReasons.Timeout);
+            case ConsentOutcome.Cancelled:
+                throw Rpc(BridgeErrorCode.Denied, "The request was cancelled before the user answered.", null, DeniedReasons.Cancelled);
+            case ConsentOutcome.Disconnected:
+                throw Rpc(BridgeErrorCode.Denied, "The user disconnected AI access in Visual Studio.",
+                    "Ask the user to run Tools → VsMcpDebugger → Reconnect AI.", DeniedReasons.Disconnected);
+        }
+    }
+
+    private static string ToDecision(ConsentOutcome outcome) => outcome switch
+    {
+        ConsentOutcome.AllowedOnce => AuditDecision.AllowOnce,
+        ConsentOutcome.AllowedForSession or ConsentOutcome.AllowedBySessionGrant => AuditDecision.AllowSession,
+        ConsentOutcome.Denied => AuditDecision.DeniedUser,
+        ConsentOutcome.TimedOut => AuditDecision.DeniedTimeout,
+        ConsentOutcome.Cancelled => AuditDecision.DeniedCancelled,
+        _ => AuditDecision.DeniedDisconnected,
+    };
+
+    private static string Capitalized(PermissionTier tier) => tier switch
+    {
+        PermissionTier.Read => "Read",
+        PermissionTier.Control => "Control",
+        _ => "Mutate",
+    };
+
+    private static string KindName(StepKind kind) => kind switch
+    {
+        StepKind.Into => "into",
+        StepKind.Out => "out",
+        _ => "over",
+    };
+
+    private static string ScopeName(VariableScope scope) => scope == VariableScope.Args ? "args" : "locals";
+
+    private static string Describe(BreakpointSpec? spec) =>
+        spec is null ? ""
+        : spec.Function ?? $"{spec.File}:{spec.Line?.ToString(CultureInfo.InvariantCulture)}" + (spec.Condition is null ? "" : $" when {spec.Condition}");
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
+        _consent.Dispose();
+        if (_authenticated)
+            security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "disconnect", Outcome = "ok", Summary = _client });
     }
 
     private static LocalRpcException Rpc(BridgeErrorCode code, string message, string? hint, string? reason = null) =>
@@ -102,5 +272,30 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         var diff = x.Length ^ y.Length;
         for (var i = 0; i < Math.Min(x.Length, y.Length); i++) diff |= x[i] ^ y[i];
         return diff == 0;
+    }
+
+    private sealed class Request
+    {
+        public static readonly Request Empty = new("", []);
+
+        private Request(string summary, Dictionary<string, string?> parameters)
+        {
+            Summary = summary;
+            Params = parameters;
+        }
+
+        public string Summary { get; }
+        public Dictionary<string, string?> Params { get; }
+
+        public static Request Of(string summary, params (string Name, string? Value)[] parameters)
+        {
+            var map = new Dictionary<string, string?>();
+            foreach (var (name, value) in parameters)
+            {
+                if (value is not null) map[name] = value;
+            }
+
+            return new Request(summary, map);
+        }
     }
 }

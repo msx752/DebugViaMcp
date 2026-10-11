@@ -13,6 +13,10 @@ public sealed class FakeDebugBridge : IDebugBridge
     public List<string> Calls { get; } = [];
     public Exception? HandshakeFailure { get; set; }
     public int LastOffset { get; private set; } = -1;
+    public bool? LastAllowSideEffects { get; private set; }
+
+    public Func<string, string, EvaluateResult> OnSetValue { get; set; } =
+        (_, v) => new EvaluateResult { IsValid = true, Value = v, Type = "decimal" };
     public List<string> CallIds { get; } = [];
 
     public Func<StepKind, long> OnStep { get; set; } = _ => 10;
@@ -53,5 +57,6 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Task<long> StepAsync(StepKind kind, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Step:" + kind); return Task.FromResult(OnStep(kind)); }
     public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetStack"); return Task.FromResult(new[] { new StackFrameInfo { Index = 0, Function = "A.M", File = "a.cs", Line = 1, Language = "C#" } }); }
     public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetVariables"); LastOffset = offset; return Task.FromResult(OnVariables(scope, path, maxItems)); }
-    public Task<EvaluateResult> EvaluateAsync(string expression, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Evaluate"); return Task.FromResult(OnEvaluate(expression)); }
+    public Task<EvaluateResult> SetValueAsync(string expression, string value, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("SetValue"); return Task.FromResult(OnSetValue(expression, value)); }
+    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Evaluate"); LastAllowSideEffects = allowSideEffects; return Task.FromResult(OnEvaluate(expression)); }
 }

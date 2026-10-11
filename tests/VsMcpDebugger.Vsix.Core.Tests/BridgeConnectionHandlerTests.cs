@@ -9,8 +9,20 @@ public class BridgeConnectionHandlerTests
 {
     private static readonly CallContext Ctx = new() { CallId = "c-test" };
 
-    private static BridgeConnectionHandler Create(FakeDte? dte = null, Action? onAuthenticated = null) =>
-        new(new DebugBridgeService(dte ?? new FakeDte(), new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), "secret", new NullLog(), onAuthenticated);
+    private static BridgeConnectionHandler Create(FakeDte? dte = null, Action? onAuthenticated = null)
+    {
+        var settings = new TestSettings();
+        var security = new BridgeSecurity(settings, new ConsentGate(new FakePrompt(), () => settings.ConsentTimeout),
+            new AuditLog(Path.Combine(Path.GetTempPath(), "vsmcpdebugger-tests-audit"), () => 7, new NullActivity(), new NullLog()));
+        return new(new DebugBridgeService(dte ?? new FakeDte(), new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), "secret", security, new NullLog(), onAuthenticated);
+    }
+
+    private sealed class NullActivity : IActivitySink
+    {
+        public void Write(string line)
+        {
+        }
+    }
 
     /// <summary>Found by the M1 end-to-end run: the handshake read DTE state off the UI thread.</summary>
     [Fact]
@@ -35,7 +47,7 @@ public class BridgeConnectionHandlerTests
         await h.ListBreakpointsAsync(Ctx, CancellationToken.None);
         await h.GetStackAsync(5, Ctx, CancellationToken.None);
         await h.GetVariablesAsync(VariableScope.Args, null, 0, 10, Ctx, CancellationToken.None);
-        await h.EvaluateAsync("x", Ctx, CancellationToken.None);
+        await h.EvaluateAsync("x", allowSideEffects: false, Ctx, CancellationToken.None);
         await h.StepAsync(StepKind.Over, Ctx, CancellationToken.None);
         await h.RemoveBreakpointsAsync(null, all: true, Ctx, CancellationToken.None);
     }
@@ -103,5 +115,209 @@ public class BridgeConnectionHandlerTests
 
         Assert.Equal((int)BridgeErrorCode.InvalidArgument, ex.ErrorCode);
         Assert.Equal("Use a path relative to the solution directory.", Assert.IsType<BridgeErrorData>(ex.ErrorData).Hint);
+    }
+
+    [Fact]
+    public async Task Handshake_reports_permissions_and_log_level()
+    {
+        using var s = new SecurityHarness();
+        s.Settings.Permissions.Mutate = PermissionLevel.Deny;
+        s.Settings.LogLevel = LogVerbosity.Debug;
+
+        var r = await s.HandshakeAsync();
+
+        Assert.Equal(PermissionLevel.Deny, r.Permissions.Mutate);
+        Assert.Equal(LogVerbosity.Debug, r.LogLevel);
+    }
+
+    [Fact]
+    public async Task Status_reports_current_permissions()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        var status = await s.Handler.GetStatusAsync(SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Equal(PermissionLevel.Ask, status.Permissions!.Mutate);
+    }
+
+    /// <summary>Fitness function (spec §8): with Mutate = Ask and no answer, set_value never reaches Visual Studio.</summary>
+    [Fact]
+    public async Task Set_value_without_an_answer_never_reaches_visual_studio()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        var call = s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None);
+        await s.Prompt.WaitForPromptsAsync(1);
+        s.Delay.Elapse(0);
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => call);
+        Assert.Equal((int)BridgeErrorCode.Denied, ex.ErrorCode);
+        Assert.Equal(DeniedReasons.Timeout, ((BridgeErrorData)ex.ErrorData!).Reason);
+        Assert.Contains("60 s", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(s.Dte.Assignments);
+    }
+
+    [Fact]
+    public async Task Set_value_prompt_shows_client_target_value_and_function()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        var r = await s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Equal("claude-code wants to set total = 0 in Demo.OrderService.Submit(Demo.Order order)", Assert.Single(s.Prompt.Texts));
+        Assert.Equal("0", r.Value);
+        Assert.Single(s.Dte.Assignments);
+    }
+
+    [Fact]
+    public async Task User_deny_is_denied_and_never_reaches_visual_studio()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+        s.Prompt.AutoAnswer = ConsentChoice.Deny;
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None));
+
+        Assert.Equal(DeniedReasons.UserDenied, ((BridgeErrorData)ex.ErrorData!).Reason);
+        Assert.Contains("do not retry", ((BridgeErrorData)ex.ErrorData!).Hint, StringComparison.Ordinal);
+        Assert.Empty(s.Dte.Assignments);
+    }
+
+    [Fact]
+    public async Task Policy_deny_does_not_prompt()
+    {
+        using var s = new SecurityHarness();
+        s.Settings.Permissions.Mutate = PermissionLevel.Deny;
+        await s.HandshakeAsync();
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None));
+
+        Assert.Equal(DeniedReasons.Policy, ((BridgeErrorData)ex.ErrorData!).Reason);
+        Assert.Contains("Mutate = Deny", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(s.Prompt.Texts);
+        Assert.Empty(s.Dte.Assignments);
+    }
+
+    [Fact]
+    public async Task Control_set_to_ask_prompts_for_steps()
+    {
+        using var s = new SecurityHarness();
+        s.Settings.Permissions.Control = PermissionLevel.Ask;
+        await s.HandshakeAsync("claude-code");
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await s.Handler.StepAsync(StepKind.Over, SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Equal("claude-code wants to run debug_step: over", Assert.Single(s.Prompt.Texts));
+        Assert.Contains("Step:Over", s.Dte.Calls);
+    }
+
+    /// <summary>Review focus #5.</summary>
+    [Fact]
+    public async Task Wrong_mode_fails_before_prompting()
+    {
+        using var s = new SecurityHarness(new FakeDte { Mode = DebuggerMode.Run });
+        await s.HandshakeAsync();
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None));
+
+        Assert.Equal((int)BridgeErrorCode.WrongMode, ex.ErrorCode);
+        Assert.Empty(s.Prompt.Texts);
+    }
+
+    /// <summary>Review focus #2.</summary>
+    [Fact]
+    public async Task Overlong_value_is_rejected_before_prompting()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.SetValueAsync("total", new string('1', 10_000), SecurityHarness.Ctx(), CancellationToken.None));
+
+        Assert.Equal((int)BridgeErrorCode.InvalidArgument, ex.ErrorCode);
+        Assert.Empty(s.Prompt.Texts);
+    }
+
+    [Fact]
+    public async Task Side_effect_evaluation_is_gated_but_plain_evaluation_is_not()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await s.Handler.EvaluateAsync("order.Touch()", allowSideEffects: false, SecurityHarness.Ctx(), CancellationToken.None);
+        Assert.Empty(s.Prompt.Texts);
+
+        await s.Handler.EvaluateAsync("order.Touch()", allowSideEffects: true, SecurityHarness.Ctx(), CancellationToken.None);
+        Assert.Equal("claude-code wants to evaluate order.Touch() with side effects in Demo.OrderService.Submit(Demo.Order order)", Assert.Single(s.Prompt.Texts));
+        Assert.Equal("order.Touch()", s.Dte.LastEvaluated);
+    }
+
+    /// <summary>Review focus #4.</summary>
+    [Fact]
+    public async Task Settings_change_clears_session_grants()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowSession;
+        await s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None);
+
+        s.Settings.Permissions.Mutate = PermissionLevel.Deny;
+        s.Security.SettingsChanged("Mutate: Ask → Deny");
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.SetValueAsync("total", "1", SecurityHarness.Ctx(), CancellationToken.None));
+        Assert.Equal(DeniedReasons.Policy, ((BridgeErrorData)ex.ErrorData!).Reason);
+        Assert.Single(s.Dte.Assignments);
+        Assert.Contains(s.AuditLines(), l => l.Contains("\"operation\":\"settings\"", StringComparison.Ordinal));
+    }
+
+    /// <summary>Fitness function: every control/mutate call is audited exactly once with its callId.</summary>
+    [Fact]
+    public async Task Control_and_mutate_calls_are_audited_once_and_reads_are_not()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await s.Handler.GetStackAsync(5, SecurityHarness.Ctx("c-000010"), CancellationToken.None);
+        await s.Handler.StepAsync(StepKind.Over, SecurityHarness.Ctx("c-000011"), CancellationToken.None);
+        await s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx("c-000012"), CancellationToken.None);
+
+        var lines = s.AuditLines();
+        Assert.DoesNotContain(lines, l => l.Contains("c-000010", StringComparison.Ordinal));
+        Assert.Single(lines, l => l.Contains("c-000011", StringComparison.Ordinal) && l.Contains("\"decision\":\"allow\"", StringComparison.Ordinal));
+        Assert.Single(lines, l => l.Contains("c-000012", StringComparison.Ordinal) && l.Contains("\"decision\":\"allowOnce\"", StringComparison.Ordinal) && l.Contains("\"client\":\"claude-code\"", StringComparison.Ordinal));
+        Assert.Contains(s.Activity, l => l.Contains("c-000012  set_value  total = 0  → allowed (once)  ok", StringComparison.Ordinal));
+    }
+
+    /// <summary>Fitness function: a debuggee value never reaches the audit log.</summary>
+    [Fact]
+    public async Task Debuggee_values_never_reach_the_audit_log()
+    {
+        using var s = new SecurityHarness();
+        s.Dte.OnSetValue = (_, _) => new EvaluateResult { IsValid = true, Value = "s3cr3t-token-from-debuggee", Type = "string" };
+        await s.HandshakeAsync();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await s.Handler.SetValueAsync("token", "\"x\"", SecurityHarness.Ctx(), CancellationToken.None);
+        await s.Handler.EvaluateAsync("token", allowSideEffects: true, SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.DoesNotContain(s.AuditLines(), l => l.Contains("s3cr3t", StringComparison.Ordinal));
+        Assert.DoesNotContain(s.Activity, l => l.Contains("s3cr3t", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Connect_and_disconnect_are_audited()
+    {
+        var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        s.Dispose();
+
+        Assert.Contains(s.Activity, l => l.Contains("  connect  claude-code", StringComparison.Ordinal));
+        Assert.Contains(s.Activity, l => l.Contains("  disconnect  claude-code", StringComparison.Ordinal));
     }
 }

@@ -17,6 +17,8 @@ public sealed class HandshakeResponse
     public string? SolutionPath { get; set; }
     public DebuggerMode Mode { get; set; }
     public long Seq { get; set; }
+    public PermissionSet Permissions { get; set; } = new();
+    public LogVerbosity LogLevel { get; set; } = LogVerbosity.Information;
 }
 
 public sealed class SourceLocation
@@ -50,6 +52,7 @@ public sealed class StatusInfo
     public DebuggerMode Mode { get; set; }
     public long Seq { get; set; }
     public BreakSnapshot? Snapshot { get; set; }
+    public PermissionSet? Permissions { get; set; }
 }
 
 public sealed class BreakpointSpec

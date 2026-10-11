@@ -25,5 +25,8 @@ public interface IDebugBridge
     Task<long> StepAsync(StepKind kind, CallContext context, CancellationToken cancellationToken);
     Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken);
     Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken);
-    Task<EvaluateResult> EvaluateAsync(string expression, CallContext context, CancellationToken cancellationToken);
+    Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>Assigns a value in the current frame (tier mutate). Returns the value read back after the assignment.</summary>
+    Task<EvaluateResult> SetValueAsync(string expression, string value, CallContext context, CancellationToken cancellationToken);
 }

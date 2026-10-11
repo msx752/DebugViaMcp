@@ -55,7 +55,10 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
 
             var token = DiscoveryWriter.NewToken();
             var pipeName = DiscoveryWriter.NewPipeName();
-            _host = new PipeHost(pipeName, new SecurePipeFactory(), onAuth => new BridgeConnectionHandler(service, token, log, onAuth), broadcaster, log);
+            var settings = new DefaultBridgeSettings();
+            var security = new BridgeSecurity(settings, new ConsentGate(new DenyAllPrompt(), () => settings.ConsentTimeout),
+                new AuditLog(DiscoveryPaths.LogsDirectory, () => 7, new NullActivitySink(), log));
+            _host = new PipeHost(pipeName, new SecurePipeFactory(), onAuth => new BridgeConnectionHandler(service, token, security, log, onAuth), broadcaster, log);
             _host.Start();
 
             _discovery = new DiscoveryWriter(DiscoveryPaths.InstancesDirectory, RestrictToCurrentUser);
@@ -98,5 +101,27 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
         }
 
         base.Dispose(disposing);
+    }
+}
+
+/// <summary>Temporary until the Options page exists: spec defaults.</summary>
+internal sealed class DefaultBridgeSettings : IBridgeSettings
+{
+    public PermissionSet Permissions { get; } = new();
+    public TimeSpan ConsentTimeout => TimeSpan.FromSeconds(60);
+    public LogVerbosity LogLevel => LogVerbosity.Information;
+}
+
+/// <summary>Temporary until the info bar exists: every consent question is answered Deny (fail closed).</summary>
+internal sealed class DenyAllPrompt : IConsentPrompt
+{
+    public System.Threading.Tasks.Task<ConsentChoice> AskAsync(string text, TimeSpan timeout, CancellationToken ct) =>
+        System.Threading.Tasks.Task.FromResult(ConsentChoice.Deny);
+}
+
+internal sealed class NullActivitySink : IActivitySink
+{
+    public void Write(string line)
+    {
     }
 }

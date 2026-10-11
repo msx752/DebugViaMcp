@@ -61,7 +61,7 @@ public sealed class InspectionTools(IConnectionManager connections)
     {
         if (string.IsNullOrWhiteSpace(expression))
             return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "expression is empty.");
-        var r = await bridge.EvaluateAsync(expression, ctx, ct).ConfigureAwait(false);
+        var r = await bridge.EvaluateAsync(expression, false, ctx, ct).ConfigureAwait(false);
         return r.IsValid
             ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated } })
             : ToolResponse.Error(BridgeErrorCode.EvalFailed, r.Value, "Check the expression against the frame's variables (vars).");

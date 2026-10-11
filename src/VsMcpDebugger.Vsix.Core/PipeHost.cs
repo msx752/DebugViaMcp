@@ -44,10 +44,12 @@ public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<A
             }
 
             var rpc = RpcFactory.Create(stream);
-            rpc.AddLocalRpcTarget(handlerFactory(() => events.Add(rpc)));
+            var handler = handlerFactory(() => events.Add(rpc));
+            rpc.AddLocalRpcTarget(handler);
             rpc.Disconnected += (_, args) =>
             {
                 log.Info($"Client disconnected: {args.Reason}");
+                (handler as IDisposable)?.Dispose();
                 stream.Dispose();
             };
             rpc.StartListening();

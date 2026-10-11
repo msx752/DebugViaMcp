@@ -16,6 +16,13 @@ public class PipeHostTests
         public Task WaitForConnectionAsync(Stream stream, CancellationToken ct) => ((NamedPipeServerStream)stream).WaitForConnectionAsync(ct);
     }
 
+    private sealed class NullActivitySink : IActivitySink
+    {
+        public void Write(string line)
+        {
+        }
+    }
+
     private sealed class Events : IDebugBridgeEvents
     {
         public TaskCompletionSource<BreakEvent> Got { get; } = new();
@@ -29,7 +36,10 @@ public class PipeHostTests
         var pipe = DiscoveryWriter.NewPipeName();
         var service = new DebugBridgeService(new FakeDte(), new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0");
         var broadcaster = new EventBroadcaster(new NullLog());
-        using var host = new PipeHost(pipe, new PlainPipeFactory(), onAuth => new BridgeConnectionHandler(service, "secret", new NullLog(), onAuth), broadcaster, new NullLog());
+        var settings = new TestSettings();
+        var security = new BridgeSecurity(settings, new ConsentGate(new FakePrompt(), () => settings.ConsentTimeout),
+            new AuditLog(Path.Combine(Path.GetTempPath(), "vsmcpdebugger-tests-audit"), () => 7, new NullActivitySink(), new NullLog()));
+        using var host = new PipeHost(pipe, new PlainPipeFactory(), onAuth => new BridgeConnectionHandler(service, "secret", security, new NullLog(), onAuth), broadcaster, new NullLog());
         host.Start();
 
         async Task<(JsonRpc Rpc, IDebugBridge Bridge, Events Events)> ConnectAsync(bool handshake = true)
