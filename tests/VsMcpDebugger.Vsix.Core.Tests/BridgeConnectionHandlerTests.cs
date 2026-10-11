@@ -691,4 +691,30 @@ public class BridgeConnectionHandlerTests
 
         Assert.Single(s.AuditLines(), l => l.Contains("c-000077", StringComparison.Ordinal) && l.Contains("\"outcome\":\"failed\"", StringComparison.Ordinal));
     }
+
+    /// <summary>M2 review minor 6: two handshakes racing on one connection registered it twice.</summary>
+    [Fact]
+    public async Task Concurrent_handshakes_register_the_connection_once()
+    {
+        for (var round = 0; round < 5; round++)
+        {
+            var ui = new GatedUiThread();
+            var access = new AiAccessSwitch(enabled: true);
+            access.Changed += (_, _) => Thread.Sleep(50);   // widens the window between the check and the registration
+            var settings = new TestSettings();
+            var security = new BridgeSecurity(settings, new ConsentGate(new FakePrompt(), () => settings.ConsentTimeout),
+                new AuditLog(Path.Combine(Path.GetTempPath(), "vsmcpdebugger-tests-audit"), () => 7, new NullActivity(), new NullLog()), access);
+            var h = new BridgeConnectionHandler(new DebugBridgeService(new FakeDte(), ui, new EventSeq(), new NullLog(), "0.1.0"), "secret", security, new NullLog());
+            var request = new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ClientName = "claude-code" };
+
+            var a = h.HandshakeAsync(request, CancellationToken.None);
+            var b = h.HandshakeAsync(request, CancellationToken.None);
+            ui.Gate.SetResult();
+            await Task.WhenAll(a, b);
+
+            Assert.Single(access.Clients);
+            h.Dispose();
+            Assert.Empty(access.Clients);
+        }
+    }
 }

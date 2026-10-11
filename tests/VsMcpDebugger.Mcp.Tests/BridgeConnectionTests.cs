@@ -132,6 +132,33 @@ public class BridgeConnectionTests
         Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(1));
     }
 
+    /// <summary>M2 review minor 8 (host side): the pipe closed before OnAccessRevoked was read.</summary>
+    [Fact]
+    public async Task Lost_pipe_after_disconnect_ai_reports_ai_disabled_and_keeps_the_selection()
+    {
+        var server = new PipeTestServer(new FakeDebugBridge());
+        var session = new SessionState();
+        var connects = 0;
+        await using var manager = new ConnectionManager(
+            () => [server.Record],
+            (record, s, ct) => ++connects == 1
+                ? BridgeConnection.ConnectAsync(record, s, NullLogger.Instance, ct)
+                : throw new McpBridgeException(BridgeErrorCode.AiDisabled, "Handshake with Visual Studio failed: AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI."),
+            session,
+            NullLogger.Instance);
+        await manager.GetBridgeAsync(CancellationToken.None);
+
+        await server.DropAsync();
+        await WaitUntil(() => !session.IsConnected, TimeSpan.FromSeconds(5));
+
+        var ex = await Assert.ThrowsAsync<McpBridgeException>(() => manager.GetBridgeAsync(CancellationToken.None));
+        var again = await Assert.ThrowsAsync<McpBridgeException>(() => manager.GetBridgeAsync(CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.AiDisabled, ex.Code);
+        Assert.Equal(BridgeErrorCode.AiDisabled, again.Code);   // still the same instance: the selection was kept
+        Assert.Equal(3, connects);
+    }
+
     [Fact]
     public async Task Remote_minor_comes_from_the_handshake()
     {

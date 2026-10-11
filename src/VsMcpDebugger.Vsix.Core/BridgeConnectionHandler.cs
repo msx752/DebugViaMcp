@@ -21,6 +21,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     private volatile bool _authenticated;
     private volatile bool _revoked;
     private IDisposable? _registration;
+    private readonly object _attachGate = new();
     private string _client = "";
     private int _disposed;
 
@@ -66,12 +67,22 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         response.Permissions = security.Settings.Permissions;
         response.LogLevel = security.Settings.LogLevel;
 
-        if (!_authenticated)
+        var first = false;
+        lock (_attachGate)
         {
-            _client = ConsentText.ClientName(request.ClientName);
-            _registration = security.Access.TryAttach(_client, Revoke)
-                ?? throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.");
-            _authenticated = true;
+            // Two handshakes racing on one connection must register it once (M2 review minor 6).
+            if (!_authenticated)
+            {
+                _client = ConsentText.ClientName(request.ClientName);
+                _registration = security.Access.TryAttach(_client, Revoke)
+                    ?? throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.");
+                _authenticated = true;
+                first = true;
+            }
+        }
+
+        if (first)
+        {
             hooks?.OnAuthenticated(request.ProtocolMinor);
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "connect", Outcome = "ok", Summary = _client });
         }

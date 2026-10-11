@@ -23,3 +23,15 @@ public sealed class NullLog : ILog
     public void Warn(string message) { }
     public void Error(string message, Exception? exception = null) { }
 }
+
+/// <summary>Holds every UI-thread call until the test opens the gate, then runs them concurrently on the thread pool.</summary>
+public sealed class GatedUiThread : IUiThread
+{
+    public TaskCompletionSource Gate { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public async Task<T> RunAsync<T>(Func<T> work, CancellationToken ct)
+    {
+        await Gate.Task.ConfigureAwait(false);
+        return work();
+    }
+}

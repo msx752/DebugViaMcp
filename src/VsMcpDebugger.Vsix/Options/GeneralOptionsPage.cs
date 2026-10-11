@@ -96,13 +96,32 @@ public sealed class GeneralOptionsPage : DialogPage
         }
 
         base.OnApply(e);
+        CommitApplied();
+    }
+
+    /// <summary>Makes the current values the applied ones and tells the bridge; <paramref name="origin"/> labels non-Apply changes.</summary>
+    private void CommitApplied(string? origin = null)
+    {
         var changes = new List<string>();
         if (Read != _appliedRead) changes.Add($"Read: {_appliedRead} → {Read}");
         if (Control != _appliedControl) changes.Add($"Control: {_appliedControl} → {Control}");
         if (Mutate != _appliedMutate) changes.Add($"Mutate: {_appliedMutate} → {Mutate}");
         (_appliedRead, _appliedControl, _appliedMutate) = (Read, Control, Mutate);
         Applied = Snapshot();
-        if (changes.Count > 0) PermissionsChanged?.Invoke(this, string.Join(", ", changes));
+        if (changes.Count > 0) PermissionsChanged?.Invoke(this, (origin is null ? "" : origin + ": ") + string.Join(", ", changes));
         AnyApplied?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Tools → Import and Export Settings: imported values take effect like applied ones.</summary>
+    public override void LoadSettingsFromXml(IVsSettingsReader reader)
+    {
+        base.LoadSettingsFromXml(reader);
+        CommitApplied("Imported settings");
+    }
+
+    public override void ResetSettings()
+    {
+        base.ResetSettings();
+        CommitApplied("Reset settings");
     }
 }

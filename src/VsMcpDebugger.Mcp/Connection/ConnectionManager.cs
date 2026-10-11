@@ -74,11 +74,12 @@ public sealed class ConnectionManager(
 
             var lostPid = _connection?.Instance.Pid;
             await DropAsync().ConfigureAwait(false);
-            if (lostPid is not null)
+            if (lostPid is { } lost)
             {
+                if (await TryReconnectAsync(lost, ct).ConfigureAwait(false) is { } again) return again.Bridge;
                 _selectedPid = null;
                 throw new McpBridgeException(BridgeErrorCode.NotConnected,
-                    $"The connection to Visual Studio (pid {lostPid}) was lost.",
+                    $"The connection to Visual Studio (pid {lost}) was lost.",
                     "Call vs_instances, then vs_select with the instance to use.");
             }
 
@@ -102,6 +103,40 @@ public sealed class ConnectionManager(
         finally
         {
             _lock.Release();
+        }
+    }
+
+    /// <summary>How long the one reconnect attempt after a lost pipe may take.</summary>
+    internal static readonly TimeSpan ReconnectProbe = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>
+    /// The pipe can close before Disconnect AI's notification is read (M2 review minor 8). One quick reconnect tells
+    /// the cases apart. ai_disabled is reported as such and keeps the selection. Any other failure means the
+    /// connection is lost (null).
+    /// </summary>
+    private async Task<BridgeConnection?> TryReconnectAsync(int pid, CancellationToken ct)
+    {
+        var record = listInstances().FirstOrDefault(r => r.Pid == pid);
+        if (record is null) return null;
+        using var probe = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        probe.CancelAfter(ReconnectProbe);
+        try
+        {
+            _connection = await connect(record, session, probe.Token).ConfigureAwait(false);
+            return _connection;
+        }
+        catch (McpBridgeException e) when (e.Code == BridgeErrorCode.AiDisabled)
+        {
+            throw new McpBridgeException(BridgeErrorCode.AiDisabled, "The user disconnected AI access in Visual Studio.",
+                "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.");
+        }
+        catch (McpBridgeException)
+        {
+            return null;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return null;
         }
     }
 
