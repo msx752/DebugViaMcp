@@ -4,8 +4,10 @@
     "projects": [
       "src/VsDebug.Protocol/VsDebug.Protocol.csproj",
       "src/VsDebug.Mcp/VsDebug.Mcp.csproj",
+      "src/VsDebug.Vsix.Core/VsDebug.Vsix.Core.csproj",
       "tests/VsDebug.Protocol.Tests/VsDebug.Protocol.Tests.csproj",
-      "tests/VsDebug.Mcp.Tests/VsDebug.Mcp.Tests.csproj"
+      "tests/VsDebug.Mcp.Tests/VsDebug.Mcp.Tests.csproj",
+      "tests/VsDebug.Vsix.Core.Tests/VsDebug.Vsix.Core.Tests.csproj"
     ]
   }
 }

@@ -5,9 +5,11 @@
   <Folder Name="/src/">
     <Project Path="src/VsDebug.Mcp/VsDebug.Mcp.csproj" />
     <Project Path="src/VsDebug.Protocol/VsDebug.Protocol.csproj" />
+    <Project Path="src/VsDebug.Vsix.Core/VsDebug.Vsix.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/VsDebug.Mcp.Tests/VsDebug.Mcp.Tests.csproj" />
     <Project Path="tests/VsDebug.Protocol.Tests/VsDebug.Protocol.Tests.csproj" />
+    <Project Path="tests/VsDebug.Vsix.Core.Tests/VsDebug.Vsix.Core.Tests.csproj" />
   </Folder>
 </Solution>

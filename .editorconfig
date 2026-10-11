@@ -15,3 +15,6 @@ indent_size = 2
 csharp_style_namespace_declarations = file_scoped:warning
 csharp_style_var_for_built_in_types = true:suggestion
 dotnet_sort_system_directives_first = true
+
+# CA1716 guards VB.NET keyword clashes (Stop, Step, Error); this codebase is C#-only.
+dotnet_diagnostic.CA1716.severity = none
