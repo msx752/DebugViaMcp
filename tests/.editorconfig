@@ -4,3 +4,5 @@ dotnet_diagnostic.CA1707.severity = none
 # Tests do not need ConfigureAwait or internal-only types.
 dotnet_diagnostic.CA2007.severity = none
 dotnet_diagnostic.CA1515.severity = none
+# Tests pass explicit tokens (CancellationToken.None or their own) on purpose.
+dotnet_diagnostic.xUnit1051.severity = none
