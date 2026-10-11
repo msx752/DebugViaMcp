@@ -17,7 +17,8 @@
 | **M1 Walking skeleton** (this plan) | Repo foundation, `, nse` spike, Protocol, Mcp core + 15 tools, Vsix.Core, VSIX package, basic logging, manual E2E | §2, §3 (subset), §4.1, §4.3, §5 (basic), §7 (subset) |
 | M2 Safety & control | Permission tiers, consent info bar, `set_value`, side-effecting `eval`, audit log, callId correlation, status-bar indicator, Disconnect AI, options page | §5 audit/correlation, §6 |
 | M3 Full tool set & tooling | `debug_attach`, `debug_run_to`, `threads`, `frame_select` + break epochs/`stale`, `exception`, `bp_enable`, `diag`, `debug_start(project)`, `vsdebug doctor`, `vsdebug setup claude` | §3 rest, §4.2, §5 doctor |
-| M4 Release readiness | Automated E2E (VS experimental instance), generated `docs/tools.md`, all docs + ADRs, CI workflows (local only), packaging, MinVer | §9, §10, §11, §12 |
+| M4 Release readiness | Automated E2E (VS experimental instance), generated `docs/tools.md`, all docs + ADRs, CI workflows (local only; Mcp tests on Windows + macOS), packaging, MinVer | §9, §10, §11, §12 |
+| M5 VS Code adapter | TypeScript extension implementing `IDebugBridge` over `vscode.debug` (macOS, Linux, Windows); separate spec | §2.4 |
 
 M1 refinements of the spec (recorded here, folded into the spec in M4):
 - A fourth project, `VsDebug.Vsix.Core` (netstandard2.0), holds all VS-independent VSIX logic. This realises the spec's `IDteFacade` testing approach.
@@ -29,12 +30,20 @@ M1 refinements of the spec (recorded here, folded into the spec in M4):
 - Everything in the repository is English: code, comments, docs, commit messages.
 - Nothing is pushed or published (GitHub, NuGet, Marketplace). Local commits only.
 - No telemetry, no network calls.
-- Clean-room: do not read the source code of `ladislavsopko/mcp-ai-server-visual-studio`, `microsoft/DebugMCP` or `jasonjmcghee/claude-debugs-for-you`.
-- Dependency rule: `Vsix → Vsix.Core → Protocol ← Mcp`. Mcp never references `EnvDTE*`, `Microsoft.VisualStudio.Shell*` or `VsDebug.Vsix*`. `Vsix.Core` never references `ModelContextProtocol*`, `EnvDTE*` or `Microsoft.VisualStudio.Shell*`. Protocol references only `netstandard`.
+- Dependency rule: `Vsix → Vsix.Core → Protocol ← Mcp`. Mcp never references `EnvDTE*`, `Microsoft.VisualStudio.Shell*` or `VsDebug.Vsix*`. `Vsix.Core` never references `ModelContextProtocol*`, `EnvDTE*` or `Microsoft.VisualStudio.Shell*`. Protocol references only `netstandard` and `Newtonsoft.Json`.
+- Wire format (spec §2.4) is the contract for future non-.NET adapters:
+  - JSON-RPC over `HeaderDelimitedMessageHandler` + `JsonMessageFormatter`
+  - camelCase properties, enums as camelCase strings, nulls omitted
+  - configured only through `ProtocolJson`; every `JsonRpc` is created via an `RpcFactory`
+  - Discovery files use the same conventions.
+- Paths: never hard-code `%LOCALAPPDATA%`. Always use `DiscoveryPaths` (per-OS home, `VSDEBUG_HOME` override). `VsDebug.Mcp` and `VsDebug.Protocol` must stay free of Windows-only APIs.
 - `Vsix.Core` and `Vsix` pin `StreamJsonRpc 2.22.11` and `Newtonsoft.Json 13.0.3`. These are the versions VS 17.14 ships, so the VSIX bundles no copies of them.
 - stdout of the `vsdebug` process carries only MCP JSON-RPC. All logs go to stderr and to files.
 - Variable values are never written to logs.
-- Log folder: `%LOCALAPPDATA%\VsDebug\logs`. Instance folder: `%LOCALAPPDATA%\VsDebug\instances`.
+- Log folder: `<home>/logs`; instance folder: `<home>/instances`. `<home>` is:
+  - Windows: `%LOCALAPPDATA%\VsDebug`
+  - macOS: `~/Library/Application Support/VsDebug`
+  - Linux: `$XDG_DATA_HOME/VsDebug`, or `~/.local/share/VsDebug` when it is unset
 - Timeouts:
   - UI-thread DTE call: 10 s
   - Debugger evaluation: 5 000 ms
@@ -75,7 +84,8 @@ src/VsDebug.Protocol/
   Events.cs                      ModeChangedEvent, BreakEvent, IDebugBridgeEvents
   IDebugBridge.cs                RPC contract
   BridgeErrorCode.cs             error codes (int + name)
-  InstanceRecord.cs              discovery-file DTO + DiscoveryPaths
+  InstanceRecord.cs              discovery-file DTO + DiscoveryPaths (per-OS home)
+  ProtocolJson.cs                the single definition of wire / discovery JSON conventions
   ValueShaper.cs                 truncation helper
 src/VsDebug.Vsix.Core/
   IDteFacade.cs                  what the service needs from VS
@@ -87,6 +97,7 @@ src/VsDebug.Vsix.Core/
   DebugBridgeService.cs          IDebugBridge over IDteFacade (+ handshake gate per connection)
   BridgeConnectionHandler.cs     per-connection RPC target with handshake gating
   EventBroadcaster.cs            pushes events to all connected clients
+  RpcFactory.cs                  creates JsonRpc with the ProtocolJson wire format
   PipeHost.cs                    accept loop over an IPipeStreamFactory
   DiscoveryWriter.cs             writes / deletes instance file
   ILog.cs                        minimal logging abstraction
@@ -107,6 +118,7 @@ src/VsDebug.Mcp/
   Connection/BridgeConnection.cs pipe + JsonRpc + handshake
   Connection/ConnectionManager.cs IConnectionManager
   Connection/McpBridgeException.cs
+  Connection/RpcFactory.cs       creates JsonRpc with the ProtocolJson wire format
   Tools/ToolResponse.cs          JSON shaping, error mapping
   Tools/SessionTools.cs · Tools/BreakpointTools.cs · Tools/ExecutionTools.cs · Tools/InspectionTools.cs
 tests/
@@ -538,8 +550,9 @@ git commit -m "docs: record side-effect-free evaluation spike"
 ### Task 4: Protocol contract
 
 **Files:**
-- Create: `src/VsDebug.Protocol/Enums.cs`, `Dtos.cs`, `Events.cs`, `IDebugBridge.cs`, `BridgeErrorCode.cs`, `InstanceRecord.cs`, `ValueShaper.cs`
-- Test: `tests/VsDebug.Protocol.Tests/DtoRoundTripTests.cs`, `tests/VsDebug.Protocol.Tests/ValueShaperTests.cs`
+- Create: `src/VsDebug.Protocol/Enums.cs`, `Dtos.cs`, `Events.cs`, `IDebugBridge.cs`, `BridgeErrorCode.cs`, `InstanceRecord.cs`, `ProtocolJson.cs`, `ValueShaper.cs`
+- Modify: `src/VsDebug.Protocol/VsDebug.Protocol.csproj` (add `<ItemGroup><PackageReference Include="Newtonsoft.Json" /></ItemGroup>`)
+- Test: `tests/VsDebug.Protocol.Tests/DtoRoundTripTests.cs`, `tests/VsDebug.Protocol.Tests/ValueShaperTests.cs`, `tests/VsDebug.Protocol.Tests/DiscoveryPathsTests.cs`
 
 **Interfaces:**
 - Produces (exact; every later task uses these names):
@@ -571,7 +584,8 @@ public interface IDebugBridge { /* see IDebugBridge.cs below */ }
 public enum BridgeErrorCode { NotConnected = -32001, AmbiguousInstance = -32002, WrongMode = -32003, Busy = -32004, VersionMismatch = -32005, Unauthorized = -32006, InvalidArgument = -32007, EvalFailed = -32008, NotFound = -32009, Internal = -32099 }
 public static class BridgeErrorNames { string ToName(BridgeErrorCode c); }   // "not_connected", "ambiguous_instance", ...
 public sealed class InstanceRecord { int Pid; string PipeName; string Token; string? SolutionPath; string VsVersion; string VsixVersion; int ProtocolMajor; int ProtocolMinor; DateTimeOffset StartedAt; }
-public static class DiscoveryPaths { string Root; string InstancesDirectory; string LogsDirectory; string InstanceFile(int pid); }
+public static class DiscoveryPaths { string Root; string InstancesDirectory; string LogsDirectory; string InstanceFile(int pid); static string ResolveRoot(Func<string, string?> env, bool isWindows, bool isMac, string localAppData, string home); }
+public static class ProtocolJson { JsonSerializerSettings Settings; void Configure(JsonSerializer s); string Serialize(object v); T? Deserialize<T>(string json); }
 public static class ValueShaper { const int MaxValueLength = 1024; (string Value, bool Truncated) Truncate(string? value, int max = MaxValueLength); }
 ```
 
@@ -615,16 +629,25 @@ public class ValueShaperTests
 
 `tests/VsDebug.Protocol.Tests/DtoRoundTripTests.cs`:
 ```csharp
-using Newtonsoft.Json;
 using VsDebug.Protocol;
 using Xunit;
 
 namespace VsDebug.Protocol.Tests;
 
-/// <summary>StreamJsonRpc's default formatter is Newtonsoft.Json; DTOs must survive a round trip unchanged.</summary>
+/// <summary>DTOs must survive a round trip through the wire conventions unchanged.</summary>
 public class DtoRoundTripTests
 {
-    private static T RoundTrip<T>(T value) => JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(value))!;
+    private static T RoundTrip<T>(T value) => ProtocolJson.Deserialize<T>(ProtocolJson.Serialize(value!))!;
+
+    /// <summary>Golden test: this exact JSON is what a non-.NET adapter (e.g. the TypeScript VS Code adapter) sees.</summary>
+    [Fact]
+    public void Wire_format_is_camelCase_with_string_enums_and_no_nulls()
+    {
+        Assert.Equal("{\"mode\":\"break\",\"seq\":3}", ProtocolJson.Serialize(new ModeChangedEvent { Mode = DebuggerMode.Break, Seq = 3 }));
+        Assert.Equal(
+            "{\"reason\":\"breakpoint\",\"source\":[],\"args\":[],\"stackTop\":[]}",
+            ProtocolJson.Serialize(new BreakSnapshot { Reason = BreakReason.Breakpoint }));
+    }
 
     [Fact]
     public void BreakEvent_round_trips()
@@ -678,6 +701,39 @@ public class DtoRoundTripTests
     [InlineData(BridgeErrorCode.EvalFailed, "eval_failed")]
     public void Error_codes_have_stable_snake_case_names(BridgeErrorCode code, string name)
         => Assert.Equal(name, BridgeErrorNames.ToName(code));
+}
+```
+
+`tests/VsDebug.Protocol.Tests/DiscoveryPathsTests.cs`:
+```csharp
+using VsDebug.Protocol;
+using Xunit;
+
+namespace VsDebug.Protocol.Tests;
+
+public class DiscoveryPathsTests
+{
+    private static string Root(Dictionary<string, string?> env, bool win, bool mac) =>
+        DiscoveryPaths.ResolveRoot(k => env.GetValueOrDefault(k), win, mac, localAppData: @"C:\Users\u\AppData\Local", home: "/Users/u");
+
+    [Fact]
+    public void Windows_uses_local_app_data()
+        => Assert.Equal(Path.Combine(@"C:\Users\u\AppData\Local", "VsDebug"), Root([], win: true, mac: false));
+
+    [Fact]
+    public void Mac_uses_application_support()
+        => Assert.Equal(Path.Combine("/Users/u", "Library", "Application Support", "VsDebug"), Root([], win: false, mac: true));
+
+    [Fact]
+    public void Linux_prefers_xdg_data_home()
+    {
+        Assert.Equal(Path.Combine("/x", "VsDebug"), Root(new() { ["XDG_DATA_HOME"] = "/x" }, win: false, mac: false));
+        Assert.Equal(Path.Combine("/Users/u", ".local", "share", "VsDebug"), Root([], win: false, mac: false));
+    }
+
+    [Fact]
+    public void VSDEBUG_HOME_overrides_everything()
+        => Assert.Equal("/custom", Root(new() { ["VSDEBUG_HOME"] = "/custom" }, win: true, mac: false));
 }
 ```
 
@@ -923,15 +979,71 @@ public sealed class InstanceRecord
     public DateTimeOffset StartedAt { get; set; }
 }
 
+/// <summary>
+/// VsDebug home per OS (spec §2.4). Every adapter, in any language, must resolve the same directory.
+/// </summary>
 public static class DiscoveryPaths
 {
-    public static string Root { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VsDebug");
+    public static string Root { get; } = ResolveRoot(
+        Environment.GetEnvironmentVariable,
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows),
+        RuntimeInformation.IsOSPlatform(OSPlatform.OSX),
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
     public static string InstancesDirectory { get; } = Path.Combine(Root, "instances");
     public static string LogsDirectory { get; } = Path.Combine(Root, "logs");
 
     public static string InstanceFile(int pid) => Path.Combine(InstancesDirectory, pid + ".json");
+
+    public static string ResolveRoot(Func<string, string?> env, bool isWindows, bool isMac, string localAppData, string home)
+    {
+        var overridden = env("VSDEBUG_HOME");
+        if (!string.IsNullOrEmpty(overridden)) return overridden!;
+        if (isWindows) return Path.Combine(localAppData, "VsDebug");
+        if (isMac) return Path.Combine(home, "Library", "Application Support", "VsDebug");
+        var xdg = env("XDG_DATA_HOME");
+        return Path.Combine(string.IsNullOrEmpty(xdg) ? Path.Combine(home, ".local", "share") : xdg!, "VsDebug");
+    }
+}
+```
+Add `using System.Runtime.InteropServices;` at the top of `InstanceRecord.cs`.
+
+`src/VsDebug.Protocol/ProtocolJson.cs`:
+```csharp
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Serialization;
+
+namespace VsDebug.Protocol;
+
+/// <summary>
+/// The single definition of the wire and discovery-file JSON conventions (spec §2.4):
+/// camelCase properties, enums as camelCase strings, nulls omitted, ISO-8601 dates.
+/// Any adapter written in another language must produce and accept exactly this shape.
+/// </summary>
+public static class ProtocolJson
+{
+    public static JsonSerializerSettings Settings { get; } = new()
+    {
+        ContractResolver = new CamelCasePropertyNamesContractResolver(),
+        NullValueHandling = NullValueHandling.Ignore,
+        DateParseHandling = DateParseHandling.DateTimeOffset,
+        Converters = { new StringEnumConverter(new CamelCaseNamingStrategy()) },
+    };
+
+    /// <summary>Applies the conventions to a serializer owned by someone else (e.g. StreamJsonRpc's JsonMessageFormatter).</summary>
+    public static void Configure(JsonSerializer serializer)
+    {
+        serializer.ContractResolver = Settings.ContractResolver;
+        serializer.NullValueHandling = Settings.NullValueHandling;
+        serializer.DateParseHandling = Settings.DateParseHandling;
+        foreach (var converter in Settings.Converters) serializer.Converters.Add(converter);
+    }
+
+    public static string Serialize(object value) => JsonConvert.SerializeObject(value, Settings);
+
+    public static T? Deserialize<T>(string json) => JsonConvert.DeserializeObject<T>(json, Settings);
 }
 ```
 
@@ -956,13 +1068,13 @@ public static class ValueShaper
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `dotnet test tests/VsDebug.Protocol.Tests`
-Expected: all tests pass (1 + 3 + 2 + 5 = 11).
+Expected: all tests pass (1 + 3 + 3 + 5 + 4 = 16).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/VsDebug.Protocol tests/VsDebug.Protocol.Tests
-git commit -m "feat(protocol): add bridge contract, DTOs, error codes and value shaping"
+git commit -m "feat(protocol): add bridge contract, wire conventions, per-OS paths and value shaping"
 ```
 
 ---
@@ -1021,7 +1133,6 @@ Add both to `VsDebug.slnx` (`dotnet sln add`) and to the `projects` array of `Vs
 
 `tests/VsDebug.Mcp.Tests/InstanceDiscoveryTests.cs`:
 ```csharp
-using Newtonsoft.Json;
 using VsDebug.Mcp.Discovery;
 using VsDebug.Protocol;
 using Xunit;
@@ -1036,7 +1147,7 @@ public sealed class InstanceDiscoveryTests : IDisposable
 
     private void Write(int pid) => File.WriteAllText(
         Path.Combine(_dir, pid + ".json"),
-        JsonConvert.SerializeObject(new InstanceRecord { Pid = pid, PipeName = "vsdebug-" + pid, Token = "t" }));
+        ProtocolJson.Serialize(new InstanceRecord { Pid = pid, PipeName = "vsdebug-" + pid, Token = "t" }));
 
     [Fact]
     public void Missing_directory_yields_empty_list()
@@ -1108,7 +1219,7 @@ public sealed class InstanceDiscovery(string directory, Func<int, bool> isProces
             InstanceRecord? record;
             try
             {
-                record = JsonConvert.DeserializeObject<InstanceRecord>(File.ReadAllText(file));
+                record = ProtocolJson.Deserialize<InstanceRecord>(File.ReadAllText(file));
             }
             catch (Exception e) when (e is JsonException or IOException)
             {
@@ -1480,7 +1591,7 @@ git commit -m "feat(mcp): add session state with race-free break waiting"
 ### Task 7: Mcp connection (pipe, JSON-RPC, handshake, connection manager)
 
 **Files:**
-- Create: `src/VsDebug.Mcp/Connection/McpBridgeException.cs`, `BridgeConnection.cs`, `ConnectionManager.cs`
+- Create: `src/VsDebug.Mcp/Connection/McpBridgeException.cs`, `RpcFactory.cs`, `BridgeConnection.cs`, `ConnectionManager.cs`
 - Test: `tests/VsDebug.Mcp.Tests/BridgeConnectionTests.cs`, `tests/VsDebug.Mcp.Tests/ConnectionManagerTests.cs`, `tests/VsDebug.Mcp.Tests/Fakes/FakeDebugBridge.cs`, `tests/VsDebug.Mcp.Tests/Fakes/PipeTestServer.cs`
 
 **Interfaces:**
@@ -1489,6 +1600,8 @@ git commit -m "feat(mcp): add session state with race-free break waiting"
 ```csharp
 public sealed class McpBridgeException(BridgeErrorCode code, string message, string? hint = null) : Exception(message)
 { BridgeErrorCode Code; string? Hint; }
+
+public static class RpcFactory { static JsonRpc Create(Stream stream); }   // not yet listening
 
 public sealed class BridgeConnection : IAsyncDisposable
 {
@@ -1604,7 +1717,9 @@ public sealed class PipeTestServer : IAsyncDisposable
     private async Task AcceptAsync()
     {
         await _stream.WaitForConnectionAsync();
-        _rpc = JsonRpc.Attach(_stream, Bridge);
+        _rpc = VsDebug.Mcp.Connection.RpcFactory.Create(_stream);
+        _rpc.AddLocalRpcTarget(Bridge);
+        _rpc.StartListening();
     }
 
     public async ValueTask DisposeAsync()
@@ -1784,6 +1899,25 @@ public sealed class McpBridgeException(BridgeErrorCode code, string message, str
 }
 ```
 
+`src/VsDebug.Mcp/Connection/RpcFactory.cs`:
+```csharp
+using StreamJsonRpc;
+using VsDebug.Protocol;
+
+namespace VsDebug.Mcp.Connection;
+
+/// <summary>Creates JsonRpc with the language-neutral wire format (spec §2.4). Never construct JsonRpc any other way.</summary>
+public static class RpcFactory
+{
+    public static JsonRpc Create(Stream stream)
+    {
+        var formatter = new JsonMessageFormatter();
+        ProtocolJson.Configure(formatter.JsonSerializer);
+        return new JsonRpc(new HeaderDelimitedMessageHandler(stream, stream, formatter));
+    }
+}
+```
+
 `src/VsDebug.Mcp/Connection/BridgeConnection.cs`:
 ```csharp
 using System.IO.Pipes;
@@ -1832,7 +1966,7 @@ public sealed class BridgeConnection : IAsyncDisposable
                 "Make sure that Visual Studio instance is still running, or run `vsdebug doctor`.", e);
         }
 
-        var rpc = new JsonRpc(stream);
+        var rpc = RpcFactory.Create(stream);
         rpc.AddLocalRpcTarget<IDebugBridgeEvents>(session, null);
         var bridge = rpc.Attach<IDebugBridge>();
         rpc.Disconnected += (_, args) =>
@@ -3461,7 +3595,7 @@ git commit -m "feat(vsix-core): add bridge service over a DTE facade"
 ### Task 10: Vsix.Core — connection handler, event broadcast, pipe host, discovery writer
 
 **Files:**
-- Create: `src/VsDebug.Vsix.Core/BridgeConnectionHandler.cs`, `EventBroadcaster.cs`, `PipeHost.cs`, `DiscoveryWriter.cs`
+- Create: `src/VsDebug.Vsix.Core/BridgeConnectionHandler.cs`, `EventBroadcaster.cs`, `RpcFactory.cs`, `PipeHost.cs`, `DiscoveryWriter.cs`
 - Test: `tests/VsDebug.Vsix.Core.Tests/BridgeConnectionHandlerTests.cs`, `PipeHostTests.cs`, `DiscoveryWriterTests.cs`
 
 **Interfaces:**
@@ -3470,6 +3604,7 @@ git commit -m "feat(vsix-core): add bridge service over a DTE facade"
 ```csharp
 public sealed class BridgeConnectionHandler(DebugBridgeService service, string token, ILog log, Action? onAuthenticated = null) : IDebugBridge   // gates every call on handshake
 public sealed class EventBroadcaster(ILog log) { void Add(JsonRpc rpc); void PublishMode(ModeChangedEvent e); void PublishBreak(BreakEvent e); int ConnectionCount { get; } }
+public static class RpcFactory { static JsonRpc Create(Stream stream); }   // same wire format as VsDebug.Mcp.Connection.RpcFactory
 public interface IPipeStreamFactory { Stream Create(string pipeName); Task WaitForConnectionAsync(Stream s, CancellationToken ct); }
 // handlerFactory receives the callback that registers the connection for events; it is invoked only after a successful handshake,
 // so unauthenticated clients never receive break snapshots.
@@ -3552,7 +3687,6 @@ public class BridgeConnectionHandlerTests
 
 `tests/VsDebug.Vsix.Core.Tests/DiscoveryWriterTests.cs`:
 ```csharp
-using Newtonsoft.Json;
 using VsDebug.Protocol;
 using VsDebug.Vsix.Core;
 using Xunit;
@@ -3575,7 +3709,9 @@ public sealed class DiscoveryWriterTests : IDisposable
         var (_, path) = writer.Write(new InstanceRecord { Pid = 4242, PipeName = "vsdebug-x", Token = "t" });
 
         Assert.Equal(Path.Combine(_dir, "4242.json"), path);
-        Assert.Equal("vsdebug-x", JsonConvert.DeserializeObject<InstanceRecord>(File.ReadAllText(path))!.PipeName);
+        var json = File.ReadAllText(path);
+        Assert.Contains("\"pipeName\": \"vsdebug-x\"", json);   // camelCase, readable by non-.NET adapters
+        Assert.Equal("vsdebug-x", ProtocolJson.Deserialize<InstanceRecord>(json)!.PipeName);
 
         writer.Delete();
         Assert.False(File.Exists(path));
@@ -3631,7 +3767,7 @@ public class PipeHostTests
             var client = new NamedPipeClientStream(".", pipe, PipeDirection.InOut, PipeOptions.Asynchronous);
             await client.ConnectAsync(5000);
             var events = new Events();
-            var rpc = new JsonRpc(client);
+            var rpc = RpcFactory.Create(client);
             rpc.AddLocalRpcTarget(events);
             var bridge = rpc.Attach<IDebugBridge>();
             rpc.StartListening();
@@ -3802,6 +3938,25 @@ public sealed class EventBroadcaster(ILog log)
 }
 ```
 
+`src/VsDebug.Vsix.Core/RpcFactory.cs`. This deliberately duplicates the Mcp one, because the dependency rule forbids sharing code that references StreamJsonRpc through Protocol. The golden test in Protocol and `PipeHostTests` keep the two in sync.
+```csharp
+using System.IO;
+using StreamJsonRpc;
+using VsDebug.Protocol;
+
+namespace VsDebug.Vsix.Core;
+
+public static class RpcFactory
+{
+    public static JsonRpc Create(Stream stream)
+    {
+        var formatter = new JsonMessageFormatter();
+        ProtocolJson.Configure(formatter.JsonSerializer);
+        return new JsonRpc(new HeaderDelimitedMessageHandler(stream, stream, formatter));
+    }
+}
+```
+
 `src/VsDebug.Vsix.Core/PipeHost.cs`:
 ```csharp
 using System;
@@ -3847,7 +4002,7 @@ public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<A
                 continue;
             }
 
-            var rpc = new JsonRpc(stream);
+            var rpc = RpcFactory.Create(stream);
             rpc.AddLocalRpcTarget(handlerFactory(() => events.Add(rpc)));
             rpc.Disconnected += (_, args) => { log.Info($"Client disconnected: {args.Reason}"); stream.Dispose(); };
             rpc.StartListening();
@@ -3882,7 +4037,7 @@ public sealed class DiscoveryWriter(string directory)
     {
         Directory.CreateDirectory(directory);
         _path = Path.Combine(directory, record.Pid + ".json");
-        File.WriteAllText(_path, JsonConvert.SerializeObject(record, Formatting.Indented));
+        File.WriteAllText(_path, JsonConvert.SerializeObject(record, Formatting.Indented, ProtocolJson.Settings));
         return (record, _path);
     }
 
@@ -3946,8 +4101,14 @@ public class DependencyRuleTests
     private static readonly Assembly VsixCore = typeof(VsDebug.Vsix.Core.DebugBridgeService).Assembly;
 
     [Fact]
-    public void Protocol_references_only_the_base_library()
-        => Assert.All(References(Protocol), name => Assert.True(name is "netstandard" or "mscorlib", $"Protocol references {name}"));
+    public void Protocol_references_only_the_base_library_and_newtonsoft()
+        => Assert.All(References(Protocol), name => Assert.True(name is "netstandard" or "mscorlib" or "Newtonsoft.Json", $"Protocol references {name}"));
+
+    [Fact]
+    public void Mcp_and_protocol_do_not_use_windows_only_assemblies()
+        => Assert.DoesNotContain(References(Mcp).Concat(References(Protocol)), n =>
+            n.StartsWith("Microsoft.Win32", StringComparison.Ordinal) ||
+            n is "System.IO.Pipes.AccessControl" or "System.Security.AccessControl");
 
     [Fact]
     public void Mcp_does_not_reference_visual_studio_or_vsix()
@@ -3969,7 +4130,7 @@ public class DependencyRuleTests
 - [ ] **Step 2: Run, and confirm that a broken rule fails**
 
 Run: `dotnet test tests/VsDebug.ArchitectureTests`
-Expected: 3 tests pass.
+Expected: 4 tests pass.
 
 Sanity check that the test can fail:
 1. Temporarily add `<ProjectReference Include="..\VsDebug.Vsix.Core\VsDebug.Vsix.Core.csproj" />` to the Mcp csproj.
@@ -4663,13 +4824,6 @@ Requires the .NET 10 SDK and Visual Studio 2022 17.14+ or 2026 with the
 ## Try it with Claude Code
 
 See [docs/testing/m1-manual-e2e.md](docs/testing/m1-manual-e2e.md).
-
-## Related projects
-
-- [ladislavsopko/mcp-ai-server-visual-studio](https://github.com/ladislavsopko/mcp-ai-server-visual-studio) — Visual Studio extension exposing IDE and debugger features over MCP
-- [microsoft/DebugMCP](https://github.com/microsoft/DebugMCP) — debugger control for VS Code over MCP
-- [jasonjmcghee/claude-debugs-for-you](https://github.com/jasonjmcghee/claude-debugs-for-you) — VS Code extension letting Claude debug via MCP
-- [AerialByte/mcp-netcoredbg](https://github.com/AerialByte/mcp-netcoredbg) — .NET debugging over MCP via netcoredbg
 
 ## License
 

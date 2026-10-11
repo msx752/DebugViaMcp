@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft — awaiting review |
 | **Date** | 2026-10-11 |
-| **Scope** | v1: .NET (C#) debugging in Visual Studio 2022 (17.x) and Visual Studio 2026 |
+| **Scope** | v1: .NET (C#) debugging in Visual Studio 2022 (17.14+) and Visual Studio 2026 on Windows (x64, arm64 — including Windows VMs on Apple silicon). Follow-up milestone: a VS Code adapter (C# Dev Kit) for macOS, Linux and Windows, speaking the same protocol |
 | **License** | MIT |
 
 ## 1. Purpose
@@ -23,15 +23,11 @@ expressions like QuickWatch, and — with user consent — change values.
 
 ### Non-goals (v1)
 - Native C++, Python, JavaScript or mixed-mode debugging (the protocol must not preclude them).
-- A VS Code adapter (possible later via the same protocol; not built now).
+- The VS Code adapter itself (milestone M5, separate spec). v1 must, however, keep the protocol and
+  the MCP host platform- and language-neutral so that adapter needs no change to them (§2.4).
+- Visual Studio for Mac (retired by Microsoft on 2024-08-31).
 - Remote machines, HTTP/SSE transport, multi-user scenarios.
 - Editing source code, building, or running tests — other tools already do that.
-
-### Clean-room note
-VsDebug is designed solely from Microsoft's public APIs (EnvDTE / VSSDK), the official MCP C#
-SDK and the MCP specification. The source of similar projects (e.g.
-`ladislavsopko/mcp-ai-server-visual-studio`, `microsoft/DebugMCP`, `jasonjmcghee/claude-debugs-for-you`)
-is intentionally not consulted. They are credited in the README under *Related projects*.
 
 ## 2. Architecture
 
@@ -53,13 +49,14 @@ is intentionally not consulted. They are credited in the README under *Related p
 
 | Project | Target | Responsibility | Depends on |
 |---|---|---|---|
-| `VsDebug.Protocol` | netstandard2.0 | `IDebugBridge` RPC contract, `IDebugBridgeEvents` callback contract, DTOs, error codes, `ProtocolVersion` | nothing |
-| `VsDebug.Vsix` | net48 | Pipe server, discovery registration, RPC → DTE translation on the UI thread, event forwarding, permission enforcement, consent UI, status-bar indicator, Output pane, options page | Protocol, VSSDK |
+| `VsDebug.Protocol` | netstandard2.0 | `IDebugBridge` RPC contract, `IDebugBridgeEvents` callback contract, DTOs, error codes, `ProtocolVersion`, wire/discovery JSON conventions, per-OS paths | Newtonsoft.Json only |
+| `VsDebug.Vsix.Core` | netstandard2.0 | All VS-independent VSIX logic (bridge service over `IDteFacade`, handshake gate, event broadcast, pipe host, discovery writer) — unit-testable without VS | Protocol, StreamJsonRpc |
+| `VsDebug.Vsix` | net48 | Composition root inside VS: EnvDTE facade, debugger event pump, ACL'd pipe, permission enforcement, consent UI, status-bar indicator, Output pane, options page | Vsix.Core, VSSDK |
 | `VsDebug.Mcp` | net10.0, packed as `dotnet tool` (command `vsdebug`) | MCP tools, instance discovery/selection, session state, event buffering, output shaping, `doctor` / `setup` / `serve` commands | Protocol, MCP C# SDK |
 
-**Dependency rule:** `Vsix → Protocol ← Mcp`. Mcp never references a Visual Studio assembly;
-Vsix never references the MCP SDK; Protocol contains no VS-specific types. Enforced by
-`VsDebug.ArchitectureTests` (NetArchTest) in CI.
+**Dependency rule:** `Vsix → Vsix.Core → Protocol ← Mcp`. Mcp never references a Visual Studio
+assembly; Vsix and Vsix.Core never reference the MCP SDK; Protocol contains no VS-specific types.
+Enforced by `VsDebug.ArchitectureTests` (assembly-reference checks) in CI.
 
 ### 2.2 Why this shape (summary — full reasoning in ADRs)
 - **Bridge instead of MCP-inside-VS:** the MCP SDK runs on modern .NET without assembly conflicts
@@ -72,7 +69,7 @@ Vsix never references the MCP SDK; Protocol contains no VS-specific types. Enfor
 
 ### 2.3 Instance discovery
 - On package load, each VS instance creates a pipe with a random name and writes
-  `%LOCALAPPDATA%\VsDebug\instances\{pid}.json`:
+  `<VsDebug home>/instances/{pid}.json` (home per OS: §2.4):
   `{ pid, pipeName, token, solutionPath, vsVersion, vsixVersion, protocolVersion, startedAt }`.
   The file ACL grants access to the current user only. The file is deleted on VS shutdown.
 - Mcp reads the directory, drops entries whose process is gone, and:
@@ -80,6 +77,28 @@ Vsix never references the MCP SDK; Protocol contains no VS-specific types. Enfor
   - several → state-changing calls are refused until `vs_select(pid)` is called.
 - Handshake: Mcp sends `{ token, protocolVersion, clientName }`. A major-version mismatch is
   rejected with `version_mismatch` and an upgrade hint.
+
+### 2.4 Cross-platform and multi-IDE readiness
+An IDE adapter is anything that implements `IDebugBridge` behind a pipe and writes an instance
+file. The VSIX is the first; a VS Code extension (TypeScript, `vscode.debug` API) is planned (M5).
+To keep that adapter free of changes to Protocol or Mcp:
+
+- **Wire format is language-neutral and fixed:** JSON-RPC 2.0 with `Content-Length` header framing
+  (StreamJsonRpc `HeaderDelimitedMessageHandler` + `JsonMessageFormatter`, compatible with
+  `vscode-jsonrpc`); camelCase property names; enums as camelCase strings; ISO-8601 dates; nulls
+  omitted. Defined once in `ProtocolJson` and locked by a golden-JSON test. No MessagePack.
+- **Instance files** use the same JSON conventions.
+- **VsDebug home** (instances, logs):
+  | OS | Path |
+  |---|---|
+  | Windows | `%LOCALAPPDATA%\VsDebug` |
+  | macOS | `~/Library/Application Support/VsDebug` |
+  | Linux | `$XDG_DATA_HOME/VsDebug` or `~/.local/share/VsDebug` |
+  `VSDEBUG_HOME` overrides it (tests, portable setups).
+- **Transport per OS:** Windows named pipe with a user-only ACL. On macOS/Linux the instance file's
+  `pipeName` is an absolute Unix-domain-socket path inside the VsDebug home; the directory is
+  `0700` and the socket `0600`. .NET's `NamedPipeClientStream` accepts such a path directly.
+- **Mcp is cross-platform:** `VsDebug.Mcp` builds and its tests run on Windows, macOS and Linux.
 
 ## 3. MCP tool contract
 
@@ -178,9 +197,9 @@ wrapped in a 10 s timeout. Debugger evaluations use a 5 s evaluation timeout.
 
 | Layer | Destination | Content |
 |---|---|---|
-| Mcp | `%LOCALAPPDATA%\VsDebug\logs\mcp-{date}.log` (JSON lines) + **stderr** | Tool calls, durations, RPC errors, handshake, discovery |
-| VSIX | `%LOCALAPPDATA%\VsDebug\logs\vsix-{pid}-{date}.log` + **Output → "VsDebug"** pane | Pipe connections, DTE calls, debugger events, UI-thread wait times |
-| Audit | `%LOCALAPPDATA%\VsDebug\logs\audit-{date}.log` | Every state-changing operation: `bp_set/remove/enable`, `set_value`, side-effecting `eval`, `start/stop/attach`, consent decisions — client name, parameters, outcome |
+| Mcp | `<VsDebug home>/logs/mcp-{date}.log` (JSON lines) + **stderr** | Tool calls, durations, RPC errors, handshake, discovery |
+| VSIX | `<VsDebug home>/logs/vsix-{pid}-{date}.log` + **Output → "VsDebug"** pane | Pipe connections, DTE calls, debugger events, UI-thread wait times |
+| Audit | `<VsDebug home>/logs/audit-{date}.log` | Every state-changing operation: `bp_set/remove/enable`, `set_value`, side-effecting `eval`, `start/stop/attach`, consent decisions — client name, parameters, outcome |
 
 - **Correlation:** every MCP call gets a `callId`, propagated over RPC and logged on both sides.
 - **stdout is reserved for MCP.** Nothing else may write to stdout; enforced by a test that
@@ -278,6 +297,8 @@ Every error has a **code**, a **human message** and a **next-step hint**, and is
 |---|---|
 | Dependency direction | ArchitectureTests fail the build |
 | Tool contract stable | `tools/list` snapshot diff |
+| Wire format language-neutral | Golden-JSON test on `ProtocolJson` output |
+| Mcp cross-platform | Mcp + Protocol tests run on Windows and macOS in CI (M4) |
 | stdout carries only MCP | stdout-purity test |
 | Values not logged by default | Test runs a tool with a secret-like value and asserts it is absent from log files |
 | `mutate` gated | Test asserts `set_value` is denied when consent is `Ask` and no answer arrives |
@@ -318,7 +339,7 @@ vsdebug doctor
 ## 12. Documentation
 
 - **README:** what it does, demo GIF, quickstart, example prompt ("stop in OrderService.Submit
-  when total > 1000 and show me the order"), security summary, Related projects.
+  when total > 1000 and show me the order"), security summary.
 - **docs/tools.md:** generated from the `tools/list` schema — parameters, examples, error codes.
 - **docs/security.md:** threat model, tiers, consent, prompt-injection limits.
 - **docs/logging.md:** file locations, levels, correlation ids, value-logging opt-in.
@@ -330,6 +351,8 @@ vsdebug doctor
   - ADR-004 `mutate` defaults to Ask
   - ADR-005 Variable values not logged by default
   - ADR-006 v1 scope: .NET only, VS 2022 + 2026
+  - ADR-007 Language-neutral wire format and per-OS home (prepares the VS Code adapter)
+  - ADR-008 macOS via a VS Code adapter (Visual Studio for Mac is retired)
 
 ## 13. Open risks
 
@@ -339,3 +362,4 @@ vsdebug doctor
 | One VSIX targeting VS 2022 and 2026 | Install target range `[17.0, 19.0)`; E2E on both before release |
 | Name availability (`VsDebug` on NuGet / Marketplace) | Check before first package; fallback names: `DebugPilot`, `vs-debug-bridge` |
 | `debug_start` on solutions with multiple startup projects | v1 uses VS's configured startup; `project` parameter selects a single one |
+| VS Code debug API differs from DTE (e.g. no first-class conditional "when changed", evaluation contexts) | M5 spec maps each tool; unsupported options return `invalid_argument` with an explanation rather than being ignored |
