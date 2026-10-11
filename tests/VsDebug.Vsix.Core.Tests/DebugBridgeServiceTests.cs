@@ -138,7 +138,7 @@ public class DebugBridgeServiceTests
         var (svc, dte, _) = Create();
         dte.Locals = Enumerable.Range(0, 10_000).Select(i => new VariableInfo { Name = "v" + i, Value = new string('x', 5000) }).ToList();
 
-        var vars = await svc.GetVariablesAsync(VariableScope.Locals, null, 50, CancellationToken.None);
+        var vars = await svc.GetVariablesAsync(VariableScope.Locals, null, 0, 50, CancellationToken.None);
 
         Assert.Equal(50, vars.Length);
         Assert.All(vars, v => Assert.True(v.Truncated && v.Value.Length == ValueShaper.MaxValueLength));
@@ -166,5 +166,16 @@ public class DebugBridgeServiceTests
         Assert.Equal("OrderService.cs", snap.Location!.File);
         Assert.Equal(9, snap.Location.Line);
         Assert.Equal(["Demo.OrderService.Submit(Demo.Order order):9", "Program.Main:3"], snap.StackTop);
+    }
+
+    [Fact]
+    public async Task Variables_honour_offset()
+    {
+        var (svc, dte, _) = Create();
+        dte.Locals = Enumerable.Range(0, 100).Select(i => new VariableInfo { Name = "v" + i, Value = "x" }).ToList();
+
+        var vars = await svc.GetVariablesAsync(VariableScope.Locals, null, 40, 5, CancellationToken.None);
+
+        Assert.Equal(["v40", "v41", "v42", "v43", "v44"], vars.Select(v => v.Name));
     }
 }

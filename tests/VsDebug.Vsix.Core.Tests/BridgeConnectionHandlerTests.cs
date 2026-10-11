@@ -32,7 +32,7 @@ public class BridgeConnectionHandlerTests
         await h.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, CancellationToken.None);
         await h.ListBreakpointsAsync(CancellationToken.None);
         await h.GetStackAsync(5, CancellationToken.None);
-        await h.GetVariablesAsync(VariableScope.Args, null, 10, CancellationToken.None);
+        await h.GetVariablesAsync(VariableScope.Args, null, 0, 10, CancellationToken.None);
         await h.EvaluateAsync("x", CancellationToken.None);
         await h.StepAsync(StepKind.Over, CancellationToken.None);
         await h.RemoveBreakpointsAsync(null, all: true, CancellationToken.None);

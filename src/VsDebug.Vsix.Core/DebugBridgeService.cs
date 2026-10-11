@@ -94,12 +94,14 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             File = f.File is null ? null : PathUtil.ToRelative(SolutionDir, f.File),
         }).ToArray(), ct);
 
-    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int maxItems, CancellationToken ct) => InBreak(() =>
+    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CancellationToken ct) => InBreak(() =>
     {
+        var skip = Math.Max(0, offset);
+        var take = Math.Max(0, maxItems);
         var items = path is null
-            ? dte.Variables(scope, maxItems)
-            : dte.Members(ExpressionPolicy.PrepareSideEffectFree(path), maxItems);
-        return items.Take(maxItems).Select(Shape).ToArray();
+            ? dte.Variables(scope, skip + take)
+            : dte.Members(ExpressionPolicy.PrepareSideEffectFree(path), skip + take);
+        return items.Skip(skip).Take(take).Select(Shape).ToArray();
     }, ct);
 
     public Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken ct) => InBreak(() =>

@@ -46,6 +46,24 @@ public class PathUtilTests
     public void IsUnder_accepts_only_plain_paths_inside_the_directory(string path, bool expected)
         => Assert.Equal(expected, PathUtil.IsUnder(@"C:\repo", path));
 
+    /// <summary>Final review #5: a minified or generated line must not flood the snapshot.</summary>
+    [Fact]
+    public void Source_context_truncates_long_lines()
+    {
+        var file = Path.GetTempFileName();
+        File.WriteAllLines(file, ["short", new string('m', 50_000), "short"]);
+        try
+        {
+            var ctx = PathUtil.SourceContext(file, 2, radius: 1);
+            Assert.All(ctx, line => Assert.True(line.Length <= PathUtil.MaxSourceLineLength + 8, $"{line.Length} chars"));
+            Assert.EndsWith("…", ctx[1], StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
     [Fact]
     public void Source_context_of_missing_file_is_empty()
         => Assert.Empty(PathUtil.SourceContext(@"C:\does\not\exist.cs", 3));

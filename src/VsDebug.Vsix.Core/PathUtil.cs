@@ -7,6 +7,8 @@ namespace VsDebug.Vsix.Core;
 
 public static class PathUtil
 {
+    public const int MaxSourceLineLength = 200;
+
     public static string ToRelative(string? solutionDir, string path)
     {
         if (path is null) throw new ArgumentNullException(nameof(path));
@@ -68,7 +70,8 @@ public static class PathUtil
         var result = new List<string>();
         for (var n = Math.Max(1, line - radius); n <= Math.Min(lines.Length, line + radius); n++)
         {
-            result.Add((n == line ? "> " : "") + n.ToString(CultureInfo.InvariantCulture) + ": " + lines[n - 1]);
+            var text = lines[n - 1].Length > MaxSourceLineLength ? lines[n - 1].Substring(0, MaxSourceLineLength - 1) + "…" : lines[n - 1];
+            result.Add((n == line ? "> " : "") + n.ToString(CultureInfo.InvariantCulture) + ": " + text);
         }
 
         return result.ToArray();

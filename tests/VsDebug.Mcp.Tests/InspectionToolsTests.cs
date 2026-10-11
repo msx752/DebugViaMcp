@@ -12,7 +12,7 @@ public class InspectionToolsTests
     public async Task Vars_requires_break_mode()
     {
         var tools = new InspectionTools(new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Run));
-        var result = await tools.Vars("locals", null, 1, 50, CancellationToken.None);
+        var result = await tools.Vars("locals", null, 1, 50, ct: CancellationToken.None);
         Assert.Equal("wrong_mode", Json(result).GetProperty("error").GetProperty("code").GetString());
     }
 
@@ -25,10 +25,10 @@ public class InspectionToolsTests
         bridge.OnVariables = (_, path, max) => { seenPath = path; seenMax = max; return []; };
         var tools = new InspectionTools(new FakeConnectionManager(bridge));
 
-        await tools.Vars("locals", "order.Lines", 1, 100_000, CancellationToken.None);
+        await tools.Vars("locals", "order.Lines", 1, 100_000, ct: CancellationToken.None);
 
         Assert.Equal("order.Lines", seenPath);
-        Assert.Equal(InspectionTools.MaxItemsCap, seenMax);
+        Assert.Equal(InspectionTools.MaxItemsCap + 1, seenMax);   // one extra item tells us whether more exist
     }
 
     [Fact]
@@ -49,5 +49,47 @@ public class InspectionToolsTests
         var tools = new InspectionTools(new FakeConnectionManager(new FakeDebugBridge()));
         var json = Json(await tools.Eval("x", CancellationToken.None));
         Assert.Equal("42", json.GetProperty("data").GetProperty("value").GetString());
+    }
+
+    private static VariableInfo[] Items(int count, int valueLength) =>
+        Enumerable.Range(0, count).Select(i => new VariableInfo { Name = "v" + i, Type = "string", Value = new string('x', valueLength) }).ToArray();
+
+    /// <summary>Final review #5: a capped collection must say that more items exist and where to continue.</summary>
+    [Fact]
+    public async Task Vars_reports_has_more_and_next_offset()
+    {
+        var bridge = new FakeDebugBridge { OnVariables = (_, _, max) => Items(max, 3) };
+        var tools = new InspectionTools(new FakeConnectionManager(bridge));
+
+        var json = Json(await tools.Vars("locals", "list", 1, maxItems: 10, offset: 20, ct: CancellationToken.None));
+
+        Assert.Equal(10, json.GetProperty("data").GetArrayLength());
+        Assert.True(json.GetProperty("hasMore").GetBoolean());
+        Assert.Equal(30, json.GetProperty("nextOffset").GetInt32());
+    }
+
+    [Fact]
+    public async Task Vars_passes_offset_to_the_bridge()
+    {
+        var bridge = new FakeDebugBridge();
+        var tools = new InspectionTools(new FakeConnectionManager(bridge));
+
+        await tools.Vars("locals", "list", 1, maxItems: 10, offset: 40, ct: CancellationToken.None);
+
+        Assert.Equal(40, bridge.LastOffset);
+    }
+
+    /// <summary>Final review #5 / spec §8: a vars response stays at or under 16 KB.</summary>
+    [Fact]
+    public async Task Vars_response_stays_under_16_kb()
+    {
+        var bridge = new FakeDebugBridge { OnVariables = (_, _, max) => Items(max, ValueShaper.MaxValueLength) };
+        var tools = new InspectionTools(new FakeConnectionManager(bridge));
+
+        var result = await tools.Vars("locals", "big", 1, maxItems: 200, ct: CancellationToken.None);
+        var text = ((ModelContextProtocol.Protocol.TextContentBlock)result.Content[0]).Text;
+
+        Assert.True(text.Length <= 16 * 1024, $"response was {text.Length} chars");
+        Assert.True(Json(result).GetProperty("hasMore").GetBoolean());
     }
 }

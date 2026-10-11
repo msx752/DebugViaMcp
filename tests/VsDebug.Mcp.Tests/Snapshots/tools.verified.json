@@ -215,6 +215,11 @@
         "maxItems": {
           "type": "integer",
           "default": 50
+        },
+        "offset": {
+          "description": "Index of the first item, for paging through large collections.",
+          "type": "integer",
+          "default": 0
         }
       }
     }

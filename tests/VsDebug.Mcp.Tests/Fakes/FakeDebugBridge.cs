@@ -12,6 +12,7 @@ public sealed class FakeDebugBridge : IDebugBridge
     public long Seq { get; set; } = 10;
     public List<string> Calls { get; } = [];
     public Exception? HandshakeFailure { get; set; }
+    public int LastOffset { get; private set; } = -1;
 
     public Func<StepKind, long> OnStep { get; set; } = _ => 10;
     public Func<long> OnContinue { get; set; } = () => 10;
@@ -46,6 +47,6 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Task<long> PauseAsync(CancellationToken cancellationToken) { Calls.Add("Pause"); return Task.FromResult(Seq); }
     public Task<long> StepAsync(StepKind kind, CancellationToken cancellationToken) { Calls.Add("Step:" + kind); return Task.FromResult(OnStep(kind)); }
     public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CancellationToken cancellationToken) { Calls.Add("GetStack"); return Task.FromResult(new[] { new StackFrameInfo { Index = 0, Function = "A.M", File = "a.cs", Line = 1, Language = "C#" } }); }
-    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int maxItems, CancellationToken cancellationToken) { Calls.Add("GetVariables"); return Task.FromResult(OnVariables(scope, path, maxItems)); }
+    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CancellationToken cancellationToken) { Calls.Add("GetVariables"); LastOffset = offset; return Task.FromResult(OnVariables(scope, path, maxItems)); }
     public Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken cancellationToken) { Calls.Add("Evaluate"); return Task.FromResult(OnEvaluate(expression)); }
 }

@@ -68,7 +68,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     public Task<long> PauseAsync(CancellationToken cancellationToken) => Guard(() => service.PauseAsync(cancellationToken));
     public Task<long> StepAsync(StepKind kind, CancellationToken cancellationToken) => Guard(() => service.StepAsync(kind, cancellationToken));
     public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CancellationToken cancellationToken) => Guard(() => service.GetStackAsync(maxFrames, cancellationToken));
-    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int maxItems, CancellationToken cancellationToken) => Guard(() => service.GetVariablesAsync(scope, path, maxItems, cancellationToken));
+    public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CancellationToken cancellationToken) => Guard(() => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken));
     public Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken cancellationToken) => Guard(() => service.EvaluateAsync(expression, cancellationToken));
 
     private async Task<T> Guard<T>(Func<Task<T>> call)

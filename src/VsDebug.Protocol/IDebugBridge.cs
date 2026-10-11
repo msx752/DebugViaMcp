@@ -24,6 +24,6 @@ public interface IDebugBridge
     Task<long> PauseAsync(CancellationToken cancellationToken);
     Task<long> StepAsync(StepKind kind, CancellationToken cancellationToken);
     Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CancellationToken cancellationToken);
-    Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int maxItems, CancellationToken cancellationToken);
+    Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CancellationToken cancellationToken);
     Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken cancellationToken);
 }
