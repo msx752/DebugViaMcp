@@ -1,0 +1,9 @@
+{
+  "solution": {
+    "path": "VsDebug.slnx",
+    "projects": [
+      "src/VsDebug.Protocol/VsDebug.Protocol.csproj",
+      "tests/VsDebug.Protocol.Tests/VsDebug.Protocol.Tests.csproj"
+    ]
+  }
+}

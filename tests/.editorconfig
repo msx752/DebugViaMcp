@@ -1,0 +1,6 @@
+[*.cs]
+# Test names use underscores to read as sentences.
+dotnet_diagnostic.CA1707.severity = none
+# Tests do not need ConfigureAwait or internal-only types.
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.CA1515.severity = none
