@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft — awaiting review |
+| **Status** | Implemented (feature/m3-tools) |
 | **Date** | 2026-10-11 |
 | **Milestone** | M3 (complete v1 tool set, IDE state) |
 | **Parent specs** | [2026-10-11-vsmcpdebugger-design.md](2026-10-11-vsmcpdebugger-design.md) (§3 tool contract, §4 runtime model), [2026-10-11-vsmcpdebugger-m2-safety-design.md](2026-10-11-vsmcpdebugger-m2-safety-design.md) (permission tiers, consent, audit). Where this document is more specific, it wins. |

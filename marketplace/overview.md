@@ -8,9 +8,11 @@ variables, and evaluate expressions — while you stay in control.
 
 ## What the agent can do
 
-- **Breakpoints** — file/line or function, conditions, hit counts, tracepoints
-- **Execution** — start, continue, pause, step into/over/out, wait for the next break
-- **Inspection** — call stack, locals and arguments, drill into members, QuickWatch-style evaluation
+- **Breakpoints** — file/line or function, conditions, hit counts, tracepoints, enable/disable
+- **Execution** — start, continue, pause, step into/over/out, wait for the next break, run to line, attach to a
+  running process (detach on stop)
+- **Inspection** — threads, call stack, frame selection, the current exception, locals and arguments, drill into members, QuickWatch-style evaluation
+- **IDE state** — Output window panes, the Error List, and Visual Studio builds
 - **Changes** — `set_value` and evaluation with side effects, **only with your approval**
 
 ## You stay in control

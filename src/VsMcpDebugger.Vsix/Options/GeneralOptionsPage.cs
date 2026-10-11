@@ -32,13 +32,13 @@ public sealed class GeneralOptionsPage : DialogPage
     /// <summary>Raised after every successful Apply/OK.</summary>
     public event EventHandler? AnyApplied;
 
-    [Category("Permissions"), DisplayName("Read"), Description("Status, call stack, variables and side-effect-free evaluation.")]
+    [Category("Permissions"), DisplayName("Read"), Description("Status, threads, call stack, variables, side-effect-free evaluation, the current exception, the Output window and the Error List.")]
     public PermissionLevel Read { get; set; } = PermissionLevel.Allow;
 
-    [Category("Permissions"), DisplayName("Control"), Description("Breakpoints without conditions, start, stop, continue, pause and step.")]
+    [Category("Permissions"), DisplayName("Control"), Description("Breakpoints without conditions (set, remove, enable/disable), start, stop, continue, pause, step, run to, and Visual Studio builds.")]
     public PermissionLevel Control { get; set; } = PermissionLevel.Allow;
 
-    [Category("Permissions"), DisplayName("Mutate"), Description("set_value, evaluation with side effects, and breakpoint conditions or tracepoints (they run in your program on every hit). 'Ask' shows an info bar for each request.")]
+    [Category("Permissions"), DisplayName("Mutate"), Description("set_value, evaluation with side effects, breakpoint conditions or tracepoints (set or re-enabled; they run in your program on every hit), and attaching the debugger to a running process. 'Ask' shows an info bar for each request.")]
     public PermissionLevel Mutate { get; set; } = PermissionLevel.Ask;
 
     [Category("Permissions"), DisplayName("Consent timeout (seconds)"), Description("No answer within this time denies the request (15–300).")]

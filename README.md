@@ -3,14 +3,17 @@
 Let AI coding agents drive the Visual Studio debugger over the Model Context Protocol (MCP):
 breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 
-> Status: early development (milestone M2). Not yet published.
+> Status: early development (milestone M3). Not yet published.
 
-## What works today (M2)
+## What works today (M3)
 
-- Breakpoints: file/line or function, conditions, hit counts, tracepoints
-- Execution: start, continue, pause, step into/over/out, wait for break
-- Inspection: call stack, locals/arguments, drill-down by path, side-effect-free evaluation, `set_value`, and
+- Breakpoints: file/line or function, conditions, hit counts, tracepoints, enable/disable (`bp_enable`)
+- Execution: start, continue, pause, step into/over/out, wait for break, run to line, attach to a running process
+  (detach on stop)
+- Inspection: threads, call stack, frame selection (`frame_select`), the current exception, locals/arguments, drill-down by path, side-effect-free evaluation, `set_value`, and
   evaluation with side effects (`eval` with `allowSideEffects`)
+- IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`)
+- Diagnostics: `diag` returns the MCP server's recent log lines
 - Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → VsMcpDebugger**; Mutate operations ask in a
   Visual Studio info bar (Allow once / Allow for session / Deny, no answer = deny); every state change is audited
   (`audit-*.log`, Output → **VsMcpDebugger Activity**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →

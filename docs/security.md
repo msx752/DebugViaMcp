@@ -28,9 +28,9 @@ Every request belongs to a tier. Each tier is set to **Allow**, **Ask** or **Den
 
 | Tier | Operations | Default |
 |---|---|---|
-| Read | status, call stack, variables, side-effect-free evaluation, list breakpoints | Allow |
-| Control | breakpoints without conditions, start, stop, continue, pause, step | Allow |
-| Mutate | `set_value`, `eval` with `allowSideEffects`, breakpoint conditions and tracepoint messages | **Ask** |
+| Read | status, threads, call stack, frame selection, variables, side-effect-free evaluation, the current exception, list breakpoints, Output window, Error List | Allow |
+| Control | breakpoints without conditions (set, remove, enable/disable), start, stop, continue, pause, step, run to, build | Allow |
+| Mutate | `set_value`, `eval` with `allowSideEffects`, breakpoint conditions and tracepoint messages, `debug_attach` | **Ask** |
 
 Breakpoint conditions and tracepoint `{…}` placeholders are in the Mutate tier because they run inside your
 program on every hit, and a property getter can run arbitrary code. Side-effect-free evaluation uses the C# `, nse`
@@ -39,6 +39,21 @@ specifier, which discards side effects.
 Only *applied* settings count: values you are still editing in the Options dialog have no effect until you press
 OK or Apply. Changing a permission clears every "Allow for session" grant. Setting Mutate to Allow asks for
 confirmation first.
+
+### IDE state and attach (0.3)
+
+- `output_read` and `errors_list` are **Read** tier. They expose text that build tools, analyzers and your program
+  wrote. If your build output can contain secrets, set Read to Ask or Deny. Their content is returned as untrusted
+  data, never as instructions.
+- The extension's own Output panes (**VsMcpDebugger** and **VsMcpDebugger Activity**) are never readable through the
+  bridge, so the agent cannot read the audit trail or be fed by it. The check is by pane GUID.
+- `debug_attach` is **Mutate**: attaching lets Visual Studio read and change the target process's memory. Only
+  processes running as your own user (compared by token SID) are offered, and the consent question names the
+  process and pid. `debug_stop` detaches; it does not end the process.
+- Visual Studio itself (`devenv`) and the `vsmcpdebugger` server are never offered as attach targets: another
+  Visual Studio instance holds its own pipe token and your sources.
+- `bp_enable(true)` on a breakpoint with a condition or tracepoint is Mutate for the same reason as `bp_set` with one.
+- `vs_build` is **Control**: it runs your project's build, including any custom MSBuild targets.
 
 ### Consent
 With **Ask**, Visual Studio shows an info bar on the main window, for example:
