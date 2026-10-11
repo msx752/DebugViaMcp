@@ -59,8 +59,12 @@ Fixed in code, in one table (`PermissionPolicy`):
 | Tier | Operations | Default |
 |---|---|---|
 | `read` | status, list breakpoints, stack, variables, side-effect-free evaluate | Allow |
-| `control` | set/remove breakpoints, start, stop, continue, pause, step | Allow |
-| `mutate` | set value, evaluate with side effects | **Ask** |
+| `control` | set breakpoints without condition or tracepoint message, remove breakpoints, start, stop, continue, pause, step | Allow |
+| `mutate` | set value, evaluate with side effects, set a breakpoint **with a condition or tracepoint message** | **Ask** |
+
+Breakpoint conditions and tracepoint placeholders run in the debuggee on every hit and cannot carry `, nse`, so a
+property getter can run arbitrary code; they therefore need consent (added during implementation, after a security
+review).
 
 Operations added in later milestones (`bp_enable`, `run_to`, `attach`, `threads`, …) are assigned a tier when they
 are added; the table is the single place to do it.
@@ -143,18 +147,21 @@ Pure logic. `TierOf(Operation)` and `Decide(Operation, IPermissionSettings) → 
 | | Show status bar indicator | On |
 | Logging | Log level (Error / Warning / Information / Debug) | Information |
 | | Log retention (days) | 7 |
-| | Log folder (read-only path; opened with Tools → VsMcpDebugger → Open Logs Folder) | — |
+| | Log folder (read-only path; opened with Extensions → VsMcpDebugger → Open Logs Folder) | — |
 
-- Changes take effect on the next call. Permission changes are audited and clear session grants.
+- Changes take effect on the next call. Only **applied** values count: the bridge reads an immutable snapshot taken
+  when the page loads and after each successful Apply, never values still being edited in the dialog.
+- Permission changes are audited and clear session grants.
 - Setting Mutate to **Allow** asks for confirmation ("The agent will be able to change program state without
   asking you").
 - **Single place to configure:** the VSIX sends the log level to the MCP host in the handshake; the host follows it.
   `VSMCPDEBUGGER_LOG_LEVEL` remains as an override. Before the first handshake the host uses its own default.
 - There is no "log variable values" setting: neither side logs debuggee values anywhere, so it would control nothing.
 
-### 6.2 Commands — Tools → VsMcpDebugger
+### 6.2 Commands — Extensions → VsMcpDebugger
 Disconnect AI (default `Ctrl+Alt+Shift+F12`, rebindable), Reconnect AI (visible while disconnected), Show Activity,
-Open Logs Folder, Options…
+Open Logs Folder, Options…. Commands live under the Extensions menu, where Visual Studio (2019 and later) expects
+extension commands.
 
 ### 6.3 Status bar indicator
 "VsMcpDebugger: {client} connected" / "VsMcpDebugger: AI disconnected"; hidden when there is no connection and AI
@@ -162,7 +169,8 @@ access is on. Clicking opens the Activity pane. Hidden entirely when the setting
 
 ### 6.4 Consent info bar
 Shown on the Visual Studio main window (its info-bar host is always present). Buttons **[Allow once] [Allow for session]
-[Deny]**; the remaining time is shown as text. Closing it with ✕ counts as Deny.
+[Deny]**; the remaining time is shown as text. Closing it with ✕ counts as Deny. Allow clicks during the first second
+after the bar appears are ignored (a click aimed at something else must not approve); Deny always counts.
 
 ### 6.5 Output → "VsMcpDebugger Activity"
 One line per audit entry, e.g.
@@ -183,7 +191,7 @@ The existing "VsMcpDebugger" pane keeps technical logs.
 | User denied | `denied` / `user_denied`: "Denied by the user in Visual Studio. This is the user's decision — do not retry; ask the user how to proceed." |
 | Timeout | `denied` / `timeout`: "The user did not respond in Visual Studio within {n} s. Ask them to check Visual Studio, then retry if they agree." |
 | Setting is Deny | `denied` / `policy`: "Blocked by VsMcpDebugger settings in Visual Studio ({Tier} = Deny)." |
-| Disconnect AI | The VSIX sends `OnAccessRevokedAsync`, then closes the pipe. The next call gets `ai_disabled` ("The user disconnected AI access in Visual Studio. Ask them to run Tools → VsMcpDebugger → Reconnect AI.") and keeps the selected instance; the call after that reconnects, so it works once the user chose Reconnect AI. |
+| Disconnect AI | The VSIX sends `OnAccessRevokedAsync`, then closes the pipe. The next call gets `ai_disabled` ("The user disconnected AI access in Visual Studio. Ask them to run Extensions → VsMcpDebugger → Reconnect AI.") and keeps the selected instance; the call after that reconnects, so it works once the user chose Reconnect AI. |
 | Expression/value over 500 chars | `invalid_argument` |
 | `set_value` target has side effects | `invalid_argument` with the target hint |
 
