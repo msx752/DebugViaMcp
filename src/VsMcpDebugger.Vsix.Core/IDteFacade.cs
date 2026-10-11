@@ -61,6 +61,24 @@ public sealed class RawOutputPane
     public int Lines { get; set; }
 }
 
+public sealed class RawErrorItem
+{
+    public ErrorSeverity Severity { get; set; }
+    public string? Code { get; set; }
+    public string Message { get; set; } = "";
+    public string? Project { get; set; }
+
+    /// <summary>Absolute path, or null for entries without a file.</summary>
+    public string? File { get; set; }
+
+    /// <summary>1-based.</summary>
+    public int? Line { get; set; }
+
+    /// <summary>1-based.</summary>
+    public int? Column { get; set; }
+    public bool FromBuild { get; set; }
+}
+
 /// <summary>Everything the bridge needs from Visual Studio. All members must be called on the UI thread.</summary>
 public interface IDteFacade
 {
@@ -104,6 +122,8 @@ public interface IDteFacade
 
     /// <summary>Lines <paramref name="firstLine"/> (1-based) to <paramref name="firstLine"/> + <paramref name="count"/> - 1; reads only that range.</summary>
     IReadOnlyList<string> OutputLines(Guid pane, int firstLine, int count);
+
+    IReadOnlyList<RawErrorItem> ErrorItems();
     IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems);
     IReadOnlyList<VariableInfo> Members(string expression, int maxItems);
     EvaluateResult Evaluate(string expression);

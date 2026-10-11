@@ -91,6 +91,9 @@ public sealed class FakeDte : IDteFacade
         return Enumerable.Range(firstLine, count).Select(n => "line " + n).ToList();
     }
 
+    public List<RawErrorItem> Errors { get; set; } = [];
+    public IReadOnlyList<RawErrorItem> ErrorItems() { Ui(); return Errors; }
+
     public int CurrentFrameIndex { get; set; }
     public List<(int? ThreadId, int Index)> Selections { get; } = [];
 

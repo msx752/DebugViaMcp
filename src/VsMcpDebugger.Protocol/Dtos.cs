@@ -183,6 +183,33 @@ public sealed class OutputPage
     public int? NextOffset { get; set; }
 }
 
+/// <summary>One Error List entry. Message is untrusted text (analyzers and packages write it).</summary>
+public sealed class ErrorItemInfo
+{
+    public ErrorSeverity Severity { get; set; }
+    public string? Code { get; set; }
+    public string Message { get; set; } = "";
+    public string? Project { get; set; }
+    public string? File { get; set; }
+    public int? Line { get; set; }
+    public int? Column { get; set; }
+
+    /// <summary>"build" for build output, "live" for IntelliSense/analyzers.</summary>
+    public string Origin { get; set; } = "";
+}
+
+public sealed class ErrorListPage
+{
+    public ErrorItemInfo[] Items { get; set; } = [];
+
+    /// <summary>Totals over all entries, before the severity filter and paging.</summary>
+    public int Errors { get; set; }
+    public int Warnings { get; set; }
+    public int Messages { get; set; }
+    public bool HasMore { get; set; }
+    public int? NextOffset { get; set; }
+}
+
 public sealed class EvaluateResult
 {
     public bool IsValid { get; set; }

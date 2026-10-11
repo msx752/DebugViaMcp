@@ -6,14 +6,45 @@ using EnvDTE;
 using EnvDTE80;
 using EnvDTE90a;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.Shell.TableControl;
+using Microsoft.VisualStudio.Shell.TableManager;
 using VsMcpDebugger.Protocol;
 using VsMcpDebugger.Vsix.Core;
 
 namespace VsMcpDebugger.Vsix;
 
-/// <summary>IDteFacade over EnvDTE. Every member runs on the UI thread (enforced by IUiThread callers).</summary>
-internal sealed class DteFacade(DTE2 dte) : IDteFacade
+/// <summary>IDteFacade over EnvDTE and the Error List table. Every member runs on the UI thread (enforced by IUiThread callers).</summary>
+internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
 {
+    public IReadOnlyList<RawErrorItem> ErrorItems()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var result = new List<RawErrorItem>();
+        if (errorList?.TableControl is not { } table) return result;
+        foreach (var entry in table.Entries)
+        {
+            result.Add(new RawErrorItem
+            {
+                Severity = entry.TryGetValue(StandardTableKeyNames.ErrorSeverity, out var s) && s is __VSERRORCATEGORY c
+                    ? c switch { __VSERRORCATEGORY.EC_ERROR => ErrorSeverity.Error, __VSERRORCATEGORY.EC_WARNING => ErrorSeverity.Warning, _ => ErrorSeverity.Message }
+                    : ErrorSeverity.Message,
+                Code = Text(entry, StandardTableKeyNames.ErrorCode),
+                Message = Text(entry, StandardTableKeyNames.Text) ?? "",
+                Project = Text(entry, StandardTableKeyNames.ProjectName),
+                File = Text(entry, StandardTableKeyNames.DocumentName),
+                Line = entry.TryGetValue(StandardTableKeyNames.Line, out var l) && l is int line ? line + 1 : null,
+                Column = entry.TryGetValue(StandardTableKeyNames.Column, out var col) && col is int column ? column + 1 : null,
+                FromBuild = entry.TryGetValue(StandardTableKeyNames.ErrorSource, out var src) && src is ErrorSource source && source == ErrorSource.Build,
+            });
+        }
+
+        return result;
+    }
+
+    private static string? Text(ITableEntryHandle entry, string key) =>
+        entry.TryGetValue(key, out var value) && value is string s && s.Length > 0 ? s : null;
+
     private const int EvalTimeoutMs = 5000;
 
     public string VsVersion

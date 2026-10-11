@@ -46,6 +46,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
 
         var dte = (DTE2)(await GetServiceAsync(typeof(DTE)))!;
         var outputWindow = (IVsOutputWindow)(await GetServiceAsync(typeof(SVsOutputWindow)))!;
+        var errorList = await GetServiceAsync(typeof(SVsErrorList)) as IErrorList;
         var paneGuid = OutputPaneIds.Log;
         outputWindow.CreatePane(ref paneGuid, "VsMcpDebugger", 1, 1);
         outputWindow.GetPane(ref paneGuid, out var pane);
@@ -65,7 +66,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
         try
         {
             var seq = new EventSeq();
-            var service = new DebugBridgeService(new DteFacade(dte), new JtfUiThread(JoinableTaskFactory), seq, log, vsixVersion);
+            var service = new DebugBridgeService(new DteFacade(dte, errorList), new JtfUiThread(JoinableTaskFactory), seq, log, vsixVersion);
             var broadcaster = new EventBroadcaster(log);
             _pump = new DebuggerEventPump((DTE)dte, service, seq, broadcaster, log);
 

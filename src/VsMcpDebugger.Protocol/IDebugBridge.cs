@@ -57,6 +57,9 @@ public interface IDebugBridge
     /// <summary>Protocol 2.1. The last <paramref name="tail"/> lines of a pane, skipping the newest <paramref name="offset"/> lines.</summary>
     Task<OutputPage> ReadOutputAsync(string pane, int tail, int offset, CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>Protocol 2.1. Error List entries as the Error List shows them (its scope filter applies), errors first.</summary>
+    Task<ErrorListPage> GetErrorListAsync(ErrorSeverity[] severities, int offset, int max, CallContext context, CancellationToken cancellationToken);
+
     Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken);
     Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken);
 

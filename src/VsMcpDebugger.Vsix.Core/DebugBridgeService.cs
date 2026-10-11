@@ -280,6 +280,9 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return OutputPaging.Page(target.Name, target.Lines, tail, offset, (first, count) => dte.OutputLines(target.Id, first, count));
     }, ct);
 
+    public Task<ErrorListPage> GetErrorListAsync(ErrorSeverity[] severities, int offset, int max, CancellationToken ct) =>
+        ui.RunAsync(() => ErrorListShaping.Page(dte.ErrorItems(), severities ?? [], SolutionDir, offset, max), ct);
+
     private RawOutputPane ResolvePane(string? name)
     {
         var wanted = (name ?? "").Trim();

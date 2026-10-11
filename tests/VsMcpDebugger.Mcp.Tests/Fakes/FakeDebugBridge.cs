@@ -64,6 +64,13 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Task<OutputPaneInfo[]> ListOutputPanesAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("ListOutputPanes"); return Task.FromResult(new[] { new OutputPaneInfo { Name = "Build", Lines = 2 } }); }
     public Task<OutputPage> ReadOutputAsync(string pane, int tail, int offset, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add($"ReadOutput:{pane}:{tail}:{offset}"); return Task.FromResult(OnReadOutput(pane, tail, offset)); }
 
+    public ErrorSeverity[]? LastSeverities { get; private set; }
+    public Task<ErrorListPage> GetErrorListAsync(ErrorSeverity[] severities, int offset, int max, CallContext context, CancellationToken cancellationToken)
+    {
+        CallIds.Add(context.CallId); Calls.Add($"GetErrorList:{offset}:{max}"); LastSeverities = severities;
+        return Task.FromResult(new ErrorListPage { Errors = 1, Items = [new ErrorItemInfo { Severity = ErrorSeverity.Error, Code = "CS0103", Message = "The name 'y' does not exist", File = "a.cs", Line = 3, Origin = "build" }] });
+    }
+
     public FakeDebugBridge() => OnStatus = () => new StatusInfo { Mode = Mode, Seq = Seq };
 
     public Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)

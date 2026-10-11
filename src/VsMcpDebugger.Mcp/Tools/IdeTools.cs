@@ -28,4 +28,38 @@ public sealed class IdeTools(IConnectionManager connections)
         var page = await bridge.ReadOutputAsync(pane, Math.Clamp(tail, 1, 500), Math.Max(0, offset), ctx, ct).ConfigureAwait(false);
         return ToolResponse.Ok(new { pane = page.Pane, totalLines = page.TotalLines, firstLine = page.FirstLine, data = page.Lines, truncated = page.Truncated, hasMore = page.HasMore, nextOffset = page.NextOffset });
     });
+
+    [McpServerTool(Name = "errors_list", ReadOnly = true),
+     Description("Visual Studio's Error List (build errors and live IntelliSense/analyzer diagnostics), errors first, with totals. It shows what the Error List shows, so its scope filter applies; a 'dotnet build' run in a terminal does not fill it: use vs_build. " + IdeTextNote)]
+    public Task<CallToolResult> ErrorsList(
+        [Description("Comma-separated: error, warning, message.")] string severity = "error,warning",
+        [Description("Items per page (1-200).")] int max = 50,
+        [Description("Index of the first item, for paging.")] int offset = 0,
+        CancellationToken ct = default) => ToolResponse.RunAsync(connections, "errors_list", async ctx =>
+    {
+        if (ParseSeverities(severity) is not { } severities)
+            return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "severity must be a comma-separated list of error, warning, message.");
+        var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
+        if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3) is { } unsupported) return unsupported;
+
+        var page = await bridge.GetErrorListAsync(severities, Math.Max(0, offset), Math.Clamp(max, 1, 200), ctx, ct).ConfigureAwait(false);
+        return ToolResponse.Ok(new
+        {
+            totals = new { errors = page.Errors, warnings = page.Warnings, messages = page.Messages },
+            data = page.Items, hasMore = page.HasMore, nextOffset = page.NextOffset,
+        });
+    });
+
+    internal static ErrorSeverity[]? ParseSeverities(string? text)
+    {
+        var result = new List<ErrorSeverity>();
+        foreach (var part in (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            ErrorSeverity? s = part.ToUpperInvariant() switch { "ERROR" => ErrorSeverity.Error, "WARNING" => ErrorSeverity.Warning, "MESSAGE" => ErrorSeverity.Message, _ => null };
+            if (s is null) return null;
+            if (!result.Contains(s.Value)) result.Add(s.Value);
+        }
+
+        return result.Count == 0 ? null : result.ToArray();
+    }
 }
