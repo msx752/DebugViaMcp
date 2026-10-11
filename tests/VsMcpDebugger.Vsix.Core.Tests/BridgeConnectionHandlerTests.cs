@@ -354,4 +354,60 @@ public class BridgeConnectionHandlerTests
         Assert.Contains(s.AuditLines(), l => l.Contains("c-000020", StringComparison.Ordinal) && l.Contains("denied:disconnected", StringComparison.Ordinal));
         Assert.Contains(s.Activity, l => l.Contains("ai_disconnect", StringComparison.Ordinal));
     }
+
+    /// <summary>Security review: conditions and tracepoint placeholders run in the debuggee on every hit (no ', nse'), so they need consent.</summary>
+    [Fact]
+    public async Task Breakpoint_condition_is_mutate_tier_and_asks_by_default()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        s.Prompt.AutoAnswer = ConsentChoice.Deny;
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() =>
+            s.Handler.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9, Condition = "order.Total > 1000" }, SecurityHarness.Ctx(), CancellationToken.None));
+
+        Assert.Equal(DeniedReasons.UserDenied, ((BridgeErrorData)ex.ErrorData!).Reason);
+        Assert.Contains("order.Total > 1000", Assert.Single(s.Prompt.Texts), StringComparison.Ordinal);
+        Assert.Contains("runs in your program on every hit", s.Prompt.Texts[0], StringComparison.Ordinal);
+        Assert.Empty(s.Dte.Bps);
+    }
+
+    [Fact]
+    public async Task Tracepoint_message_is_mutate_tier()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await s.Handler.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9, LogMessage = "total={total}" }, SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Single(s.Prompt.Texts);
+        Assert.Single(s.Dte.Bps);
+    }
+
+    [Fact]
+    public async Task Plain_breakpoint_stays_control_tier()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        await s.Handler.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Empty(s.Prompt.Texts);
+        Assert.Single(s.Dte.Bps);
+    }
+
+    /// <summary>Security review: a call the settings deny must not touch Visual Studio at all, not even to word a question.</summary>
+    [Fact]
+    public async Task Policy_deny_wins_before_any_preparation()
+    {
+        using var s = new SecurityHarness(new FakeDte { Mode = DebuggerMode.Run });
+        s.Settings.Permissions.Mutate = PermissionLevel.Deny;
+        await s.HandshakeAsync();
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None));
+
+        Assert.Equal((int)BridgeErrorCode.Denied, ex.ErrorCode);
+        Assert.Equal(DeniedReasons.Policy, ((BridgeErrorData)ex.ErrorData!).Reason);
+    }
 }

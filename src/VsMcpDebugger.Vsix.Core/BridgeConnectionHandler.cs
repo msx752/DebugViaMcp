@@ -91,9 +91,14 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         Guard(Operation.ListBreakpoints, context, () => service.ListBreakpointsAsync(cancellationToken), null, null, cancellationToken);
 
     public Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CallContext context, CancellationToken cancellationToken) =>
-        Guard(Operation.SetBreakpoint, context, () => service.SetBreakpointAsync(spec, cancellationToken),
+        Guard(spec is { Condition: not null } or { LogMessage: not null } ? Operation.SetBreakpointWithExpression : Operation.SetBreakpoint,
+            context, () => service.SetBreakpointAsync(spec!, cancellationToken),
             Request.Of(Describe(spec), ("file", spec?.File), ("line", spec?.Line?.ToString(CultureInfo.InvariantCulture)), ("function", spec?.Function),
-                ("condition", spec?.Condition), ("hitCount", spec is { HitCount: > 0 } ? spec.HitCount.ToString(CultureInfo.InvariantCulture) : null), ("logMessage", spec?.LogMessage)), null, cancellationToken);
+                ("condition", spec?.Condition), ("hitCount", spec is { HitCount: > 0 } ? spec.HitCount.ToString(CultureInfo.InvariantCulture) : null), ("logMessage", spec?.LogMessage)),
+            spec is { Condition: not null } or { LogMessage: not null }
+                ? () => Task.FromResult(ConsentText.Breakpoint(_client, spec.Function ?? $"{spec.File}:{spec.Line?.ToString(CultureInfo.InvariantCulture)}", spec.Condition, spec.LogMessage))
+                : null,
+            cancellationToken);
 
     public Task<int> RemoveBreakpointsAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.RemoveBreakpoints, context, () => service.RemoveBreakpointsAsync(id, all, cancellationToken),
@@ -144,7 +149,8 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             }, cancellationToken);
 
     /// <summary>
-    /// Validation and the consent text are prepared first (<paramref name="prepare"/>), so a request that would fail
+    /// The settings decide first: a denied call never touches Visual Studio. When the user has to be asked,
+    /// validation and the question are prepared first (<paramref name="prepare"/>), so a request that would fail
     /// anyway never bothers the user. Read calls are audited only when the user was asked.
     /// </summary>
     private async Task<T> Guard<T>(Operation operation, CallContext? context, Func<Task<T>> call, Request? request, Func<Task<string>>? prepare, CancellationToken ct)
@@ -170,7 +176,6 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
         try
         {
-            var text = prepare is null ? null : await prepare().ConfigureAwait(false);
             switch (PermissionPolicy.Decide(operation, security.Settings.Permissions))
             {
                 case PermissionLevel.Deny:
@@ -178,6 +183,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                     throw Rpc(BridgeErrorCode.Denied, $"Blocked by VsMcpDebugger settings in Visual Studio ({Capitalized(tier)} = Deny).",
                         "Ask the user whether to change Tools → Options → VsMcpDebugger → Permissions.", DeniedReasons.Policy);
                 case PermissionLevel.Ask:
+                    var text = prepare is null ? null : await prepare().ConfigureAwait(false);
                     prompted = true;
                     var outcome = await security.Consent.RequestAsync(_consent, operation,
                         text ?? ConsentText.Operation(_client, PermissionPolicy.ToolName(operation), request.Summary), ct).ConfigureAwait(false);

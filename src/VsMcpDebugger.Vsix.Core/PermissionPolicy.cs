@@ -10,6 +10,9 @@ public enum Operation
 {
     Status, ListBreakpoints, SetBreakpoint, RemoveBreakpoints, Start, Stop, Continue, Pause, Step,
     Stack, Variables, Evaluate, EvaluateWithSideEffects, SetValue,
+
+    /// <summary>bp_set with a condition or tracepoint message: that expression runs in the debuggee on every hit.</summary>
+    SetBreakpointWithExpression,
 }
 
 /// <summary>User settings the bridge reads on every call, so changes apply without reconnecting.</summary>
@@ -28,7 +31,7 @@ public static class PermissionPolicy
         Operation.Status or Operation.ListBreakpoints or Operation.Stack or Operation.Variables or Operation.Evaluate => PermissionTier.Read,
         Operation.SetBreakpoint or Operation.RemoveBreakpoints or Operation.Start or Operation.Stop
             or Operation.Continue or Operation.Pause or Operation.Step => PermissionTier.Control,
-        Operation.EvaluateWithSideEffects or Operation.SetValue => PermissionTier.Mutate,
+        Operation.EvaluateWithSideEffects or Operation.SetValue or Operation.SetBreakpointWithExpression => PermissionTier.Mutate,
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Operation has no tier."),
     };
 
@@ -47,7 +50,7 @@ public static class PermissionPolicy
     {
         Operation.Status => "debug_status",
         Operation.ListBreakpoints => "bp_list",
-        Operation.SetBreakpoint => "bp_set",
+        Operation.SetBreakpoint or Operation.SetBreakpointWithExpression => "bp_set",
         Operation.RemoveBreakpoints => "bp_remove",
         Operation.Start => "debug_start",
         Operation.Stop => "debug_stop",

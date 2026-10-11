@@ -29,6 +29,7 @@ public class PermissionPolicyTests
     [InlineData(Operation.Step, PermissionTier.Control)]
     [InlineData(Operation.EvaluateWithSideEffects, PermissionTier.Mutate)]
     [InlineData(Operation.SetValue, PermissionTier.Mutate)]
+    [InlineData(Operation.SetBreakpointWithExpression, PermissionTier.Mutate)]
     public void Every_operation_has_its_spec_tier(Operation operation, PermissionTier tier) =>
         Assert.Equal(tier, PermissionPolicy.TierOf(operation));
 

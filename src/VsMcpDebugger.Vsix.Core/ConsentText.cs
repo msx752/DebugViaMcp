@@ -17,6 +17,14 @@ public static class ConsentText
     public static string EvaluateWithSideEffects(string client, string expression, string function) =>
         $"{ClientName(client)} wants to evaluate {Visible(expression)} with side effects in {Visible(function)}";
 
+    public static string Breakpoint(string client, string location, string? condition, string? logMessage)
+    {
+        var what = condition is not null && logMessage is not null ? $"when {Visible(condition)}, logging \"{Visible(logMessage)}\""
+            : condition is not null ? $"when {Visible(condition)}"
+            : $"logging \"{Visible(logMessage)}\"";
+        return $"{ClientName(client)} wants to set a breakpoint at {Visible(location)} {what} — this runs in your program on every hit";
+    }
+
     public static string Operation(string client, string tool, string summary) =>
         string.IsNullOrEmpty(summary)
             ? $"{ClientName(client)} wants to run {tool}"
