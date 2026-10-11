@@ -143,6 +143,18 @@ public class PipeHostTests
         Assert.True(closed.Task.IsCompleted);
     }
 
+    /// <summary>M2 review minor 8 (VSIX side): the client gets a moment to read OnAccessRevoked before the pipe closes.</summary>
+    [Fact]
+    public async Task Revoke_waits_briefly_after_the_notification_before_closing()
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        TimeSpan? closedAt = null;
+
+        await PipeHost.NotifyThenCloseAsync(() => Task.CompletedTask, () => closedAt = clock.Elapsed, TimeSpan.FromSeconds(1), PipeHost.RevokeDrain);
+
+        Assert.True(closedAt >= TimeSpan.FromMilliseconds(90), $"closed after {closedAt}");
+    }
+
     [Fact]
     public async Task Revoked_connection_closes_even_if_the_notification_fails()
     {

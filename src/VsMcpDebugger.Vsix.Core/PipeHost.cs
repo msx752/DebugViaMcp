@@ -61,16 +61,20 @@ public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<C
     /// <summary>How long a revoked client gets to receive the notification before the pipe is closed anyway.</summary>
     internal static readonly TimeSpan RevokeGrace = TimeSpan.FromSeconds(1);
 
+    /// <summary>After the revoke notification is sent, how long the client gets to read it before the pipe closes (M2 review minor 8).</summary>
+    internal static readonly TimeSpan RevokeDrain = TimeSpan.FromMilliseconds(100);
+
     private static Task RevokeAndCloseAsync(JsonRpc rpc) =>
-        NotifyThenCloseAsync(() => rpc.NotifyAsync(nameof(IDebugBridgeEvents.OnAccessRevokedAsync)), rpc.Dispose, RevokeGrace);
+        NotifyThenCloseAsync(() => rpc.NotifyAsync(nameof(IDebugBridgeEvents.OnAccessRevokedAsync)), rpc.Dispose, RevokeGrace, RevokeDrain);
 
     /// <summary>Fail closed: the connection is closed after <paramref name="grace"/> even if the notification hangs or fails.</summary>
-    internal static async Task NotifyThenCloseAsync(Func<Task> notify, Action close, TimeSpan grace)
+    internal static async Task NotifyThenCloseAsync(Func<Task> notify, Action close, TimeSpan grace, TimeSpan drain = default)
     {
         try
         {
             var sending = notify();
-            await Task.WhenAny(sending, Task.Delay(grace)).ConfigureAwait(false);
+            if (await Task.WhenAny(sending, Task.Delay(grace)).ConfigureAwait(false) == sending && drain > TimeSpan.Zero)
+                await Task.Delay(drain).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // Whatever happened to the notification, the connection must close.
         catch (Exception)
