@@ -49,7 +49,21 @@ internal sealed class DebuggerEventPump
 
     private void OnEnterRunMode(dbgEventReason reason) => PublishMode(DebuggerMode.Run);
 
-    private void OnEnterDesignMode(dbgEventReason reason) => PublishMode(DebuggerMode.Design);
+    private void OnEnterDesignMode(dbgEventReason reason)
+    {
+        try
+        {
+            _service.OnEnterDesign();
+        }
+#pragma warning disable CA1031 // Cleanup failure must not keep the session-end event from being published.
+        catch (Exception e)
+#pragma warning restore CA1031
+        {
+            _log.Error("Failed to clean up after the debugging session", e);
+        }
+
+        PublishMode(DebuggerMode.Design);
+    }
 
     private void OnEnterBreakMode(dbgEventReason reason, ref dbgExecutionAction executionAction)
     {

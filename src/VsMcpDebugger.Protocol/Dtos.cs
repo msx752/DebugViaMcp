@@ -146,6 +146,15 @@ public sealed class ExceptionInfo
     public InnerExceptionInfo[] Inner { get; set; } = [];
 }
 
+public sealed class RunToResult
+{
+    /// <summary>Event sequence observed before resuming; wait for a break after it.</summary>
+    public long Seq { get; set; }
+
+    /// <summary>Set when the location cannot bind; nothing was resumed.</summary>
+    public string? BindError { get; set; }
+}
+
 public sealed class EvaluateResult
 {
     public bool IsValid { get; set; }

@@ -136,6 +136,10 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     public Task<long> ContinueAsync(CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Continue, context, () => service.ContinueAsync(cancellationToken), null, null, cancellationToken);
 
+    public Task<RunToResult> RunToAsync(string file, int line, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.RunTo, context, () => service.RunToAsync(file, line, this, cancellationToken),
+            Request.Of($"{file}:{line.ToString(CultureInfo.InvariantCulture)}", ("file", file), ("line", line.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
+
     public Task<long> PauseAsync(CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Pause, context, () => service.PauseAsync(cancellationToken), null, null, cancellationToken);
 
@@ -352,6 +356,9 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
         _consent.Dispose();
         _registration?.Dispose();
+        _ = service.ReleaseRunToAsync(this).ContinueWith(
+            t => log.Warn($"Removing the run-to breakpoint of '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         if (_authenticated)
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "disconnect", Outcome = "ok", Summary = _client });
     }

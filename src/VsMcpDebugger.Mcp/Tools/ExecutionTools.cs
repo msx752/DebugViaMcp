@@ -62,6 +62,27 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
         return ToolResponse.Ok(new { state = "design" });
     });
 
+    [McpServerTool(Name = "debug_run_to"),
+     Description("Runs to file:line (like Run to Cursor) and waits up to 30 s for the break; stops earlier at other breakpoints. Uses a temporary breakpoint that is removed at the next break. " + InspectionTools.UntrustedNote)]
+    public Task<CallToolResult> RunTo(
+        [Description("Source file, absolute or relative to the solution directory.")] string file,
+        [Description("1-based line number.")] int line,
+        CancellationToken ct) => ToolResponse.RunAsync(connections, "debug_run_to", async ctx =>
+    {
+        var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
+        var session = connections.Session;
+        if (session.Mode == DebuggerMode.Design)
+            return ToolResponse.WrongMode(DebuggerMode.Break, session.Mode, "Start debugging with debug_start.");
+        if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3) is { } unsupported) return unsupported;
+
+        var r = await bridge.RunToAsync(file, line, ctx, ct).ConfigureAwait(false);
+        if (r.BindError is not null)
+            return ToolResponse.Ok(new { state = session.Mode, bindError = r.BindError, hint = "Pick a line with executable code." });
+        session.MarkResumed(r.Seq);
+        var outcome = await session.WaitForBreakAfterAsync(r.Seq, waitForBreak, ct).ConfigureAwait(false);
+        return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
+    });
+
     private Task<CallToolResult> Resume(string tool, DebuggerMode required, string hint, Func<IDebugBridge, CallContext, Task<long>> command, CancellationToken ct) =>
         ToolResponse.RunAsync(connections, tool, async ctx =>
         {

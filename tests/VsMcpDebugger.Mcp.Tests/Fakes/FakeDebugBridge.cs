@@ -53,6 +53,9 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Func<string, bool, BreakpointInfo?> OnEnable { get; set; } = (id, enabled) => new BreakpointInfo { Id = id, Enabled = enabled };
     public Task<BreakpointInfo?> SetBreakpointEnabledAsync(string id, bool enabled, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Enable:" + enabled); return Task.FromResult(OnEnable(id, enabled)); }
 
+    public Func<string, int, RunToResult> OnRunTo { get; set; } = (_, _) => new RunToResult { Seq = 10 };
+    public Task<RunToResult> RunToAsync(string file, int line, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add($"RunTo:{file}:{line}"); return Task.FromResult(OnRunTo(file, line)); }
+
     public FakeDebugBridge() => OnStatus = () => new StatusInfo { Mode = Mode, Seq = Seq };
 
     public Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)

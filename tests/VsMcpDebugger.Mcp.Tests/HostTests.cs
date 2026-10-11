@@ -39,7 +39,7 @@ public sealed class HostTests : IDisposable
         var names = (await client.ListToolsAsync()).Select(t => t.Name).Order(StringComparer.Ordinal).ToArray();
 
         Assert.Equal(
-            ["bp_enable", "bp_list", "bp_remove", "bp_set", "debug_continue", "debug_pause", "debug_start", "debug_status",
+            ["bp_enable", "bp_list", "bp_remove", "bp_set", "debug_continue", "debug_pause", "debug_run_to", "debug_start", "debug_status",
              "debug_step", "debug_stop", "debug_wait", "eval", "exception", "frame_select", "set_value", "stack", "threads", "vars", "vs_instances", "vs_select"],
             names);
     }

@@ -24,6 +24,9 @@ public interface IDebugBridge
     Task<long> StartAsync(CallContext context, CancellationToken cancellationToken);
     Task StopAsync(CallContext context, CancellationToken cancellationToken);
     Task<long> ContinueAsync(CallContext context, CancellationToken cancellationToken);
+    /// <summary>Protocol 2.1. Runs to file:line through a temporary breakpoint (Break or Run mode).</summary>
+    Task<RunToResult> RunToAsync(string file, int line, CallContext context, CancellationToken cancellationToken);
+
     Task<long> PauseAsync(CallContext context, CancellationToken cancellationToken);
     Task<long> StepAsync(StepKind kind, CallContext context, CancellationToken cancellationToken);
     Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken);

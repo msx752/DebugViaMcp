@@ -137,4 +137,28 @@ public class ExecutionToolsTests
         var json = Json(ToolResponse.Ok(ToolResponse.Snapshot(new BreakSnapshot { Reason = BreakReason.Step, Epoch = 12 })!));
         Assert.Equal(12, json.GetProperty("epoch").GetInt64());
     }
+
+    [Fact]
+    public async Task Run_to_waits_for_the_break()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge());
+        cm.Bridge.OnRunTo = (_, _) => { _ = Task.Run(() => cm.Session.OnBreakAsync(Break(11))); return new RunToResult { Seq = 10 }; };
+        var tools = new ExecutionTools(cm, ExecutionTools.DefaultWait);
+
+        var json = Json(await tools.RunTo("OrderService.cs", 9, CancellationToken.None));
+
+        Assert.Equal("break", json.GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task Run_to_an_unbindable_line_does_not_wait()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge());
+        cm.Bridge.OnRunTo = (_, _) => new RunToResult { BindError = "No executable code at this location." };
+
+        var json = Json(await new ExecutionTools(cm, ExecutionTools.DefaultWait).RunTo("OrderService.cs", 2, CancellationToken.None));
+
+        Assert.Equal("No executable code at this location.", json.GetProperty("bindError").GetString());
+        Assert.Equal("break", json.GetProperty("state").GetString());
+    }
 }

@@ -86,8 +86,10 @@ public sealed class FakeDte : IDteFacade
     {
         File = spec.File, Line = spec.Line, Function = spec.Function, Condition = spec.Condition, ConditionKind = spec.ConditionKind,
         HitCount = spec.HitCount, HitCountKind = spec.HitCountKind, LogMessage = spec.LogMessage, Enabled = true,
-        BoundCount = Mode == DebuggerMode.Design ? 0 : 1,
+        BoundCount = BoundCountFor?.Invoke(spec) ?? (Mode == DebuggerMode.Design ? 0 : 1),
     });
+
+    public Func<BreakpointSpec, int>? BoundCountFor { get; set; }
 
     public int RemoveBreakpoints(Func<RawBreakpoint, bool> match) => Bps.RemoveAll(b => match(b));
     public void Go() => Calls.Add("Go");

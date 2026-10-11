@@ -18,6 +18,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public const int MaxVariablePage = 201;
 
     private long _epoch;
+    private readonly RunToState _runTo = new();
 
     public string VsixVersion => vsixVersion;
 
@@ -50,7 +51,46 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     }, ct);
 
     public Task<BreakpointInfo[]> ListBreakpointsAsync(CancellationToken ct) =>
-        ui.RunAsync(() => dte.Breakpoints().Select(ToInfo).ToArray(), ct);
+        ui.RunAsync(() => dte.Breakpoints().Where(b => !_runTo.Owns(IdOf(b))).Select(ToInfo).ToArray(), ct);
+
+    public Task<RunToResult> RunToAsync(string file, int line, object owner, CancellationToken ct) => ui.RunAsync(() =>
+    {
+        if (dte.Mode == DebuggerMode.Design)
+            throw new BridgeException(BridgeErrorCode.WrongMode, "Requires Break or Run mode; current: Design.", "Start debugging with debug_start.");
+        if (line < 1) throw new BridgeException(BridgeErrorCode.InvalidArgument, "line must be 1 or greater.");
+
+        var spec = new BreakpointSpec { File = file, Line = line };
+        spec.File = CheckBreakpoint(spec);
+        var id = BreakpointKey.Compute(spec.File, spec.Line, null, null);
+        ReleaseRunTo(null);
+
+        var owned = dte.Breakpoints().All(b => IdOf(b) != id);
+        if (owned) dte.AddBreakpoint(spec);
+        var bp = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == id)
+            ?? throw new BridgeException(BridgeErrorCode.Internal, "Visual Studio did not create the breakpoint.");
+        if (bp.BoundCount == 0)
+        {
+            if (owned) dte.RemoveBreakpoints(b => IdOf(b) == id);
+            return new RunToResult { BindError = "No executable code at this location, or symbols are not loaded." };
+        }
+
+        _runTo.Arm(id, owned, owner);
+        var observed = seq.Current;
+        if (dte.Mode == DebuggerMode.Break) dte.Go();
+        log.Info($"Run to {PathUtil.ToRelative(SolutionDir, spec.File!)}:{line}");
+        return new RunToResult { Seq = observed };
+    }, ct);
+
+    /// <summary>Called by the event pump when debugging ends (UI thread).</summary>
+    public void OnEnterDesign() => ReleaseRunTo(null);
+
+    /// <summary>A closing connection removes the run-to breakpoint it armed.</summary>
+    public Task ReleaseRunToAsync(object owner) => ui.RunAsync(() => { ReleaseRunTo(owner); return true; }, CancellationToken.None);
+
+    private void ReleaseRunTo(object? owner)
+    {
+        if (_runTo.Take(owner) is { Owned: true } t) dte.RemoveBreakpoints(b => IdOf(b) == t.Id);
+    }
 
     public Task<SetBreakpointResult> SetBreakpointAsync(BreakpointSpec spec, CancellationToken ct)
     {
@@ -288,7 +328,11 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public BreakSnapshot OnEnterBreak(BreakReason reason)
     {
         Interlocked.Increment(ref _epoch);
-        return BuildSnapshot(reason);
+        if (_runTo.TargetId is { } target && reason == BreakReason.Breakpoint && dte.LastHitBreakpoint is { } hit && IdOf(hit) == target)
+            reason = BreakReason.RunTo;
+        var snapshot = BuildSnapshot(reason);
+        ReleaseRunTo(null);   // wherever it stopped, the run-to is over
+        return snapshot;
     }
 
     /// <summary>Builds the snapshot for the current break. Caller must be on the UI thread.</summary>
