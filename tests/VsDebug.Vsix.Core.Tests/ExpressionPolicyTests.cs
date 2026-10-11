@@ -44,6 +44,26 @@ public class ExpressionPolicyTests
         => Assert.Equal(BridgeErrorCode.InvalidArgument,
             Assert.Throws<BridgeException>(() => ExpressionPolicy.RequireNoSideEffects(expression)).Code);
 
+    /// <summary>Allowlist: escapes, interpolation, braces and non-ASCII punctuation never reach the evaluator.</summary>
+    [Theory]
+    [InlineData(@"order.Touch\u0028\u0029 > 0")]
+    [InlineData("order.Touch\uFF08\uFF09 > 0")]
+    [InlineData("$\"{x}\" != null")]
+    [InlineData("new { A = 1 } != null")]
+    [InlineData("x == 1 `")]
+    [InlineData("x\u2028== 1")]
+    public void Rejects_characters_outside_the_condition_allowlist(string expression)
+        => Assert.Equal(BridgeErrorCode.InvalidArgument,
+            Assert.Throws<BridgeException>(() => ExpressionPolicy.RequireNoSideEffects(expression)).Code);
+
+    [Theory]
+    [InlineData("sipariş.Tutar > 10")]
+    [InlineData("name == \"Ali\" && count % 2 != 0")]
+    [InlineData("flags ^ mask | ~bits")]
+    [InlineData("x is null || y?.Length >= 3")]
+    public void Allows_unicode_identifiers_and_common_operators(string expression)
+        => ExpressionPolicy.RequireNoSideEffects(expression);
+
     [Theory]
     [InlineData("total > 1000")]
     [InlineData("order.Id == 7")]

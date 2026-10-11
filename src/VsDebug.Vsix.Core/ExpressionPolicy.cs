@@ -25,6 +25,10 @@ public static class ExpressionPolicy
     // closed by the M2 consent gate, not by this filter.
     private static readonly Regex SideEffects = new(@"[\w\]\)>]\s*\(|(<<|>>>?)=|(?<![=!<>])=(?![=>])|\+\+|--", RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
+    // Conditions/placeholders may contain only letters/digits (any script), whitespace and plain C# operators.
+    // Escapes (\), interpolation ($, braces), backticks and non-ASCII punctuation never reach the evaluator.
+    private static readonly Regex ConditionAllowlist = new(@"^[\p{L}\p{N}_ \t.\[\]()<>=!&|+\-*/%?:""',@^~]*$", RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
     public static string PrepareSideEffectFree(string expression)
     {
         if (expression is null) throw new ArgumentNullException(nameof(expression));
@@ -37,6 +41,10 @@ public static class ExpressionPolicy
     {
         if (expression is null) throw new ArgumentNullException(nameof(expression));
         RejectNeutralizers(expression);
+        if (!ConditionAllowlist.IsMatch(expression))
+            throw new BridgeException(BridgeErrorCode.InvalidArgument,
+                "Breakpoint conditions and tracepoint placeholders may only use identifiers, literals and plain C# operators.",
+                "Avoid escapes, interpolated strings, braces and special characters, e.g. order.Id == 7.");
         if (SideEffects.IsMatch(expression))
             throw new BridgeException(BridgeErrorCode.InvalidArgument,
                 "Breakpoint conditions and tracepoint placeholders run on every hit and must not call methods, assign, or use ++/--.",
