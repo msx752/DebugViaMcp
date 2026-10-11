@@ -23,6 +23,9 @@ public sealed class GeneralOptionsPage : DialogPage
     /// <summary>Raised after Apply/OK when a permission changed; the argument summarises the change.</summary>
     public event EventHandler<string>? Applied;
 
+    /// <summary>Raised after every successful Apply/OK.</summary>
+    public event EventHandler? AnyApplied;
+
     [Category("Permissions"), DisplayName("Read"), Description("Status, call stack, variables and side-effect-free evaluation.")]
     public PermissionLevel Read { get; set; } = PermissionLevel.Allow;
 
@@ -88,5 +91,6 @@ public sealed class GeneralOptionsPage : DialogPage
         if (Mutate != _appliedMutate) changes.Add($"Mutate: {_appliedMutate} → {Mutate}");
         (_appliedRead, _appliedControl, _appliedMutate) = (Read, Control, Mutate);
         if (changes.Count > 0) Applied?.Invoke(this, string.Join(", ", changes));
+        AnyApplied?.Invoke(this, EventArgs.Empty);
     }
 }

@@ -25,11 +25,21 @@
     <PackageReference Include="Microsoft.VSSDK.BuildTools" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <!-- WPF, for the status bar indicator. -->
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+    <!-- MenuCommandService (base of OleMenuCommandService) lives here. -->
+    <Reference Include="System.Design" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\VsMcpDebugger.Protocol\VsMcpDebugger.Protocol.csproj" />
     <ProjectReference Include="..\VsMcpDebugger.Vsix.Core\VsMcpDebugger.Vsix.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="source.extension.vsixmanifest" SubType="Designer" />
+    <VSCTCompile Include="VsMcpDebuggerPackage.vsct" ResourceName="Menus.ctmenu" />
     <Content Include="..\..\LICENSE" Link="LICENSE" IncludeInVSIX="true" />
   </ItemGroup>
   <ItemGroup>

@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -10,6 +11,7 @@ using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using VsMcpDebugger.Protocol;
+using VsMcpDebugger.Vsix.Commands;
 using VsMcpDebugger.Vsix.Core;
 using VsMcpDebugger.Vsix.Logging;
 using VsMcpDebugger.Vsix.Options;
@@ -23,6 +25,7 @@ namespace VsMcpDebugger.Vsix;
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideAutoLoad(UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideOptionPage(typeof(GeneralOptionsPage), "VsMcpDebugger", "General", 0, 0, true)]
+[ProvideMenuResource("Menus.ctmenu", 1)]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Fields are released in Dispose(bool), which VS invokes through Package.Close.")]
 public sealed class VsMcpDebuggerPackage : AsyncPackage
 {
@@ -33,6 +36,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
     private DiscoveryWriter? _discovery;
     private DebuggerEventPump? _pump;
     private SolutionEvents? _solutionEvents;
+    private StatusBarIndicator? _indicator;
 
     internal BridgeSecurity? Security { get; private set; }
     internal ActivityPane? Activity { get; private set; }
@@ -89,6 +93,10 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
             _solutionEvents = dte.Events.SolutionEvents;
             _solutionEvents.Opened += () => { ThreadHelper.ThrowIfNotOnUIThread(); _discovery.UpdateSolution(service.SolutionPath); };
             _solutionEvents.AfterClosing += () => _discovery.UpdateSolution(null);
+            if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commands)
+                VsMcpDebuggerCommands.Register(this, commands, security, Activity);
+            _indicator = StatusBarIndicator.TryCreate(access, JoinableTaskFactory, () => page.ShowStatusBarIndicator, Activity, log);
+            page.AnyApplied += (_, _) => { ThreadHelper.ThrowIfNotOnUIThread(); _indicator?.Refresh(); };
             log.Info($"VsMcpDebugger {vsixVersion} ready (pid {pid}, protocol {ProtocolInfo.Major}.{ProtocolInfo.Minor})");
         }
 #pragma warning disable CA1031 // A startup failure must be logged, never crash Visual Studio.
