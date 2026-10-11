@@ -25,24 +25,38 @@ public static class ConsentText
     public static string ClientName(string? name)
     {
         var visible = Visible(string.IsNullOrWhiteSpace(name) ? "AI agent" : name!.Trim());
-        return visible.Length > MaxClientNameLength ? visible.Substring(0, MaxClientNameLength) + "…" : visible;
+        if (visible.Length <= MaxClientNameLength) return visible;
+        var cut = char.IsHighSurrogate(visible[MaxClientNameLength - 1]) ? MaxClientNameLength - 1 : MaxClientNameLength;
+        return visible.Substring(0, cut) + "…";
     }
 
     /// <summary>
     /// Escapes everything that is invisible or ambiguous on screen: control and format characters (incl. bidi
     /// overrides and tag characters outside the BMP), line/paragraph separators, spaces other than U+0020,
-    /// private-use, unassigned and lone surrogate code points. Works on code points, not UTF-16 units.
+    /// private-use, unassigned and lone surrogate code points, and every combining mark after the first in a row
+    /// (stacked marks can paint over neighbouring text). A literal backslash is doubled, so an escape shown to the
+    /// user can only come from this method. Works on code points, not UTF-16 units.
     /// </summary>
     public static string Visible(string? text)
     {
         if (string.IsNullOrEmpty(text)) return "";
         var s = text!;
         var sb = new StringBuilder(s.Length);
+        var previousWasMark = false;
         for (var i = 0; i < s.Length; i++)
         {
             var c = s[i];
+            var isMark = IsMark(CharUnicodeInfo.GetUnicodeCategory(c));
+            if (isMark && previousWasMark)
+            {
+                sb.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
+                continue;
+            }
+
+            previousWasMark = isMark;
             switch (c)
             {
+                case '\\': sb.Append("\\\\"); continue;
                 case '\n': sb.Append("\\n"); continue;
                 case '\r': sb.Append("\\r"); continue;
                 case '\t': sb.Append("\\t"); continue;
@@ -67,6 +81,9 @@ public static class ConsentText
 
         return sb.ToString();
     }
+
+    private static bool IsMark(UnicodeCategory category) =>
+        category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark;
 
     private static bool IsHidden(UnicodeCategory category) => category is UnicodeCategory.Control or UnicodeCategory.Format
         or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator or UnicodeCategory.PrivateUse

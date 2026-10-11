@@ -47,6 +47,41 @@ public class ConsentTextTests
         Assert.Equal("ş😀", ConsentText.Visible("ş😀"));
     }
 
+    /// <summary>Security review: a literal backslash must not be able to forge an escape sequence.</summary>
+    [Fact]
+    public void Literal_backslashes_are_escaped_so_escapes_cannot_be_forged()
+    {
+        const string bs = "\\";
+        var realNewline = "a" + (char)10 + "b";
+        var forgedNewline = "a" + bs + "nb";
+
+        Assert.NotEqual(ConsentText.Visible(realNewline), ConsentText.Visible(forgedNewline));
+        Assert.Equal("a" + bs + bs + "nb", ConsentText.Visible(forgedNewline));
+    }
+
+    /// <summary>Security review: truncating the client name must not leave half of a surrogate pair.</summary>
+    [Fact]
+    public void Client_name_truncation_never_splits_a_surrogate_pair()
+    {
+        var name = new string('x', 63) + char.ConvertFromUtf32(0x1F600) + "tail";
+
+        var shown = ConsentText.ClientName(name);
+
+        Assert.DoesNotContain(shown, char.IsSurrogate);
+        Assert.EndsWith("…", shown, StringComparison.Ordinal);
+    }
+
+    /// <summary>Security review: stacked combining marks can paint over the text; only the first one is kept as is.</summary>
+    [Fact]
+    public void Stacked_combining_marks_are_escaped()
+    {
+        const string bs = "\\";
+        var acute = ((char)0x0301).ToString();
+
+        Assert.Equal("e" + acute, ConsentText.Visible("e" + acute));
+        Assert.Equal("e" + acute + bs + "u0301" + bs + "u0301", ConsentText.Visible("e" + acute + acute + acute));
+    }
+
     [Fact]
     public void Client_name_is_sanitised_capped_and_defaulted()
     {
