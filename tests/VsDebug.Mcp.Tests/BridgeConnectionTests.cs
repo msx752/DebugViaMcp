@@ -63,6 +63,25 @@ public class BridgeConnectionTests
         Assert.Equal(BridgeErrorCode.Unauthorized, ex.Code);
     }
 
+    /// <summary>
+    /// Pipe-squatting guard: if the process serving the pipe is not the pid recorded in the instance
+    /// file, the token must never be sent.
+    /// </summary>
+    [Fact]
+    public async Task Pipe_served_by_unexpected_process_is_rejected_before_token_is_sent()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Server-pid verification is Windows-only; Unix relies on a 0700 directory.");
+        await using var server = new PipeTestServer(new FakeDebugBridge());
+        var record = server.Record;
+        record.Pid = Environment.ProcessId + 1;
+
+        var ex = await Assert.ThrowsAsync<McpBridgeException>(() =>
+            BridgeConnection.ConnectAsync(record, new SessionState(), NullLogger.Instance, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.Unauthorized, ex.Code);
+        Assert.DoesNotContain(nameof(FakeDebugBridge.HandshakeAsync), server.Bridge.Calls);
+    }
+
     [Fact]
     public async Task Missing_pipe_fails_with_not_connected()
     {

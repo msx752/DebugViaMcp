@@ -49,6 +49,14 @@ public sealed class BridgeConnection : IAsyncDisposable
                 "Make sure that Visual Studio instance is still running, or run `vsdebug doctor`.", e);
         }
 
+        if (!PipeServerIdentity.IsServedBy(stream, instance.Pid))
+        {
+            await stream.DisposeAsync().ConfigureAwait(false);
+            throw new McpBridgeException(BridgeErrorCode.Unauthorized,
+                $"The pipe for Visual Studio pid {instance.Pid} is served by a different process; refusing to send credentials.",
+                "Restart Visual Studio so it writes a fresh instance file, then retry.");
+        }
+
         var rpc = RpcFactory.Create(stream);
         rpc.AddLocalRpcTarget<IDebugBridgeEvents>(session, null);
         var bridge = rpc.Attach<IDebugBridge>();

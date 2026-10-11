@@ -6,6 +6,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>vsdebug</ToolCommandName>
     <PackageId>VsDebug.Mcp</PackageId>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Description>MCP server that lets AI agents drive the Visual Studio debugger.</Description>
   </PropertyGroup>
   <ItemGroup>
