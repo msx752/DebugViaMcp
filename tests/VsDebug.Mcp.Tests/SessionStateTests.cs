@@ -90,4 +90,38 @@ public class SessionStateTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => wait);
     }
+
+    /// <summary>Final review #3: the program can end before the waiter registers.</summary>
+    [Fact]
+    public async Task End_published_before_wait_is_returned()
+    {
+        var s = Connected(DebuggerMode.Run);
+        await s.OnModeChangedAsync(new ModeChangedEvent { Mode = DebuggerMode.Design, Seq = 6 });
+
+        var outcome = await s.WaitForBreakAfterAsync(5, TimeSpan.FromSeconds(5), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(WaitOutcomeKind.Ended, outcome.Kind);
+    }
+
+    [Fact]
+    public async Task Later_end_wins_over_earlier_break()
+    {
+        var s = Connected(DebuggerMode.Run);
+        await s.OnBreakAsync(Break(6));
+        await s.OnModeChangedAsync(new ModeChangedEvent { Mode = DebuggerMode.Design, Seq = 7 });
+
+        var outcome = await s.WaitForBreakAfterAsync(5, TimeSpan.FromSeconds(1), CancellationToken.None);
+
+        Assert.Equal(WaitOutcomeKind.Ended, outcome.Kind);
+    }
+
+    [Fact]
+    public void Resume_seq_only_moves_forward()
+    {
+        var s = Connected(seq: 5);
+        Assert.Equal(5, s.LastResumeSeq);
+        s.MarkResumed(9);
+        s.MarkResumed(7);
+        Assert.Equal(9, s.LastResumeSeq);
+    }
 }

@@ -114,4 +114,20 @@ public class ExecutionToolsTests
         Assert.Equal("not_connected", error.GetProperty("code").GetString());
         Assert.Equal("run doctor", error.GetProperty("hint").GetString());
     }
+
+    /// <summary>Final review #2: continue times out, the break lands, then debug_wait must return it, not "running".</summary>
+    [Fact]
+    public async Task Wait_after_continue_timeout_returns_the_break_that_arrived_in_between()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge());
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+        Assert.Equal("running", Json(await tools.Continue(CancellationToken.None)).GetProperty("state").GetString());
+
+        await cm.Session.OnBreakAsync(Break(11));
+        var started = DateTime.UtcNow;
+        var json = Json(await tools.Wait(timeoutSec: 30, CancellationToken.None));
+
+        Assert.Equal("break", json.GetProperty("state").GetString());
+        Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(5));
+    }
 }

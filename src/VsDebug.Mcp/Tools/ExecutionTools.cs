@@ -46,7 +46,9 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
         var session = connections.Session;
         if (session.Mode == DebuggerMode.Design)
             return ToolResponse.WrongMode(DebuggerMode.Run, session.Mode, "Start debugging with debug_start.");
-        var outcome = await session.WaitForBreakAfterAsync(session.LastSeq, ClampWait(timeoutSec), ct).ConfigureAwait(false);
+        // Wait for a break after the last resume command, so a break that landed after a timed-out
+        // debug_continue (but before this call) is returned instead of being skipped.
+        var outcome = await session.WaitForBreakAfterAsync(session.LastResumeSeq, ClampWait(timeoutSec), ct).ConfigureAwait(false);
         return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
     });
 
@@ -69,6 +71,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
                 return ToolResponse.WrongMode(required, session.Mode, hint);
 
             var seq = await command(bridge).ConfigureAwait(false);
+            session.MarkResumed(seq);
             var outcome = await session.WaitForBreakAfterAsync(seq, waitForBreak, ct).ConfigureAwait(false);
             return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
         });

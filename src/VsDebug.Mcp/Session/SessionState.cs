@@ -16,6 +16,18 @@ public sealed class SessionState : IDebugBridgeEvents
     public bool IsConnected { get; private set; }
     public long LastSeq { get; private set; }
     public BreakEvent? LastBreak { get; private set; }
+    public long LastEndSeq { get; private set; }
+
+    /// <summary>Sequence observed right before the latest resume command; debug_wait waits for a break after it.</summary>
+    public long LastResumeSeq { get; private set; }
+
+    public void MarkResumed(long seq)
+    {
+        lock (_gate)
+        {
+            LastResumeSeq = Math.Max(LastResumeSeq, seq);
+        }
+    }
 
     public void Reset(DebuggerMode mode, long seq)
     {
@@ -23,6 +35,8 @@ public sealed class SessionState : IDebugBridgeEvents
         {
             Mode = mode;
             LastSeq = seq;
+            LastResumeSeq = seq;
+            LastEndSeq = 0;
             LastBreak = null;
             IsConnected = true;
         }
@@ -46,6 +60,7 @@ public sealed class SessionState : IDebugBridgeEvents
             LastSeq = Math.Max(LastSeq, e.Seq);
             if (e.Mode == DebuggerMode.Design)
             {
+                LastEndSeq = Math.Max(LastEndSeq, e.Seq);
                 CompleteAll(new WaitOutcome(WaitOutcomeKind.Ended, null));
             }
         }
@@ -80,6 +95,9 @@ public sealed class SessionState : IDebugBridgeEvents
         lock (_gate)
         {
             if (!IsConnected) return new WaitOutcome(WaitOutcomeKind.Disconnected, null);
+            // Whatever happened after 'seq' and is most recent wins: the session ended, or it broke.
+            var lastBreakSeq = LastBreak?.Seq ?? 0;
+            if (LastEndSeq > seq && LastEndSeq > lastBreakSeq) return new WaitOutcome(WaitOutcomeKind.Ended, null);
             if (LastBreak is { } last && last.Seq > seq) return new WaitOutcome(WaitOutcomeKind.Break, last);
 
             tcs = new TaskCompletionSource<WaitOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
