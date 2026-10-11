@@ -19,7 +19,10 @@ public enum Operation
     /// <summary>bp_enable(true) on a breakpoint with a condition or tracepoint: that expression runs again on every hit.</summary>
     EnableBreakpointWithExpression,
 
-    RunTo,
+    RunTo, ListProcesses,
+
+    /// <summary>debug_attach: the debugger can read and change the attached process's memory.</summary>
+    Attach,
 }
 
 /// <summary>User settings the bridge reads on every call, so changes apply without reconnecting.</summary>
@@ -36,12 +39,13 @@ public static class PermissionPolicy
     public static PermissionTier TierOf(Operation operation) => operation switch
     {
         Operation.Status or Operation.ListBreakpoints or Operation.Stack or Operation.Variables or Operation.Evaluate
-            or Operation.Threads or Operation.FrameSelect or Operation.Exception => PermissionTier.Read,
+            or Operation.Threads or Operation.FrameSelect or Operation.Exception
+            or Operation.ListProcesses => PermissionTier.Read,
         Operation.SetBreakpoint or Operation.RemoveBreakpoints or Operation.Start or Operation.Stop
             or Operation.Continue or Operation.Pause or Operation.Step or Operation.EnableBreakpoint
             or Operation.RunTo => PermissionTier.Control,
         Operation.EvaluateWithSideEffects or Operation.SetValue or Operation.SetBreakpointWithExpression
-            or Operation.EnableBreakpointWithExpression => PermissionTier.Mutate,
+            or Operation.EnableBreakpointWithExpression or Operation.Attach => PermissionTier.Mutate,
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Operation has no tier."),
     };
 
@@ -76,6 +80,7 @@ public static class PermissionPolicy
         Operation.Exception => "exception",
         Operation.EnableBreakpoint or Operation.EnableBreakpointWithExpression => "bp_enable",
         Operation.RunTo => "debug_run_to",
+        Operation.ListProcesses or Operation.Attach => "debug_attach",
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Operation has no tool name."),
     };
 

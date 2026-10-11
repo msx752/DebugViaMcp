@@ -62,6 +62,18 @@ public sealed class FakeDte : IDteFacade
         return bp;
     }
 
+    public List<RawProcess> Processes { get; set; } =
+    [
+        new() { Pid = 100, Name = "FaultDemo", OwnedByCurrentUser = true },
+        new() { Pid = 200, Name = "FaultDemo", OwnedByCurrentUser = true },
+        new() { Pid = 300, Name = "lsass", OwnedByCurrentUser = false },
+        new() { Pid = 400, Name = "OrderDemo", OwnedByCurrentUser = true },
+    ];
+
+    public IReadOnlyList<RawProcess> LocalProcesses() { Ui(); return Processes; }
+    public void Attach(int pid) { Ui(); Calls.Add("Attach:" + pid); }
+    public void DetachAll() { Ui(); Calls.Add("DetachAll"); }
+
     public int CurrentFrameIndex { get; set; }
     public List<(int? ThreadId, int Index)> Selections { get; } = [];
 

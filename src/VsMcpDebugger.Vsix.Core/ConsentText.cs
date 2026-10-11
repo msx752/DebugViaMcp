@@ -28,6 +28,9 @@ public static class ConsentText
     public static string EnableBreakpoint(string client, string location, string? condition, string? logMessage) =>
         Breakpoint(client, location, condition, logMessage).Replace(" wants to set a breakpoint at ", " wants to enable the breakpoint at ");
 
+    public static string Attach(string client, string process, int pid) =>
+        $"{ClientName(client)} wants to attach the debugger to {Visible(process)} (pid {pid.ToString(CultureInfo.InvariantCulture)}) — Visual Studio will be able to read and change that process's memory";
+
     public static string Operation(string client, string tool, string summary) =>
         string.IsNullOrEmpty(summary)
             ? $"{ClientName(client)} wants to run {tool}"

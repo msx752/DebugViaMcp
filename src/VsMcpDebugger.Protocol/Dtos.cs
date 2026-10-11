@@ -155,6 +155,12 @@ public sealed class RunToResult
     public string? BindError { get; set; }
 }
 
+public sealed class ProcessInfo
+{
+    public int Pid { get; set; }
+    public string Name { get; set; } = "";
+}
+
 public sealed class EvaluateResult
 {
     public bool IsValid { get; set; }

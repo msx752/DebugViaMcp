@@ -19,6 +19,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     private long _epoch;
     private readonly RunToState _runTo = new();
+    private bool _attached;
 
     public string VsixVersion => vsixVersion;
 
@@ -82,7 +83,11 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     }, ct);
 
     /// <summary>Called by the event pump when debugging ends (UI thread).</summary>
-    public void OnEnterDesign() => ReleaseRunTo(null);
+    public void OnEnterDesign()
+    {
+        _attached = false;
+        ReleaseRunTo(null);
+    }
 
     /// <summary>A closing connection removes the run-to breakpoint it armed.</summary>
     public Task ReleaseRunToAsync(object owner) => ui.RunAsync(() => { ReleaseRunTo(owner); return true; }, CancellationToken.None);
@@ -171,9 +176,38 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     public Task StopAsync(CancellationToken ct) => ui.RunAsync(() =>
     {
-        if (dte.Mode != DebuggerMode.Design) dte.Stop();
+        if (dte.Mode != DebuggerMode.Design)
+        {
+            // An attached process keeps running: detach instead of ending it (refinement R2).
+            if (_attached) dte.DetachAll();
+            else dte.Stop();
+        }
+
         return true;
     }, ct);
+
+    public Task<ProcessInfo[]> ListAttachableAsync(string? processName, CancellationToken ct) =>
+        ui.RunAsync(() => AttachCandidates.Filter(dte.LocalProcesses(), processName), ct);
+
+    /// <summary>The process name for the consent question; validates mode and target first, so a doomed request never asks.</summary>
+    public Task<string> DescribeAttachTargetAsync(int pid, CancellationToken ct) => ui.RunAsync(() => RequireAttachable(pid).Name, ct);
+
+    public Task<long> AttachAsync(int pid, CancellationToken ct) => ui.RunAsync(() =>
+    {
+        var target = RequireAttachable(pid);
+        var observed = seq.Current;
+        dte.Attach(pid);
+        _attached = true;
+        log.Info($"Attached to {target.Name} (pid {pid})");
+        return observed;
+    }, ct);
+
+    private ProcessInfo RequireAttachable(int pid)
+    {
+        RequireMode(DebuggerMode.Design);
+        return AttachCandidates.Filter(dte.LocalProcesses(), null).FirstOrDefault(p => p.Pid == pid)
+            ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No process {pid} of yours that Visual Studio can attach to.", "Call debug_attach with processName to find it.");
+    }
 
     public const int MaxStackFrames = 200;
 

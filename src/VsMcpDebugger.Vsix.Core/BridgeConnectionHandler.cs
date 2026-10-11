@@ -130,6 +130,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     public Task<long> StartAsync(CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Start, context, () => service.StartAsync(cancellationToken), null, null, cancellationToken);
 
+    public Task<ProcessInfo[]> ListAttachableAsync(string? processName, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.ListProcesses, context, () => service.ListAttachableAsync(processName, cancellationToken),
+            Request.Of(processName ?? "", ("processName", processName)), null, cancellationToken);
+
+    public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Attach, context, () => service.AttachAsync(pid, cancellationToken),
+            Request.Of($"pid {pid.ToString(CultureInfo.InvariantCulture)}", ("pid", pid.ToString(CultureInfo.InvariantCulture))),
+            async () => ConsentText.Attach(_client, await service.DescribeAttachTargetAsync(pid, cancellationToken).ConfigureAwait(false), pid),
+            cancellationToken);
+
     public Task StopAsync(CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Stop, context, async () => { await service.StopAsync(cancellationToken).ConfigureAwait(false); return true; }, null, null, cancellationToken);
 

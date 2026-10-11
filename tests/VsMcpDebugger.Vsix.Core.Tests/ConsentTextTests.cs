@@ -29,6 +29,12 @@ public class ConsentTextTests
             ConsentText.EnableBreakpoint("claude-code", "a.cs:3", "x > 1", null));
     }
 
+    [Fact]
+    public void Attach_text_escapes_the_process_name()
+    {
+        Assert.Contains("Fault\\nDemo (pid 7)", ConsentText.Attach("claude-code", "Fault\nDemo", 7), StringComparison.Ordinal);
+    }
+
     /// <summary>Review focus #2.</summary>
     [Fact]
     public void Bidi_override_and_newlines_are_visible()

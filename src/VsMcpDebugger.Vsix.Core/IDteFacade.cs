@@ -41,6 +41,17 @@ public sealed class RawExceptionInfo
     public List<(string Type, string Message)> Inner { get; set; } = [];
 }
 
+public sealed class RawProcess
+{
+    public int Pid { get; set; }
+
+    /// <summary>File name without extension, e.g. "FaultDemo".</summary>
+    public string Name { get; set; } = "";
+
+    /// <summary>Owner compared by token SID with the user running Visual Studio (also when VS runs elevated).</summary>
+    public bool OwnedByCurrentUser { get; set; }
+}
+
 /// <summary>Everything the bridge needs from Visual Studio. All members must be called on the UI thread.</summary>
 public interface IDteFacade
 {
@@ -59,6 +70,11 @@ public interface IDteFacade
     void Break();
     void Stop();
     void Step(StepKind kind);
+
+    /// <summary>Debugger.LocalProcesses without Visual Studio itself.</summary>
+    IReadOnlyList<RawProcess> LocalProcesses();
+    void Attach(int pid);
+    void DetachAll();
     IReadOnlyList<RawFrame> Stack(int max);
     int? CurrentThreadId { get; }
     IReadOnlyList<RawThread> Threads();

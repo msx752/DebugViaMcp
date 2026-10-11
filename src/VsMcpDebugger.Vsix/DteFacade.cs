@@ -119,6 +119,36 @@ internal sealed class DteFacade(DTE2 dte) : IDteFacade
         return null;
     }
 
+    public IReadOnlyList<RawProcess> LocalProcesses()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        int self;
+        using (var me = System.Diagnostics.Process.GetCurrentProcess()) self = me.Id;
+        var result = new List<RawProcess>();
+        foreach (EnvDTE.Process p in dte.Debugger.LocalProcesses)
+        {
+            if (p.ProcessID == self) continue;
+            result.Add(new RawProcess { Pid = p.ProcessID, Name = System.IO.Path.GetFileNameWithoutExtension(p.Name), OwnedByCurrentUser = ProcessOwner.IsCurrentUser(p.ProcessID) });
+        }
+
+        return result;
+    }
+
+    public void Attach(int pid)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        foreach (EnvDTE.Process p in dte.Debugger.LocalProcesses)
+        {
+            if (p.ProcessID != pid) continue;
+            p.Attach();
+            return;
+        }
+
+        throw new BridgeException(BridgeErrorCode.NotFound, $"Process {pid} is no longer running.");
+    }
+
+    public void DetachAll() { ThreadHelper.ThrowIfNotOnUIThread(); dte.Debugger.DetachAll(); }
+
     public void Go() { ThreadHelper.ThrowIfNotOnUIThread(); dte.Debugger.Go(WaitForBreakOrEnd: false); }
 
     public void Break() { ThreadHelper.ThrowIfNotOnUIThread(); dte.Debugger.Break(WaitForBreakMode: false); }

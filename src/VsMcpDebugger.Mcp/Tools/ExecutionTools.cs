@@ -83,6 +83,40 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
         return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
     });
 
+    [McpServerTool(Name = "debug_attach"),
+     Description("Attaches the debugger to a running process of yours, by pid or processName (e.g. FaultDemo). Visual Studio can then read and change that process's memory, so this " + InspectionTools.ConsentNote + " debug_stop detaches without ending the process.")]
+    public Task<CallToolResult> Attach(
+        [Description("Process id.")] int? pid = null,
+        [Description("Process name without .exe; must match exactly one of your processes.")] string? processName = null,
+        CancellationToken ct = default) => ToolResponse.RunAsync(connections, "debug_attach", async ctx =>
+    {
+        if ((pid is null) == string.IsNullOrWhiteSpace(processName))
+            return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "Provide either pid or processName.");
+        var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
+        if (connections.Session.Mode != DebuggerMode.Design)
+            return ToolResponse.WrongMode(DebuggerMode.Design, connections.Session.Mode, "Stop the current session first (debug_stop).");
+        if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3) is { } unsupported) return unsupported;
+
+        string? name = null;
+        if (pid is null)
+        {
+            var candidates = await bridge.ListAttachableAsync(processName, ctx, ct).ConfigureAwait(false);
+            switch (candidates.Length)
+            {
+                case 0:
+                    return ToolResponse.Error(BridgeErrorCode.NotFound, $"No process of yours named '{processName}'.", "Check the name (without .exe).");
+                case > 1:
+                    return ToolResponse.Error(BridgeErrorCode.InvalidArgument, $"{candidates.Length} processes are named '{processName}'.",
+                        $"Candidates: {string.Join(", ", candidates.Select(c => $"{c.Pid} {c.Name}"))}. Call again with pid.");
+            }
+
+            (pid, name) = (candidates[0].Pid, candidates[0].Name);
+        }
+
+        await bridge.AttachAsync(pid.Value, ctx, ct).ConfigureAwait(false);
+        return ToolResponse.Ok(new { state = "attached", pid, process = name, hint = "Set breakpoints with bp_set, then debug_wait or debug_pause. debug_stop detaches." });
+    });
+
     private Task<CallToolResult> Resume(string tool, DebuggerMode required, string hint, Func<IDebugBridge, CallContext, Task<long>> command, CancellationToken ct) =>
         ToolResponse.RunAsync(connections, tool, async ctx =>
         {

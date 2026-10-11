@@ -161,4 +161,36 @@ public class ExecutionToolsTests
         Assert.Equal("No executable code at this location.", json.GetProperty("bindError").GetString());
         Assert.Equal("break", json.GetProperty("state").GetString());
     }
+
+    [Fact]
+    public async Task Attach_by_name_resolves_a_single_candidate()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design);
+
+        var json = Json(await new ExecutionTools(cm).Attach(processName: "OrderDemo", ct: CancellationToken.None));
+
+        Assert.Equal(400, json.GetProperty("pid").GetInt32());
+        Assert.Contains("Attach:400", cm.Bridge.Calls);
+    }
+
+    [Fact]
+    public async Task Attach_by_ambiguous_name_lists_candidates_and_attaches_nothing()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design);
+        cm.Bridge.OnListAttachable = _ => [new ProcessInfo { Pid = 100, Name = "FaultDemo" }, new ProcessInfo { Pid = 200, Name = "FaultDemo" }];
+
+        var error = Json(await new ExecutionTools(cm).Attach(processName: "FaultDemo", ct: CancellationToken.None)).GetProperty("error");
+
+        Assert.Equal("invalid_argument", error.GetProperty("code").GetString());
+        Assert.Contains("100 FaultDemo, 200 FaultDemo", error.GetProperty("hint").GetString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(cm.Bridge.Calls, c => c.StartsWith("Attach:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Attach_needs_exactly_one_of_pid_and_name()
+    {
+        var tools = new ExecutionTools(new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design));
+        var error = Json(await tools.Attach(pid: 1, processName: "x", ct: CancellationToken.None)).GetProperty("error");
+        Assert.Equal("invalid_argument", error.GetProperty("code").GetString());
+    }
 }
