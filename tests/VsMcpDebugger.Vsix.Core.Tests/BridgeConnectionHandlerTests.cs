@@ -645,6 +645,31 @@ public class BridgeConnectionHandlerTests
         Assert.Empty(s.Dte.Assignments);
     }
 
+    /// <summary>
+    /// The user drags the yellow arrow (Set Next Statement) while the question is open. Visual Studio may raise no event
+    /// for that, so the approval is also bound to the line the question named.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Instruction_pointer_moved_while_the_question_is_open_voids_the_consent(bool setValue)
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        var call = setValue
+            ? s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None)
+            : s.Handler.EvaluateAsync("order.Touch()", allowSideEffects: true, SecurityHarness.Ctx(), CancellationToken.None);
+        await s.Prompt.WaitForPromptsAsync(1);
+        s.Dte.Frames[0].Line = 20;           // moved to another line; no debugger event was raised
+        s.Prompt.Answer(ConsentChoice.AllowOnce);
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => call);
+        Assert.Equal((int)BridgeErrorCode.WrongMode, ex.ErrorCode);
+        Assert.Empty(s.Dte.Assignments);
+        Assert.DoesNotContain("Evaluate:order.Touch()", s.Dte.Calls);
+    }
+
     /// <summary>M2 review minor 1, end to end: Mutate changed to Allow while a request waited in the queue.</summary>
     [Fact]
     public async Task Queued_request_runs_when_the_user_allows_the_tier_meanwhile()

@@ -429,49 +429,59 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public static void ValidateSideEffectEvaluation(string? expression) => ExpressionPolicy.RequireMutationText(expression, "expression");
 
     public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CancellationToken ct) =>
-        EvaluateAsync(expression, allowSideEffects, expectedSeq: null, ct);
+        EvaluateAsync(expression, allowSideEffects, expected: null, ct);
 
-    /// <param name="expectedSeq">When set, the event sequence the user saw when approving; any debugger event since then refuses the call.</param>
-    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, long? expectedSeq, CancellationToken ct)
+    /// <param name="expected">When set, where the program was when the user approved; any debugger event or line change since then refuses the call.</param>
+    public Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, ConsentPoint? expected, CancellationToken ct)
     {
         if (allowSideEffects) ValidateSideEffectEvaluation(expression);
         return InBreak(() =>
         {
-            RequireUnchanged(expectedSeq);
+            RequireUnchanged(expected);
             return Shape(dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression)));
         }, ct);
     }
 
     public Task<EvaluateResult> SetValueAsync(string expression, string value, CancellationToken ct) =>
-        SetValueAsync(expression, value, expectedSeq: null, ct);
+        SetValueAsync(expression, value, expected: null, ct);
 
-    /// <param name="expectedSeq">When set, the event sequence the user saw when approving; any debugger event since then refuses the call.</param>
-    public Task<EvaluateResult> SetValueAsync(string expression, string value, long? expectedSeq, CancellationToken ct)
+    /// <param name="expected">When set, where the program was when the user approved; any debugger event or line change since then refuses the call.</param>
+    public Task<EvaluateResult> SetValueAsync(string expression, string value, ConsentPoint? expected, CancellationToken ct)
     {
         ValidateSetValue(expression, value);
         return InBreak(() =>
         {
-            RequireUnchanged(expectedSeq);
+            RequireUnchanged(expected);
             return Shape(dte.SetValue(expression.Trim(), value.Trim()));
         }, ct);
     }
 
     /// <summary>Consent covers the frame the question named: if the program resumed or broke elsewhere since, refuse.</summary>
-    private void RequireUnchanged(long? expectedSeq)
+    private void RequireUnchanged(ConsentPoint? expected)
     {
-        if (expectedSeq is { } expected && seq.Current != expected)
+        if (expected is not null && (seq.Current != expected.Seq || CurrentPosition() != expected.Position))
             throw new BridgeException(BridgeErrorCode.WrongMode,
                 "The program state changed while waiting for approval (it resumed or stopped elsewhere). Nothing was changed.",
                 "Check where the program is now (debug_status), then call again if it still makes sense.");
     }
 
     /// <summary>Shown in consent questions ("… in OrderService.Submit"). Requires Break mode, so a wrong-mode call fails before the user is asked.</summary>
-    public Task<(string Function, long Seq)> GetBreakLocationAsync(CancellationToken ct) => InBreak(() =>
+    public Task<(string Function, ConsentPoint Point)> GetBreakLocationAsync(CancellationToken ct) => InBreak(() =>
     {
         var index = dte.CurrentFrameIndex;
         var frames = dte.Stack(index + 1);
-        return (frames.Count > index ? frames[index].Function : "the current frame", seq.Current);
+        return (frames.Count > index ? frames[index].Function : "the current frame", new ConsentPoint(seq.Current, PositionOf(frames, index)));
     }, ct);
+
+    /// <summary>File and line of the selected frame; the user can move the instruction pointer without a debugger event.</summary>
+    private string CurrentPosition()
+    {
+        var index = dte.CurrentFrameIndex;
+        return PositionOf(dte.Stack(index + 1), index);
+    }
+
+    private static string PositionOf(IReadOnlyList<RawFrame> frames, int index) =>
+        frames.Count > index ? $"{frames[index].File}:{frames[index].Line}" : "";
 
     private static EvaluateResult Shape(EvaluateResult r)
     {

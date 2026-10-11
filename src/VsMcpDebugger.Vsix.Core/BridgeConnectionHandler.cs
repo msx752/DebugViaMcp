@@ -211,14 +211,14 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                 Request.Of(expression, ("expression", expression)), null, cancellationToken);
 
         // Set when the question is prepared: the approval covers the program state the question described.
-        long? askedAt = null;
+        ConsentPoint? askedAt = null;
         return Guard(Operation.EvaluateWithSideEffects, context, () => service.EvaluateAsync(expression, true, askedAt, cancellationToken),
             Request.Of(expression, ("expression", expression)),
             async () =>
             {
                 DebugBridgeService.ValidateSideEffectEvaluation(expression);
-                var (function, seq) = await service.GetBreakLocationAsync(cancellationToken).ConfigureAwait(false);
-                askedAt = seq;
+                var (function, point) = await service.GetBreakLocationAsync(cancellationToken).ConfigureAwait(false);
+                askedAt = point;
                 return ConsentText.EvaluateWithSideEffects(_client, expression, function);
             }, cancellationToken, succeeded: r => r.IsValid);
     }
@@ -226,14 +226,14 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     public Task<EvaluateResult> SetValueAsync(string expression, string value, CallContext context, CancellationToken cancellationToken)
     {
         // Set when the question is prepared: the approval covers the program state the question described.
-        long? askedAt = null;
+        ConsentPoint? askedAt = null;
         return Guard(Operation.SetValue, context, () => service.SetValueAsync(expression, value, askedAt, cancellationToken),
             Request.Of($"{expression} = {value}", ("expression", expression), ("value", value)),
             async () =>
             {
                 DebugBridgeService.ValidateSetValue(expression, value);
-                var (function, seq) = await service.GetBreakLocationAsync(cancellationToken).ConfigureAwait(false);
-                askedAt = seq;
+                var (function, point) = await service.GetBreakLocationAsync(cancellationToken).ConfigureAwait(false);
+                askedAt = point;
                 return ConsentText.SetValue(_client, expression, value, function);
             }, cancellationToken, succeeded: r => r.IsValid);
     }
