@@ -25,6 +25,9 @@ public static class ConsentText
         return $"{ClientName(client)} wants to set a breakpoint at {Visible(location)} {what} — this runs in your program on every hit";
     }
 
+    public static string EnableBreakpoint(string client, string location, string? condition, string? logMessage) =>
+        Breakpoint(client, location, condition, logMessage).Replace(" wants to set a breakpoint at ", " wants to enable the breakpoint at ");
+
     public static string Operation(string client, string tool, string summary) =>
         string.IsNullOrEmpty(summary)
             ? $"{ClientName(client)} wants to run {tool}"

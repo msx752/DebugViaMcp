@@ -106,6 +106,19 @@ internal sealed class DteFacade(DTE2 dte) : IDteFacade
         return doomed.Count;
     }
 
+    public RawBreakpoint? SetEnabled(Func<RawBreakpoint, bool> match, bool enabled)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        foreach (Breakpoint b in dte.Debugger.Breakpoints)
+        {
+            if (!match(ToRaw(b))) continue;
+            b.Enabled = enabled;
+            return ToRaw(b);
+        }
+
+        return null;
+    }
+
     public void Go() { ThreadHelper.ThrowIfNotOnUIThread(); dte.Debugger.Go(WaitForBreakOrEnd: false); }
 
     public void Break() { ThreadHelper.ThrowIfNotOnUIThread(); dte.Debugger.Break(WaitForBreakMode: false); }

@@ -39,4 +39,18 @@ public class BreakpointToolsTests
         var result = await tools.Remove(id: null, all: false, CancellationToken.None);
         Assert.Equal("invalid_argument", Json(result).GetProperty("error").GetProperty("code").GetString());
     }
+
+    [Fact]
+    public async Task Enable_returns_the_breakpoint_or_not_found()
+    {
+        var bridge = new FakeDebugBridge();
+        var tools = new BreakpointTools(new FakeConnectionManager(bridge));
+
+        var on = Json(await tools.Enable("bp-1", false, CancellationToken.None));
+        bridge.OnEnable = (_, _) => null;
+        var missing = Json(await tools.Enable("bp-2", true, CancellationToken.None));
+
+        Assert.False(on.GetProperty("breakpoint").GetProperty("enabled").GetBoolean());
+        Assert.True(missing.GetProperty("notFound").GetBoolean());
+    }
 }

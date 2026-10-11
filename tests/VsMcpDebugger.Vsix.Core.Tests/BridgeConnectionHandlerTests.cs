@@ -580,6 +580,54 @@ public class BridgeConnectionHandlerTests
         Assert.Equal("claude-code wants to set total = 0 in Demo.OrderService.Submit(Demo.Order order)", Assert.Single(s.Prompt.Texts));
     }
 
+    private static async Task<string> ConditionalBreakpoint(SecurityHarness s)
+    {
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+        var r = await s.Handler.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9, Condition = "order.Id == 7" }, SecurityHarness.Ctx(), CancellationToken.None);
+        s.Prompt.AutoAnswer = null;
+        s.Prompt.Texts.Clear();
+        return r.Breakpoint.Id;
+    }
+
+    [Fact]
+    public async Task Enabling_a_conditional_breakpoint_asks_and_disabling_does_not()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        var id = await ConditionalBreakpoint(s);
+        s.Dte.Bps[0].Enabled = false;
+
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+        await s.Handler.SetBreakpointEnabledAsync(id, true, SecurityHarness.Ctx(), CancellationToken.None);
+        Assert.Equal("claude-code wants to enable the breakpoint at OrderService.cs:9 when order.Id == 7 — this runs in your program on every hit", Assert.Single(s.Prompt.Texts));
+
+        await s.Handler.SetBreakpointEnabledAsync(id, false, SecurityHarness.Ctx(), CancellationToken.None);
+        Assert.Single(s.Prompt.Texts);
+        Assert.False(s.Dte.Bps[0].Enabled);
+    }
+
+    [Fact]
+    public async Task Enabling_a_plain_breakpoint_is_control_tier()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+        var r = await s.Handler.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, SecurityHarness.Ctx(), CancellationToken.None);
+
+        await s.Handler.SetBreakpointEnabledAsync(r.Breakpoint.Id, true, SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Empty(s.Prompt.Texts);
+    }
+
+    [Fact]
+    public async Task Enabling_an_unknown_breakpoint_returns_null_without_asking()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+
+        Assert.Null(await s.Handler.SetBreakpointEnabledAsync("bp-00000000", true, SecurityHarness.Ctx(), CancellationToken.None));
+        Assert.Empty(s.Prompt.Texts);
+    }
+
     /// <summary>Review focus #1.</summary>
     [Fact]
     public async Task Frame_change_while_the_question_is_open_voids_the_consent()

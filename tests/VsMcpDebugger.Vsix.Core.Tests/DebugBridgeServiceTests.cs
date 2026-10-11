@@ -485,6 +485,20 @@ public class DebugBridgeServiceTests
     }
 
     [Fact]
+    public async Task Enable_toggles_by_id_and_unknown_id_is_null()
+    {
+        var (svc, dte, _) = Create();
+        var set = await svc.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, CancellationToken.None);
+
+        var off = await svc.SetBreakpointEnabledAsync(set.Breakpoint.Id, false, CancellationToken.None);
+        var missing = await svc.SetBreakpointEnabledAsync("bp-00000000", false, CancellationToken.None);
+
+        Assert.False(off!.Enabled);
+        Assert.False(dte.Bps[0].Enabled);
+        Assert.Null(missing);
+    }
+
+    [Fact]
     public async Task Exception_requires_break_mode()
     {
         var (svc, _, _) = Create(DebuggerMode.Run);

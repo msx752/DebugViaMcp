@@ -52,6 +52,9 @@ public interface IDteFacade
     IReadOnlyList<RawBreakpoint> Breakpoints();
     void AddBreakpoint(BreakpointSpec spec);
     int RemoveBreakpoints(Func<RawBreakpoint, bool> match);
+
+    /// <returns>The first matching breakpoint after the change, or null when none matches.</returns>
+    RawBreakpoint? SetEnabled(Func<RawBreakpoint, bool> match, bool enabled);
     void Go();
     void Break();
     void Stop();

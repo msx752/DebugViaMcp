@@ -1,5 +1,25 @@
 [
   {
+    "Name": "bp_enable",
+    "Description": "Enables or disables a breakpoint by id. Enabling a breakpoint that has a condition or logMessage runs that expression on every hit again, so it Requires the user\u0027s approval in Visual Studio unless they allowed it in settings. If the call returns \u0027denied\u0027, that is the user\u0027s decision: do not retry; ask the user how to proceed.",
+    "Schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Breakpoint id from bp_list or bp_set.",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "enabled"
+      ]
+    }
+  },
+  {
     "Name": "bp_list",
     "Description": "Lists breakpoints with id, location, condition, hit count, enabled and bound state.",
     "Schema": {

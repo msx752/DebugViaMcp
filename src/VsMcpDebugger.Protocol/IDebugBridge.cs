@@ -18,6 +18,9 @@ public interface IDebugBridge
     /// <returns>Number of breakpoints removed.</returns>
     Task<int> RemoveBreakpointsAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>Protocol 2.1. Enables or disables a breakpoint by id; null when no breakpoint has that id.</summary>
+    Task<BreakpointInfo?> SetBreakpointEnabledAsync(string id, bool enabled, CallContext context, CancellationToken cancellationToken);
+
     Task<long> StartAsync(CallContext context, CancellationToken cancellationToken);
     Task StopAsync(CallContext context, CancellationToken cancellationToken);
     Task<long> ContinueAsync(CallContext context, CancellationToken cancellationToken);

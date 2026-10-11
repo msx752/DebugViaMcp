@@ -33,6 +33,8 @@ public class PermissionPolicyTests
     [InlineData(Operation.Threads, PermissionTier.Read)]
     [InlineData(Operation.FrameSelect, PermissionTier.Read)]
     [InlineData(Operation.Exception, PermissionTier.Read)]
+    [InlineData(Operation.EnableBreakpoint, PermissionTier.Control)]
+    [InlineData(Operation.EnableBreakpointWithExpression, PermissionTier.Mutate)]
     public void Every_operation_has_its_spec_tier(Operation operation, PermissionTier tier) =>
         Assert.Equal(tier, PermissionPolicy.TierOf(operation));
 

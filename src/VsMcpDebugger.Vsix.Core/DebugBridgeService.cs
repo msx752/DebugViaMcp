@@ -114,6 +114,16 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public Task<int> RemoveBreakpointsAsync(string? id, bool all, CancellationToken ct) => ui.RunAsync(() =>
         dte.RemoveBreakpoints(b => all || IdOf(b) == id), ct);
 
+    public Task<BreakpointInfo?> FindBreakpointAsync(string id, CancellationToken ct) =>
+        ui.RunAsync<BreakpointInfo?>(() => dte.Breakpoints().Where(b => IdOf(b) == id).Select(ToInfo).FirstOrDefault(), ct);
+
+    public Task<BreakpointInfo?> SetBreakpointEnabledAsync(string id, bool enabled, CancellationToken ct) => ui.RunAsync(() =>
+    {
+        var bp = dte.SetEnabled(b => IdOf(b) == id, enabled);
+        if (bp is not null) log.Info($"Breakpoint {id} {(enabled ? "enabled" : "disabled")}");
+        return bp is null ? null : ToInfo(bp);
+    }, ct);
+
     public Task<long> StartAsync(CancellationToken ct) => Command(DebuggerMode.Design, dte.Go, ct);
     public Task<long> ContinueAsync(CancellationToken ct) => Command(DebuggerMode.Break, dte.Go, ct);
     public Task<long> PauseAsync(CancellationToken ct) => Command(DebuggerMode.Run, dte.Break, ct);

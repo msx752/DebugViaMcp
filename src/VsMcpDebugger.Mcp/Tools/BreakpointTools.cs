@@ -66,6 +66,18 @@ public sealed class BreakpointTools(IConnectionManager connections)
         return ToolResponse.Ok(result);
     });
 
+    [McpServerTool(Name = "bp_enable", Idempotent = true),
+     Description("Enables or disables a breakpoint by id. Enabling a breakpoint that has a condition or logMessage runs that expression on every hit again, so it " + InspectionTools.ConsentNote)]
+    public Task<CallToolResult> Enable([Description("Breakpoint id from bp_list or bp_set.")] string id, bool enabled, CancellationToken ct = default) =>
+        ToolResponse.RunAsync(connections, "bp_enable", async ctx =>
+        {
+            if (string.IsNullOrWhiteSpace(id)) return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "id is required.");
+            var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
+            if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3) is { } unsupported) return unsupported;
+            var bp = await bridge.SetBreakpointEnabledAsync(id, enabled, ctx, ct).ConfigureAwait(false);
+            return bp is null ? ToolResponse.Ok(new { notFound = true }) : ToolResponse.Ok(new { breakpoint = bp });
+        });
+
     [McpServerTool(Name = "bp_remove", Destructive = true, Idempotent = true), Description("Removes one breakpoint by id, or all breakpoints with all=true.")]
     public Task<CallToolResult> Remove(string? id = null, bool all = false, CancellationToken ct = default) => ToolResponse.RunAsync(connections, "bp_remove", async ctx =>
     {

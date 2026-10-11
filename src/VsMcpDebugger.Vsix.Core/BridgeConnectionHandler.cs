@@ -109,6 +109,24 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         Guard(Operation.RemoveBreakpoints, context, () => service.RemoveBreakpointsAsync(id, all, cancellationToken),
             Request.Of(all ? "all" : id ?? "", ("id", id), ("all", all ? "true" : null)), null, cancellationToken);
 
+    public async Task<BreakpointInfo?> SetBreakpointEnabledAsync(string id, bool enabled, CallContext context, CancellationToken cancellationToken)
+    {
+        // The tier depends on the breakpoint: read it first. If its condition changes before the call, its id
+        // changes too, so the call below matches nothing (fail closed).
+        var target = _authenticated && !string.IsNullOrEmpty(id) ? await service.FindBreakpointAsync(id, cancellationToken).ConfigureAwait(false) : null;
+        var runsCode = enabled && target is { Condition: not null } or { LogMessage: not null };
+        var request = Request.Of($"{id} → {(enabled ? "on" : "off")}", ("id", id), ("enabled", enabled ? "true" : "false"));
+        if (target is null && _authenticated)
+            return await Guard(Operation.EnableBreakpoint, context, () => Task.FromResult<BreakpointInfo?>(null), request, null, cancellationToken).ConfigureAwait(false);
+
+        return await Guard(runsCode ? Operation.EnableBreakpointWithExpression : Operation.EnableBreakpoint, context,
+            () => service.SetBreakpointEnabledAsync(id, enabled, cancellationToken), request,
+            runsCode
+                ? () => Task.FromResult(ConsentText.EnableBreakpoint(_client, target!.Function ?? $"{target.File}:{target.Line?.ToString(CultureInfo.InvariantCulture)}", target.Condition, target.LogMessage))
+                : null,
+            cancellationToken).ConfigureAwait(false);
+    }
+
     public Task<long> StartAsync(CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Start, context, () => service.StartAsync(cancellationToken), null, null, cancellationToken);
 

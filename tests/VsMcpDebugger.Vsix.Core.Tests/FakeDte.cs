@@ -54,6 +54,14 @@ public sealed class FakeDte : IDteFacade
         return new RawExceptionInfo { Type = e.Type, Message = e.Message, StackTrace = e.StackTrace, Inner = e.Inner.Take(maxInner).ToList() };
     }
 
+    public RawBreakpoint? SetEnabled(Func<RawBreakpoint, bool> match, bool enabled)
+    {
+        Ui();
+        var bp = Bps.FirstOrDefault(match);
+        if (bp is not null) bp.Enabled = enabled;
+        return bp;
+    }
+
     public int CurrentFrameIndex { get; set; }
     public List<(int? ThreadId, int Index)> Selections { get; } = [];
 

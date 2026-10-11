@@ -21,6 +21,14 @@ public class ConsentTextTests
             ConsentText.EvaluateWithSideEffects("claude-code", "order.Touch()", "A.M"));
     }
 
+    [Fact]
+    public void Enable_breakpoint_text_says_the_expression_runs_on_every_hit()
+    {
+        Assert.Equal(
+            "claude-code wants to enable the breakpoint at a.cs:3 when x > 1 — this runs in your program on every hit",
+            ConsentText.EnableBreakpoint("claude-code", "a.cs:3", "x > 1", null));
+    }
+
     /// <summary>Review focus #2.</summary>
     [Fact]
     public void Bidi_override_and_newlines_are_visible()
