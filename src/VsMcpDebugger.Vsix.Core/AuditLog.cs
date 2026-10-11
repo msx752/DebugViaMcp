@@ -103,15 +103,18 @@ public sealed class AuditLog(string directory, Func<int> retentionDays, IActivit
 
 public static class ActivityLine
 {
+    /// <summary>One line per entry; every text field is escaped so agent-controlled text cannot forge extra lines.</summary>
     public static string Format(AuditEntry entry)
     {
         if (entry is null) throw new ArgumentNullException(nameof(entry));
         var time = entry.Ts.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+        var operation = ConsentText.Visible(entry.Operation);
+        var summary = ConsentText.Visible(entry.Summary);
         if (entry.Decision.Length == 0)
-            return $"{time}  {entry.Operation}  {entry.Summary}".TrimEnd();
+            return $"{time}  {operation}  {summary}".TrimEnd();
 
         var ms = entry.DurationMs.ToString(CultureInfo.InvariantCulture);
-        return $"{time}  {entry.CallId}  {entry.Operation}  {entry.Summary}  → {Describe(entry.Decision)}  {entry.Outcome}  {ms} ms";
+        return $"{time}  {ConsentText.Visible(entry.CallId)}  {operation}  {summary}  → {Describe(entry.Decision)}  {ConsentText.Visible(entry.Outcome)}  {ms} ms";
     }
 
     private static string Describe(string decision) => decision switch

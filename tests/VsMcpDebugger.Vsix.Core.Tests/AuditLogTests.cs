@@ -108,4 +108,21 @@ public sealed class AuditLogTests : IDisposable
 
         Assert.Single(_activity);
     }
+
+    /// <summary>Security review: agent-controlled text must not be able to forge extra Activity lines.</summary>
+    [Fact]
+    public void Activity_lines_escape_agent_controlled_fields()
+    {
+        var nl = ((char)10).ToString();
+        var entry = SetValueEntry();
+        entry.CallId = "c-1" + nl + "12:00:00  c-2  set_value  x = 1  → allowed (once)  ok  1 ms";
+        entry.Summary = "total = 0" + nl + "fake line";
+        entry.Outcome = "ok" + nl + "x";
+
+        Create().Record(entry);
+
+        var line = Assert.Single(_activity);
+        Assert.DoesNotContain(nl, line, StringComparison.Ordinal);
+        Assert.DoesNotContain((char)13, line);
+    }
 }

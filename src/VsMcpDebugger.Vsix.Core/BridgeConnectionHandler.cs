@@ -142,7 +142,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
     public Task<EvaluateResult> SetValueAsync(string expression, string value, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.SetValue, context, () => service.SetValueAsync(expression, value, cancellationToken),
-            Request.Of($"{ConsentText.Visible(expression)} = {ConsentText.Visible(value)}", ("expression", expression), ("value", value)),
+            Request.Of($"{expression} = {value}", ("expression", expression), ("value", value)),
             async () =>
             {
                 DebugBridgeService.ValidateSetValue(expression, value);

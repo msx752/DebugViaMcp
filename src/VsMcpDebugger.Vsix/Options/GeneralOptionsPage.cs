@@ -20,8 +20,14 @@ public sealed class GeneralOptionsPage : DialogPage
     private PermissionLevel _appliedControl = PermissionLevel.Allow;
     private PermissionLevel _appliedMutate = PermissionLevel.Ask;
 
+    /// <summary>
+    /// What the bridge enforces: the last applied values. The property grid writes into this page while the user is
+    /// still editing, so the live properties may hold values that were never applied (or confirmed).
+    /// </summary>
+    internal AppliedSettings Applied { get; private set; } = AppliedSettings.Defaults;
+
     /// <summary>Raised after Apply/OK when a permission changed; the argument summarises the change.</summary>
-    public event EventHandler<string>? Applied;
+    public event EventHandler<string>? PermissionsChanged;
 
     /// <summary>Raised after every successful Apply/OK.</summary>
     public event EventHandler? AnyApplied;
@@ -63,10 +69,15 @@ public sealed class GeneralOptionsPage : DialogPage
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822", Justification = "The options property grid only shows instance properties.")]
     public string LogFolder => DiscoveryPaths.LogsDirectory;
 
+    private AppliedSettings Snapshot() => new(
+        new PermissionSet { Read = Read, Control = Control, Mutate = Mutate },
+        TimeSpan.FromSeconds(ConsentTimeoutSeconds), AcceptConnectionsOnStartup, ShowStatusBarIndicator, LogLevel, LogRetentionDays);
+
     public override void LoadSettingsFromStorage()
     {
         base.LoadSettingsFromStorage();
         (_appliedRead, _appliedControl, _appliedMutate) = (Read, Control, Mutate);
+        Applied = Snapshot();
     }
 
     protected override void OnApply(PageApplyEventArgs e)
@@ -90,7 +101,8 @@ public sealed class GeneralOptionsPage : DialogPage
         if (Control != _appliedControl) changes.Add($"Control: {_appliedControl} → {Control}");
         if (Mutate != _appliedMutate) changes.Add($"Mutate: {_appliedMutate} → {Mutate}");
         (_appliedRead, _appliedControl, _appliedMutate) = (Read, Control, Mutate);
-        if (changes.Count > 0) Applied?.Invoke(this, string.Join(", ", changes));
+        Applied = Snapshot();
+        if (changes.Count > 0) PermissionsChanged?.Invoke(this, string.Join(", ", changes));
         AnyApplied?.Invoke(this, EventArgs.Empty);
     }
 }

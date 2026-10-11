@@ -59,8 +59,8 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
 
         int pid;
         using (var self = System.Diagnostics.Process.GetCurrentProcess()) pid = self.Id;
-        var log = new LevelFilterLog(new CompositeLog(new OutputPaneLog(pane), new FileLog(DiscoveryPaths.LogsDirectory, pid)), () => page.LogLevel);
-        LogRetention.Prune(DiscoveryPaths.LogsDirectory, "vsix-", page.LogRetentionDays, DateTimeOffset.UtcNow);
+        var log = new LevelFilterLog(new CompositeLog(new OutputPaneLog(pane), new FileLog(DiscoveryPaths.LogsDirectory, pid)), () => page.Applied.LogLevel);
+        LogRetention.Prune(DiscoveryPaths.LogsDirectory, "vsix-", page.Applied.LogRetentionDays, DateTimeOffset.UtcNow);
         var vsixVersion = typeof(VsMcpDebuggerPackage).Assembly.GetName().Version.ToString(3);
 
         try
@@ -73,12 +73,12 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
             var token = DiscoveryWriter.NewToken();
             var pipeName = DiscoveryWriter.NewPipeName();
             var settings = new OptionsBridgeSettings(page);
-            var access = new AiAccessSwitch(page.AcceptConnectionsOnStartup);
+            var access = new AiAccessSwitch(page.Applied.AcceptConnectionsOnStartup);
             var consent = new ConsentGate(new InfoBarConsentPrompt(this, JoinableTaskFactory), () => settings.ConsentTimeout);
-            var audit = new AuditLog(DiscoveryPaths.LogsDirectory, () => page.LogRetentionDays, Activity, log);
+            var audit = new AuditLog(DiscoveryPaths.LogsDirectory, () => page.Applied.LogRetentionDays, Activity, log);
             var security = new BridgeSecurity(settings, consent, audit, access);
             Security = security;
-            page.Applied += (_, summary) => security.SettingsChanged(summary);
+            page.PermissionsChanged += (_, summary) => security.SettingsChanged(summary);
             _host = new PipeHost(pipeName, new SecurePipeFactory(), hooks => new BridgeConnectionHandler(service, token, security, log, hooks), broadcaster, log);
             _host.Start();
 
@@ -95,7 +95,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
             _solutionEvents.AfterClosing += () => _discovery.UpdateSolution(null);
             if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commands)
                 VsMcpDebuggerCommands.Register(this, commands, security, Activity);
-            _indicator = StatusBarIndicator.TryCreate(access, JoinableTaskFactory, () => page.ShowStatusBarIndicator, Activity, log);
+            _indicator = StatusBarIndicator.TryCreate(access, JoinableTaskFactory, () => page.Applied.ShowStatusBarIndicator, Activity, log);
             page.AnyApplied += (_, _) => { ThreadHelper.ThrowIfNotOnUIThread(); _indicator?.Refresh(); };
             log.Info($"VsMcpDebugger {vsixVersion} ready (pid {pid}, protocol {ProtocolInfo.Major}.{ProtocolInfo.Minor})");
         }

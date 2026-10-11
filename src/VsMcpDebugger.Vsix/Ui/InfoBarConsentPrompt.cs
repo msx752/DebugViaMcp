@@ -35,7 +35,7 @@ internal sealed class InfoBarConsentPrompt(IAsyncServiceProvider services, Joina
             isCloseButtonVisible: true);
 
         var element = factory.CreateInfoBar(model);
-        var events = new Events();
+        var events = new Events(System.Diagnostics.Stopwatch.StartNew());
         element.Advise(events, out var cookie);
         host.AddInfoBar(element);
         try
@@ -55,7 +55,7 @@ internal sealed class InfoBarConsentPrompt(IAsyncServiceProvider services, Joina
         }
     }
 
-    private sealed class Events : IVsInfoBarUIEvents
+    private sealed class Events(System.Diagnostics.Stopwatch shown) : IVsInfoBarUIEvents
     {
         public TaskCompletionSource<ConsentChoice> Result { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -63,7 +63,11 @@ internal sealed class InfoBarConsentPrompt(IAsyncServiceProvider services, Joina
 
         public void OnClosed(IVsInfoBarUIElement infoBarUIElement) => Result.TrySetResult(ConsentChoice.Deny);
 
-        public void OnActionItemClicked(IVsInfoBarUIElement infoBarUIElement, IVsInfoBarActionItem actionItem) =>
-            Result.TrySetResult(actionItem is { ActionContext: ConsentChoice choice } ? choice : ConsentChoice.Deny);
+        public void OnActionItemClicked(IVsInfoBarUIElement infoBarUIElement, IVsInfoBarActionItem actionItem)
+        {
+            var choice = actionItem is { ActionContext: ConsentChoice c } ? c : ConsentChoice.Deny;
+            // An Allow click that lands as the bar appears is ignored; the bar stays open for a deliberate answer.
+            if (ConsentArming.Accepts(choice, shown.Elapsed)) Result.TrySetResult(choice);
+        }
     }
 }
