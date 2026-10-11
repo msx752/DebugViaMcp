@@ -37,7 +37,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         if (!security.Access.Enabled)
         {
             log.Warn("Handshake rejected: AI access is disconnected");
-            throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Tools → VsMcpDebugger → Reconnect AI.");
+            throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.");
         }
 
         if (request.ProtocolMajor != ProtocolInfo.Major)
@@ -70,7 +70,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         {
             _client = ConsentText.ClientName(request.ClientName);
             _registration = security.Access.TryAttach(_client, Revoke)
-                ?? throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Tools → VsMcpDebugger → Reconnect AI.");
+                ?? throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.");
             _authenticated = true;
             hooks?.OnAuthenticated();
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "connect", Outcome = "ok", Summary = _client });
@@ -226,7 +226,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     private void ThrowIfRevoked()
     {
         if (_revoked || !security.Access.Enabled)
-            throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Tools → VsMcpDebugger → Reconnect AI, then reconnect.");
+            throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI, then reconnect.");
     }
 
     private void ThrowIfDenied(ConsentOutcome outcome)
@@ -244,7 +244,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                 throw Rpc(BridgeErrorCode.Denied, "The request was cancelled before the user answered.", null, DeniedReasons.Cancelled);
             case ConsentOutcome.Disconnected:
                 throw Rpc(BridgeErrorCode.Denied, "The user disconnected AI access in Visual Studio.",
-                    "Ask the user to run Tools → VsMcpDebugger → Reconnect AI.", DeniedReasons.Disconnected);
+                    "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.", DeniedReasons.Disconnected);
         }
     }
 

@@ -62,7 +62,7 @@ public sealed class ConnectionManager(
                 await DropAsync().ConfigureAwait(false);
                 throw new McpBridgeException(BridgeErrorCode.AiDisabled,
                     "The user disconnected AI access in Visual Studio.",
-                    "Ask the user to run Tools → VsMcpDebugger → Reconnect AI.");
+                    "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.");
             }
 
             if (_connection is { IsAlive: true }) return _connection.Bridge;

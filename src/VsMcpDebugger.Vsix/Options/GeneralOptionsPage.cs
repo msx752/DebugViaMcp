@@ -64,7 +64,7 @@ public sealed class GeneralOptionsPage : DialogPage
         set => _logRetentionDays = Math.Max(1, Math.Min(90, value));
     }
 
-    [Category("Logging"), DisplayName("Log folder"), Description("Open it with Tools → VsMcpDebugger → Open Logs Folder."), ReadOnly(true)]
+    [Category("Logging"), DisplayName("Log folder"), Description("Open it with Extensions → VsMcpDebugger → Open Logs Folder."), ReadOnly(true)]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822", Justification = "The options property grid only shows instance properties.")]
     public string LogFolder => DiscoveryPaths.LogsDirectory;

@@ -331,7 +331,7 @@ public class BridgeConnectionHandlerTests
         var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.HandshakeAsync());
 
         Assert.Equal((int)BridgeErrorCode.AiDisabled, ex.ErrorCode);
-        Assert.Contains("Reconnect AI", ((BridgeErrorData)ex.ErrorData!).Hint, StringComparison.Ordinal);
+        Assert.Contains("Extensions → VsMcpDebugger → Reconnect AI", ((BridgeErrorData)ex.ErrorData!).Hint, StringComparison.Ordinal);
     }
 
     /// <summary>Review focus #3.</summary>

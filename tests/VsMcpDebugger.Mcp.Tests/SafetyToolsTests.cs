@@ -133,7 +133,7 @@ public class SafetyToolsTests
             HandshakeFailure = new LocalRpcException("AI access is disconnected in Visual Studio.")
             {
                 ErrorCode = (int)BridgeErrorCode.AiDisabled,
-                ErrorData = new BridgeErrorData { Hint = "Ask the user to run Tools → VsMcpDebugger → Reconnect AI." },
+                ErrorData = new BridgeErrorData { Hint = "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI." },
             },
         };
         await using var server = new PipeTestServer(bridge);

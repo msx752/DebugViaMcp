@@ -85,7 +85,7 @@ public sealed class BridgeConnection : IAsyncDisposable
             var (_, remoteHint, _) = BridgeErrors.Read(e);
             var (code, hint) = e.ErrorCode switch
             {
-                (int)BridgeErrorCode.AiDisabled => (BridgeErrorCode.AiDisabled, remoteHint ?? "Ask the user to run Tools → VsMcpDebugger → Reconnect AI."),
+                (int)BridgeErrorCode.AiDisabled => (BridgeErrorCode.AiDisabled, remoteHint ?? "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI."),
                 (int)BridgeErrorCode.VersionMismatch => (BridgeErrorCode.VersionMismatch, "Update the VsMcpDebugger extension and the vsmcpdebugger tool to the same release."),
                 (int)BridgeErrorCode.Unauthorized => (BridgeErrorCode.Unauthorized, "Restart Visual Studio so it writes a fresh instance file, then retry."),
                 _ => (BridgeErrorCode.Internal, remoteHint ?? "See the VsMcpDebugger output pane in Visual Studio."),
