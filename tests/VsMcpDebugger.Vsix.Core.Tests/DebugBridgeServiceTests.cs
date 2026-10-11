@@ -311,4 +311,20 @@ public class DebugBridgeServiceTests
         var (function, _) = await svc.GetBreakLocationAsync(CancellationToken.None);
         Assert.Equal("Demo.OrderService.Submit(Demo.Order order)", function);
     }
+
+    [Fact]
+    public async Task Every_break_starts_a_new_epoch_and_stamps_it_on_snapshot_and_status()
+    {
+        var (svc, _, _) = Create();
+
+        var first = svc.OnEnterBreak(BreakReason.Breakpoint);
+        var second = svc.OnEnterBreak(BreakReason.Step);
+        var status = await svc.GetStatusAsync(CancellationToken.None);
+
+        Assert.Equal(1, first.Epoch);
+        Assert.Equal(2, second.Epoch);
+        Assert.Equal(2, svc.Epoch);
+        Assert.Equal(2, status.Epoch);
+        Assert.Equal(2, status.Snapshot!.Epoch);
+    }
 }

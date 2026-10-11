@@ -45,6 +45,9 @@ public sealed class BreakSnapshot
     public string[] Source { get; set; } = [];
     public VariableInfo[] Args { get; set; } = [];
     public string[] StackTop { get; set; } = [];
+
+    /// <summary>Break counter of this VS session; frame indices are only valid within the same epoch.</summary>
+    public long Epoch { get; set; }
 }
 
 public sealed class StatusInfo
@@ -53,6 +56,7 @@ public sealed class StatusInfo
     public long Seq { get; set; }
     public BreakSnapshot? Snapshot { get; set; }
     public PermissionSet? Permissions { get; set; }
+    public long Epoch { get; set; }
 }
 
 public sealed class BreakpointSpec

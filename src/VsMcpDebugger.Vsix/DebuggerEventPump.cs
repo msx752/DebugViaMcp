@@ -47,14 +47,14 @@ internal sealed class DebuggerEventPump
         BreakSnapshot snapshot;
         try
         {
-            snapshot = _service.BuildSnapshot(mapped);
+            snapshot = _service.OnEnterBreak(mapped);
         }
 #pragma warning disable CA1031 // A failed snapshot must still produce a break event, or waiting agents would time out.
         catch (Exception e)
 #pragma warning restore CA1031
         {
             _log.Error("Failed to build break snapshot", e);
-            snapshot = new BreakSnapshot { Reason = mapped };
+            snapshot = new BreakSnapshot { Reason = mapped, Epoch = _service.Epoch };
         }
 
         var seq = _seq.Next();

@@ -16,7 +16,12 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     /// <summary>The MCP layer asks for at most 200 items + 1 to detect more; anything above is capped.</summary>
     public const int MaxVariablePage = 201;
 
+    private long _epoch;
+
     public string VsixVersion => vsixVersion;
+
+    /// <summary>Increments on every break: anything read in an earlier break is stale once the program has moved (spec §3.1).</summary>
+    public long Epoch => Interlocked.Read(ref _epoch);
     public string VsVersion => dte.VsVersion;
     public string? SolutionPath => dte.SolutionPath;
     private string? SolutionDir => dte.SolutionPath is { } p ? Path.GetDirectoryName(p) : null;
@@ -40,6 +45,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         Mode = dte.Mode,
         Seq = seq.Current,
         Snapshot = dte.Mode == DebuggerMode.Break ? BuildSnapshot(BreakReason.Other) : null,
+        Epoch = Epoch,
     }, ct);
 
     public Task<BreakpointInfo[]> ListBreakpointsAsync(CancellationToken ct) =>
@@ -195,6 +201,13 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return new EvaluateResult { IsValid = r.IsValid, Value = value, Type = r.Type, Truncated = truncated };
     }
 
+    /// <summary>Called by the event pump on every break (UI thread): starts a new epoch, then builds the snapshot for it.</summary>
+    public BreakSnapshot OnEnterBreak(BreakReason reason)
+    {
+        Interlocked.Increment(ref _epoch);
+        return BuildSnapshot(reason);
+    }
+
     /// <summary>Builds the snapshot for the current break. Caller must be on the UI thread.</summary>
     public BreakSnapshot BuildSnapshot(BreakReason reason)
     {
@@ -214,6 +227,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             Source = top?.File is not null && top.Line is { } line ? PathUtil.SourceContext(top.File, line) : [],
             Args = dte.Variables(VariableScope.Args, 20).Select(Shape).ToArray(),
             StackTop = frames.Select(f => f.Line is { } l ? $"{f.Function}:{l}" : f.Function).ToArray(),
+            Epoch = Epoch,
         };
     }
 

@@ -14,7 +14,7 @@ public class DtoRoundTripTests
     {
         Assert.Equal("{\"mode\":\"break\",\"seq\":3}", ProtocolJson.Serialize(new ModeChangedEvent { Mode = DebuggerMode.Break, Seq = 3 }));
         Assert.Equal(
-            "{\"reason\":\"breakpoint\",\"source\":[],\"args\":[],\"stackTop\":[]}",
+            "{\"reason\":\"breakpoint\",\"source\":[],\"args\":[],\"stackTop\":[],\"epoch\":0}",
             ProtocolJson.Serialize(new BreakSnapshot { Reason = BreakReason.Breakpoint }));
     }
 

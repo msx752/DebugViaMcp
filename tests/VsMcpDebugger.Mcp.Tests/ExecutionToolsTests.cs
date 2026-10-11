@@ -130,4 +130,11 @@ public class ExecutionToolsTests
         Assert.Equal("break", json.GetProperty("state").GetString());
         Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(5));
     }
+
+    [Fact]
+    public void Snapshot_shows_the_epoch_for_frame_select()
+    {
+        var json = Json(ToolResponse.Ok(ToolResponse.Snapshot(new BreakSnapshot { Reason = BreakReason.Step, Epoch = 12 })!));
+        Assert.Equal(12, json.GetProperty("epoch").GetInt64());
+    }
 }

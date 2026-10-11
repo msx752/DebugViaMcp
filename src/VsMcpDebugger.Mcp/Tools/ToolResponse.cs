@@ -46,7 +46,7 @@ internal static class ToolResponse
     /// <summary>Snapshot as the agent sees it: debuggee values under 'data' (spec §3.3).</summary>
     public static object? Snapshot(BreakSnapshot? s) => s is null ? null : new
     {
-        reason = s.Reason, breakpointId = s.BreakpointId, location = s.Location, source = s.Source,
+        reason = s.Reason, epoch = s.Epoch, breakpointId = s.BreakpointId, location = s.Location, source = s.Source,
         data = new { args = s.Args }, stackTop = s.StackTop,
     };
 
