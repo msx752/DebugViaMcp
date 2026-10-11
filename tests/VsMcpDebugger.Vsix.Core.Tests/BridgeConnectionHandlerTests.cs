@@ -644,4 +644,51 @@ public class BridgeConnectionHandlerTests
         Assert.Equal((int)BridgeErrorCode.WrongMode, ex.ErrorCode);
         Assert.Empty(s.Dte.Assignments);
     }
+
+    /// <summary>M2 review minor 1, end to end: Mutate changed to Allow while a request waited in the queue.</summary>
+    [Fact]
+    public async Task Queued_request_runs_when_the_user_allows_the_tier_meanwhile()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync();
+        var first = s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx("c-000001"), CancellationToken.None);
+        await s.Prompt.WaitForPromptsAsync(1);
+        var second = s.Handler.SetValueAsync("total", "1", SecurityHarness.Ctx("c-000002"), CancellationToken.None);
+
+        s.Settings.Permissions.Mutate = PermissionLevel.Allow;
+        s.Prompt.Answer(ConsentChoice.Deny);
+
+        await Assert.ThrowsAsync<LocalRpcException>(() => first);
+        await second;
+        Assert.Equal([("total", "1")], s.Dte.Assignments);
+        Assert.Single(s.Prompt.Texts);
+        Assert.Single(s.AuditLines(), l => l.Contains("c-000002", StringComparison.Ordinal) && l.Contains("\"decision\":\"allow\"", StringComparison.Ordinal));
+    }
+
+    /// <summary>M2 review minor 3: the client name was escaped twice ("a\b" showed as "a\\\\b").</summary>
+    [Fact]
+    public async Task Client_name_is_escaped_exactly_once()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("team\\bot");
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.StartsWith("team\\\\bot wants to set", Assert.Single(s.Prompt.Texts), StringComparison.Ordinal);
+    }
+
+    /// <summary>M2 review minor 4.</summary>
+    [Fact]
+    public async Task Assignment_rejected_by_visual_studio_is_audited_as_failed()
+    {
+        using var s = new SecurityHarness();
+        s.Dte.OnSetValue = (_, _) => new EvaluateResult { IsValid = false, Value = "Visual Studio could not assign the value", Type = "decimal" };
+        await s.HandshakeAsync();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await s.Handler.SetValueAsync("total", "x", SecurityHarness.Ctx("c-000077"), CancellationToken.None);
+
+        Assert.Single(s.AuditLines(), l => l.Contains("c-000077", StringComparison.Ordinal) && l.Contains("\"outcome\":\"failed\"", StringComparison.Ordinal));
+    }
 }

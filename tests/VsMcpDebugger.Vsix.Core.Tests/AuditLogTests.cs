@@ -125,4 +125,18 @@ public sealed class AuditLogTests : IDisposable
         Assert.DoesNotContain(nl, line, StringComparison.Ordinal);
         Assert.DoesNotContain((char)13, line);
     }
+
+    private sealed class ThrowingSink : IActivitySink
+    {
+        public void Write(string line) => throw new InvalidOperationException("pane closed");
+    }
+
+    /// <summary>M2 review minor 5.</summary>
+    [Fact]
+    public void A_failing_activity_pane_never_stops_the_audit_file()
+    {
+        new AuditLog(_dir, () => 7, new ThrowingSink(), new NullLog(), () => Now).Record(SetValueEntry());
+
+        Assert.Single(Directory.GetFiles(_dir, "audit-*.log").SelectMany(File.ReadAllLines));
+    }
 }

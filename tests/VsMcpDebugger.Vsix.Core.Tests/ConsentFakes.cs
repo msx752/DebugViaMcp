@@ -13,6 +13,8 @@ public sealed class FakePrompt : IConsentPrompt
     public int MaxOpen { get; private set; }
     public int Dismissed { get; private set; }
 
+    public List<TimeSpan> Timeouts { get; } = [];
+
     /// <summary>When set, every prompt is answered immediately with this choice.</summary>
     public ConsentChoice? AutoAnswer { get; set; }
 
@@ -22,6 +24,7 @@ public sealed class FakePrompt : IConsentPrompt
         lock (_gate)
         {
             Texts.Add(text);
+            Timeouts.Add(timeout);
             _open++;
             MaxOpen = Math.Max(MaxOpen, _open);
             if (AutoAnswer is { } answer)

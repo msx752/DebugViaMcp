@@ -60,7 +60,16 @@ public sealed class AuditLog(string directory, Func<int> retentionDays, IActivit
     public void Record(AuditEntry entry)
     {
         if (entry is null) throw new ArgumentNullException(nameof(entry));
-        activity.Write(ActivityLine.Format(entry));
+        try
+        {
+            activity.Write(ActivityLine.Format(entry));
+        }
+#pragma warning disable CA1031 // The Activity pane is a convenience; the audit file must be written regardless (M2 review minor 5).
+        catch (Exception e)
+#pragma warning restore CA1031
+        {
+            log.Warn($"Activity line for {entry.CallId} not shown: {e.Message}");
+        }
 
         var line = ProtocolJson.Serialize(entry) + Environment.NewLine;
         var bytes = Encoding.UTF8.GetByteCount(line);

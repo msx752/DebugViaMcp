@@ -209,7 +209,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                 var (function, seq) = await service.GetBreakLocationAsync(cancellationToken).ConfigureAwait(false);
                 askedAt = seq;
                 return ConsentText.EvaluateWithSideEffects(_client, expression, function);
-            }, cancellationToken);
+            }, cancellationToken, succeeded: r => r.IsValid);
     }
 
     public Task<EvaluateResult> SetValueAsync(string expression, string value, CallContext context, CancellationToken cancellationToken)
@@ -224,7 +224,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                 var (function, seq) = await service.GetBreakLocationAsync(cancellationToken).ConfigureAwait(false);
                 askedAt = seq;
                 return ConsentText.SetValue(_client, expression, value, function);
-            }, cancellationToken);
+            }, cancellationToken, succeeded: r => r.IsValid);
     }
 
     /// <summary>
@@ -232,7 +232,8 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     /// validation and the question are prepared first (<paramref name="prepare"/>), so a request that would fail
     /// anyway never bothers the user. Read calls are audited only when the user was asked.
     /// </summary>
-    private async Task<T> Guard<T>(Operation operation, CallContext? context, Func<Task<T>> call, Request? request, Func<Task<string>>? prepare, CancellationToken ct)
+    private async Task<T> Guard<T>(Operation operation, CallContext? context, Func<Task<T>> call, Request? request, Func<Task<string>>? prepare, CancellationToken ct,
+        Func<T, bool>? succeeded = null)
     {
         if (!_authenticated) throw Rpc(BridgeErrorCode.Unauthorized, "Handshake required.", null);
         ThrowIfRevoked();
@@ -260,16 +261,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             {
                 case PermissionLevel.Deny:
                     decision = AuditDecision.DeniedPolicy;
-                    throw Rpc(BridgeErrorCode.Denied, $"Blocked by VsMcpDebugger settings in Visual Studio ({Capitalized(tier)} = Deny).",
-                        "Ask the user whether to change Tools → Options → VsMcpDebugger → Permissions.", DeniedReasons.Policy);
+                    throw PolicyDenied(tier);
                 case PermissionLevel.Ask:
                     var text = prepare is null ? null : await prepare().ConfigureAwait(false);
                     ThrowIfRevoked();
                     prompted = true;
                     var outcome = await security.Consent.RequestAsync(_consent, operation,
-                        text ?? ConsentText.Operation(_client, PermissionPolicy.ToolName(operation), request.Summary), ct).ConfigureAwait(false);
+                        text ?? ConsentText.Operation(_client, PermissionPolicy.ToolName(operation), request.Summary), ct,
+                        () => PermissionPolicy.Decide(operation, security.Settings.Permissions)).ConfigureAwait(false);
                     decision = ToDecision(outcome);
-                    ThrowIfDenied(outcome);
+                    ThrowIfDenied(outcome, tier);
                     break;
                 default:
                     decision = AuditDecision.Allow;
@@ -278,7 +279,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
             ThrowIfRevoked();
             var result = await call().ConfigureAwait(false);
-            Audit("ok");
+            Audit(succeeded is null || succeeded(result) ? "ok" : "failed");
             return result;
         }
         catch (BridgeException e)
@@ -315,10 +316,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI, then reconnect.");
     }
 
-    private void ThrowIfDenied(ConsentOutcome outcome)
+    private static LocalRpcException PolicyDenied(PermissionTier tier) =>
+        Rpc(BridgeErrorCode.Denied, $"Blocked by VsMcpDebugger settings in Visual Studio ({Capitalized(tier)} = Deny).",
+            "Ask the user whether to change Tools → Options → VsMcpDebugger → Permissions.", DeniedReasons.Policy);
+
+    private void ThrowIfDenied(ConsentOutcome outcome, PermissionTier tier)
     {
         switch (outcome)
         {
+            case ConsentOutcome.DeniedByPolicy:
+                throw PolicyDenied(tier);
             case ConsentOutcome.Denied:
                 throw Rpc(BridgeErrorCode.Denied, "Denied by the user in Visual Studio.",
                     "This is the user's decision — do not retry; ask the user how to proceed.", DeniedReasons.UserDenied);
@@ -337,6 +344,8 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     private static string ToDecision(ConsentOutcome outcome) => outcome switch
     {
         ConsentOutcome.AllowedOnce => AuditDecision.AllowOnce,
+        ConsentOutcome.AllowedByPolicy => AuditDecision.Allow,
+        ConsentOutcome.DeniedByPolicy => AuditDecision.DeniedPolicy,
         ConsentOutcome.AllowedForSession or ConsentOutcome.AllowedBySessionGrant => AuditDecision.AllowSession,
         ConsentOutcome.Denied => AuditDecision.DeniedUser,
         ConsentOutcome.TimedOut => AuditDecision.DeniedTimeout,

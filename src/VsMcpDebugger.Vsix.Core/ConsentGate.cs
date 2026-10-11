@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using VsMcpDebugger.Protocol;
 
 namespace VsMcpDebugger.Vsix.Core;
 
-public enum ConsentOutcome { AllowedOnce, AllowedForSession, AllowedBySessionGrant, Denied, TimedOut, Cancelled, Disconnected }
+public enum ConsentOutcome { AllowedOnce, AllowedForSession, AllowedBySessionGrant, Denied, TimedOut, Cancelled, Disconnected, AllowedByPolicy, DeniedByPolicy }
 
 /// <summary>
 /// Asks the user before gated operations. One instance per Visual Studio session: at most one prompt is open at a
@@ -13,11 +14,16 @@ public enum ConsentOutcome { AllowedOnce, AllowedForSession, AllowedBySessionGra
 /// <see cref="ConsentSession"/> (one per connection).
 /// </summary>
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Lives for the whole Visual Studio session; a SemaphoreSlim whose wait handle is never read holds no unmanaged resources.")]
-public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, Func<TimeSpan, CancellationToken, Task>? delay = null)
+public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, Func<TimeSpan, CancellationToken, Task>? delay = null,
+    Func<DateTimeOffset>? clock = null)
 {
+    /// <summary>A queued question is never shown for less than this, even when its deadline has almost run out.</summary>
+    public static readonly TimeSpan MinimumPromptTime = TimeSpan.FromSeconds(1);
+
     private readonly SemaphoreSlim _one = new(1, 1);
     private readonly List<ConsentSession> _sessions = [];
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? Task.Delay;
+    private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
     public ConsentSession CreateSession()
     {
@@ -39,13 +45,15 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
         lock (_sessions) _sessions.Remove(session);
     }
 
-    public async Task<ConsentOutcome> RequestAsync(ConsentSession session, Operation operation, string text, CancellationToken ct)
+    public async Task<ConsentOutcome> RequestAsync(ConsentSession session, Operation operation, string text, CancellationToken ct,
+        Func<PermissionLevel>? currentLevel = null)
     {
         if (session is null) throw new ArgumentNullException(nameof(session));
         if (session.RevokedToken.IsCancellationRequested) return ConsentOutcome.Disconnected;
         if (session.IsGranted(operation)) return ConsentOutcome.AllowedBySessionGrant;
 
         var limit = timeout();
+        var queuedAt = _clock();
         var revoked = session.RevokedToken;
         using var expiry = new CancellationTokenSource();
         using var done = new CancellationTokenSource();
@@ -59,8 +67,19 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
             entered = true;
             if (session.IsGranted(operation)) return ConsentOutcome.AllowedBySessionGrant;
 
+            // Settings may have changed while this request waited behind another question (M2 review minor 1).
+            switch (currentLevel?.Invoke())
+            {
+                case PermissionLevel.Allow: return ConsentOutcome.AllowedByPolicy;
+                case PermissionLevel.Deny: return ConsentOutcome.DeniedByPolicy;
+            }
+
+            // The deadline runs from when the request was queued; show what is left of it (M2 review minor 2).
+            var remaining = limit - (_clock() - queuedAt);
+            if (remaining < MinimumPromptTime) remaining = MinimumPromptTime;
+
             var generation = session.Generation;
-            var choice = await prompt.AskAsync(text, limit, linked.Token).ConfigureAwait(false);
+            var choice = await prompt.AskAsync(text, remaining, linked.Token).ConfigureAwait(false);
 
             // Fail closed: an answer that lands after a timeout, cancellation or Disconnect AI does not count.
             linked.Token.ThrowIfCancellationRequested();

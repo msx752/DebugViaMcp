@@ -1,3 +1,4 @@
+using VsMcpDebugger.Protocol;
 using VsMcpDebugger.Vsix.Core;
 using Xunit;
 
@@ -244,5 +245,47 @@ public class ConsentGateTests
         _prompt.Answer(ConsentChoice.AllowOnce);
         Assert.Equal(ConsentOutcome.AllowedOnce, await first);
         Assert.Single(_prompt.Texts);
+    }
+
+    /// <summary>M2 review minor 1.</summary>
+    [Theory]
+    [InlineData(PermissionLevel.Deny, ConsentOutcome.DeniedByPolicy)]
+    [InlineData(PermissionLevel.Allow, ConsentOutcome.AllowedByPolicy)]
+    public async Task Queued_request_rechecks_the_settings_before_asking(PermissionLevel changedTo, ConsentOutcome expected)
+    {
+        var gate = Gate();
+        using var session = gate.CreateSession();
+        var level = PermissionLevel.Ask;
+        var first = gate.RequestAsync(session, Operation.SetValue, "first", CancellationToken.None, () => level);
+        await _prompt.WaitForPromptsAsync(1);
+        var second = gate.RequestAsync(session, Operation.SetValue, "second", CancellationToken.None, () => level);
+
+        level = changedTo;                 // the user applied a new Mutate setting while the first question was open
+        _prompt.Answer(ConsentChoice.AllowOnce);
+
+        Assert.Equal(ConsentOutcome.AllowedOnce, await first);
+        Assert.Equal(expected, await second);
+        Assert.Single(_prompt.Texts);
+    }
+
+    /// <summary>M2 review minor 2.</summary>
+    [Fact]
+    public async Task Queued_question_shows_the_time_that_is_left()
+    {
+        var now = new DateTimeOffset(2026, 10, 11, 12, 0, 0, TimeSpan.Zero);
+        var gate = new ConsentGate(_prompt, () => TimeSpan.FromSeconds(60), _delay.Delay, () => now);
+        using var session = gate.CreateSession();
+        var first = gate.RequestAsync(session, Operation.SetValue, "first", CancellationToken.None);
+        await _prompt.WaitForPromptsAsync(1);
+        var second = gate.RequestAsync(session, Operation.EvaluateWithSideEffects, "second", CancellationToken.None);
+
+        now = now.AddSeconds(25);
+        _prompt.Answer(ConsentChoice.AllowOnce);
+        await first;
+        await _prompt.WaitForPromptsAsync(2);
+        _prompt.Answer(ConsentChoice.Deny);
+        await second;
+
+        Assert.Equal([TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(35)], _prompt.Timeouts);
     }
 }

@@ -11,30 +11,32 @@ public static class ConsentText
 {
     public const int MaxClientNameLength = 64;
 
+    // Every builder: <paramref name="client"/> is the name ClientName returned at handshake (already escaped and capped).
+
     public static string SetValue(string client, string expression, string value, string function) =>
-        $"{ClientName(client)} wants to set {Visible(expression)} = {Visible(value)} in {Visible(function)}";
+        $"{client} wants to set {Visible(expression)} = {Visible(value)} in {Visible(function)}";
 
     public static string EvaluateWithSideEffects(string client, string expression, string function) =>
-        $"{ClientName(client)} wants to evaluate {Visible(expression)} with side effects in {Visible(function)}";
+        $"{client} wants to evaluate {Visible(expression)} with side effects in {Visible(function)}";
 
     public static string Breakpoint(string client, string location, string? condition, string? logMessage)
     {
         var what = condition is not null && logMessage is not null ? $"when {Visible(condition)}, logging \"{Visible(logMessage)}\""
             : condition is not null ? $"when {Visible(condition)}"
             : $"logging \"{Visible(logMessage)}\"";
-        return $"{ClientName(client)} wants to set a breakpoint at {Visible(location)} {what} — this runs in your program on every hit";
+        return $"{client} wants to set a breakpoint at {Visible(location)} {what} — this runs in your program on every hit";
     }
 
     public static string EnableBreakpoint(string client, string location, string? condition, string? logMessage) =>
         Breakpoint(client, location, condition, logMessage).Replace(" wants to set a breakpoint at ", " wants to enable the breakpoint at ");
 
     public static string Attach(string client, string process, int pid) =>
-        $"{ClientName(client)} wants to attach the debugger to {Visible(process)} (pid {pid.ToString(CultureInfo.InvariantCulture)}) — Visual Studio will be able to read and change that process's memory";
+        $"{client} wants to attach the debugger to {Visible(process)} (pid {pid.ToString(CultureInfo.InvariantCulture)}) — Visual Studio will be able to read and change that process's memory";
 
     public static string Operation(string client, string tool, string summary) =>
         string.IsNullOrEmpty(summary)
-            ? $"{ClientName(client)} wants to run {tool}"
-            : $"{ClientName(client)} wants to run {tool}: {Visible(summary)}";
+            ? $"{client} wants to run {tool}"
+            : $"{client} wants to run {tool}: {Visible(summary)}";
 
     public static string ClientName(string? name)
     {
