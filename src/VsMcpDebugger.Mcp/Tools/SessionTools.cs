@@ -26,11 +26,11 @@ public sealed class SessionTools(IConnectionManager connections)
         return ToolResponse.Ok(new { pid, solution = h.SolutionPath, vsVersion = h.VsVersion, mode = h.Mode });
     });
 
-    [McpServerTool(Name = "debug_status", ReadOnly = true), Description("Returns the debugger mode (design, run, break) and, when stopped, where and why.")]
+    [McpServerTool(Name = "debug_status", ReadOnly = true), Description("Returns the debugger mode (design, run, break), what the user allows (permissions), and, when stopped, where and why. " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Status(CancellationToken ct) => ToolResponse.RunAsync(connections, "debug_status", async ctx =>
     {
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
         var status = await bridge.GetStatusAsync(ctx, ct).ConfigureAwait(false);
-        return ToolResponse.Ok(new { mode = status.Mode, snapshot = status.Snapshot });
+        return ToolResponse.Ok(new { mode = status.Mode, permissions = status.Permissions, snapshot = ToolResponse.Snapshot(status.Snapshot) });
     });
 }

@@ -56,6 +56,15 @@ public sealed class ConnectionManager(
         await _lock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
+            if (_connection is not null && session.AccessRevoked)
+            {
+                // Disconnect AI: keep the selection so the call after Reconnect AI simply reconnects.
+                await DropAsync().ConfigureAwait(false);
+                throw new McpBridgeException(BridgeErrorCode.AiDisabled,
+                    "The user disconnected AI access in Visual Studio.",
+                    "Ask the user to run Tools → VsMcpDebugger → Reconnect AI.");
+            }
+
             if (_connection is { IsAlive: true }) return _connection.Bridge;
 
             var lostPid = _connection?.Instance.Pid;

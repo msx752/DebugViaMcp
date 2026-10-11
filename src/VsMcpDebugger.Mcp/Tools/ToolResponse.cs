@@ -33,9 +33,16 @@ internal static class ToolResponse
     public static CallToolResult WrongMode(DebuggerMode required, DebuggerMode current, string hint) =>
         Error(BridgeErrorCode.WrongMode, $"Requires {required} mode; current: {current}.", hint);
 
+    /// <summary>Snapshot as the agent sees it: debuggee values under 'data' (spec §3.3).</summary>
+    public static object? Snapshot(BreakSnapshot? s) => s is null ? null : new
+    {
+        reason = s.Reason, breakpointId = s.BreakpointId, location = s.Location, source = s.Source,
+        data = new { args = s.Args }, stackTop = s.StackTop,
+    };
+
     public static object FromOutcome(WaitOutcome outcome) => outcome.Kind switch
     {
-        WaitOutcomeKind.Break => new { state = "break", snapshot = outcome.Break!.Snapshot },
+        WaitOutcomeKind.Break => new { state = "break", snapshot = Snapshot(outcome.Break!.Snapshot) },
         WaitOutcomeKind.Timeout => new { state = "running", hint = "The program has not stopped yet. Call debug_wait to keep waiting, or debug_pause." },
         WaitOutcomeKind.Ended => new { state = "design", message = "The debugging session ended." },
         _ => new { state = "disconnected", message = "The connection to Visual Studio was lost." },

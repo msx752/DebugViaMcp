@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Serilog;
+using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
+using VsMcpDebugger.Protocol;
 
 namespace VsMcpDebugger.Mcp.Logging;
 
@@ -11,15 +13,14 @@ namespace VsMcpDebugger.Mcp.Logging;
 /// </summary>
 public static class LoggingSetup
 {
-    public static void Configure(ILoggingBuilder logging, string logsDirectory)
+    public static LogLevelControl Configure(ILoggingBuilder logging, string logsDirectory)
     {
-        var level = Enum.TryParse<LogEventLevel>(Environment.GetEnvironmentVariable("VSMCPDEBUGGER_LOG_LEVEL"), true, out var parsed)
-            ? parsed
-            : LogEventLevel.Information;
+        var overridden = Enum.TryParse<LogEventLevel>(Environment.GetEnvironmentVariable("VSMCPDEBUGGER_LOG_LEVEL"), true, out var parsed);
+        var levelSwitch = new LoggingLevelSwitch(overridden ? parsed : LogEventLevel.Information);
 
         Directory.CreateDirectory(logsDirectory);
         var serilog = new LoggerConfiguration()
-            .MinimumLevel.Is(level)
+            .MinimumLevel.ControlledBy(levelSwitch)
             .Enrich.FromLogContext()
             .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture, standardErrorFromLevel: LogEventLevel.Verbose)
             .WriteTo.File(
@@ -33,5 +34,24 @@ public static class LoggingSetup
 
         logging.ClearProviders();
         logging.AddSerilog(serilog, dispose: true);
+        return new LogLevelControl(levelSwitch, overridden);
+    }
+}
+
+/// <summary>The effective Mcp log level: VSMCPDEBUGGER_LOG_LEVEL wins; otherwise Visual Studio's setting (sent at handshake).</summary>
+public sealed class LogLevelControl(LoggingLevelSwitch levelSwitch, bool overridden)
+{
+    public LogEventLevel Current => levelSwitch.MinimumLevel;
+
+    public void Apply(LogVerbosity fromIde)
+    {
+        if (overridden) return;
+        levelSwitch.MinimumLevel = fromIde switch
+        {
+            LogVerbosity.Error => LogEventLevel.Error,
+            LogVerbosity.Warning => LogEventLevel.Warning,
+            LogVerbosity.Debug => LogEventLevel.Debug,
+            _ => LogEventLevel.Information,
+        };
     }
 }

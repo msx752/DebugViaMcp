@@ -37,7 +37,7 @@ public class InspectionToolsTests
         var bridge = new FakeDebugBridge { OnEvaluate = _ => new EvaluateResult { IsValid = false, Value = "error CS0103: The name 'y' does not exist" } };
         var tools = new InspectionTools(new FakeConnectionManager(bridge));
 
-        var error = Json(await tools.Eval("y", CancellationToken.None)).GetProperty("error");
+        var error = Json(await tools.Eval("y", ct: CancellationToken.None)).GetProperty("error");
 
         Assert.Equal("eval_failed", error.GetProperty("code").GetString());
         Assert.Contains("CS0103", error.GetProperty("message").GetString(), StringComparison.Ordinal);
@@ -47,7 +47,7 @@ public class InspectionToolsTests
     public async Task Eval_value_is_returned_in_data_field()
     {
         var tools = new InspectionTools(new FakeConnectionManager(new FakeDebugBridge()));
-        var json = Json(await tools.Eval("x", CancellationToken.None));
+        var json = Json(await tools.Eval("x", ct: CancellationToken.None));
         Assert.Equal("42", json.GetProperty("data").GetProperty("value").GetString());
     }
 

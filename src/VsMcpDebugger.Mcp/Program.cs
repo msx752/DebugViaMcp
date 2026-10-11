@@ -16,7 +16,8 @@ if (command is not "serve")
 }
 
 var builder = Host.CreateApplicationBuilder(args);
-LoggingSetup.Configure(builder.Logging, DiscoveryPaths.LogsDirectory);
+var levels = LoggingSetup.Configure(builder.Logging, DiscoveryPaths.LogsDirectory);
+var identity = new ClientIdentity();
 
 builder.Services.AddSingleton<SessionState>();
 builder.Services.AddSingleton<IConnectionManager>(sp =>
@@ -25,7 +26,12 @@ builder.Services.AddSingleton<IConnectionManager>(sp =>
     var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("VsMcpDebugger.Connection");
     return new ConnectionManager(
         discovery.List,
-        (record, session, ct) => BridgeConnection.ConnectAsync(record, session, logger, ct),
+        async (record, session, ct) =>
+        {
+            var connection = await BridgeConnection.ConnectAsync(record, session, logger, ct, clientName: identity.Name).ConfigureAwait(false);
+            levels.Apply(connection.Handshake.LogLevel);
+            return connection;
+        },
         sp.GetRequiredService<SessionState>(),
         logger);
 });
@@ -33,6 +39,12 @@ builder.Services.AddSingleton<IConnectionManager>(sp =>
 builder.Services
     .AddMcpServer(o => o.ServerInfo = new() { Name = "vsmcpdebugger", Version = typeof(SessionTools).Assembly.GetName().Version?.ToString() ?? "0.0.0" })
     .WithStdioServerTransport()
+    .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (context, ct) =>
+    {
+        // The MCP client's name (e.g. claude-code) is what Visual Studio shows in consent questions.
+        identity.Capture(context.Server.ClientInfo?.Name);
+        return await next(context, ct).ConfigureAwait(false);
+    }))
     .WithTools<SessionTools>()
     .WithTools<BreakpointTools>()
     .WithTools<ExecutionTools>()

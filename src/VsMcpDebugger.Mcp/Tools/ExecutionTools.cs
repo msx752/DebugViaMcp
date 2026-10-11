@@ -18,19 +18,19 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
 
     public static TimeSpan ClampWait(int seconds) => TimeSpan.FromSeconds(Math.Clamp(seconds, 1, 120));
 
-    [McpServerTool(Name = "debug_start"), Description("Starts debugging the solution's startup project (F5). Waits up to 30 s for the first break.")]
+    [McpServerTool(Name = "debug_start"), Description("Starts debugging the solution's startup project (F5). Waits up to 30 s for the first break. " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Start(CancellationToken ct) =>
         Resume("debug_start", DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", (b, ctx) => b.StartAsync(ctx, ct), ct);
 
-    [McpServerTool(Name = "debug_continue"), Description("Resumes execution (F5) and waits up to 30 s for the next break.")]
+    [McpServerTool(Name = "debug_continue"), Description("Resumes execution (F5) and waits up to 30 s for the next break. " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Continue(CancellationToken ct) =>
         Resume("debug_continue", DebuggerMode.Break, "Call debug_pause or debug_wait first.", (b, ctx) => b.ContinueAsync(ctx, ct), ct);
 
-    [McpServerTool(Name = "debug_pause"), Description("Breaks into the running program (Break All).")]
+    [McpServerTool(Name = "debug_pause"), Description("Breaks into the running program (Break All). " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Pause(CancellationToken ct) =>
         Resume("debug_pause", DebuggerMode.Run, "The program is not running.", (b, ctx) => b.PauseAsync(ctx, ct), ct);
 
-    [McpServerTool(Name = "debug_step"), Description("Steps 'into', 'over' or 'out' and returns where execution stopped.")]
+    [McpServerTool(Name = "debug_step"), Description("Steps 'into', 'over' or 'out' and returns where execution stopped. " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Step([Description("'into', 'over' or 'out'.")] string kind, CancellationToken ct)
     {
         StepKind? stepKind = kind switch { "into" => StepKind.Into, "over" => StepKind.Over, "out" => StepKind.Out, _ => null };
@@ -39,7 +39,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
         return Resume("debug_step", DebuggerMode.Break, "Call debug_pause or debug_wait first.", (b, ctx) => b.StepAsync(stepKind.Value, ctx, ct), ct);
     }
 
-    [McpServerTool(Name = "debug_wait", ReadOnly = true), Description("Waits for the next break (breakpoint, exception, pause) up to timeoutSec (max 120).")]
+    [McpServerTool(Name = "debug_wait", ReadOnly = true), Description("Waits for the next break (breakpoint, exception, pause) up to timeoutSec (max 120). " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Wait(int timeoutSec = 30, CancellationToken ct = default) => ToolResponse.RunAsync(connections, "debug_wait", async _ =>
     {
         await connections.GetBridgeAsync(ct).ConfigureAwait(false);

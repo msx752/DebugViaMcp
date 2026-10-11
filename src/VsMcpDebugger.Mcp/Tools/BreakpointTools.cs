@@ -17,7 +17,7 @@ public sealed class BreakpointTools(IConnectionManager connections)
     });
 
     [McpServerTool(Name = "bp_set", Idempotent = true),
-     Description("Sets a breakpoint at file+line or on a function. Optional condition, hit count, or logMessage (tracepoint: logs without stopping). Setting an identical breakpoint returns the existing id.")]
+     Description("Sets a breakpoint at file+line or on a function. Optional condition, hit count, or logMessage (tracepoint: logs without stopping). Setting an identical breakpoint returns the existing id. A condition or logMessage runs in the program on every hit, so it " + InspectionTools.ConsentNote)]
     public Task<CallToolResult> Set(
         [Description("Source file, absolute or relative to the solution directory.")] string? file = null,
         [Description("1-based line number; required with file.")] int? line = null,

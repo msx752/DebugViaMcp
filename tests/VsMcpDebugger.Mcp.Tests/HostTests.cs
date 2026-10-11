@@ -32,7 +32,7 @@ public sealed class HostTests : IDisposable
     });
 
     [Fact]
-    public async Task Exposes_exactly_the_m1_tool_set()
+    public async Task Exposes_exactly_the_m2_tool_set()
     {
         await using var client = await McpClient.CreateAsync(Transport());
 
@@ -40,8 +40,19 @@ public sealed class HostTests : IDisposable
 
         Assert.Equal(
             ["bp_list", "bp_remove", "bp_set", "debug_continue", "debug_pause", "debug_start", "debug_status",
-             "debug_step", "debug_stop", "debug_wait", "eval", "stack", "vars", "vs_instances", "vs_select"],
+             "debug_step", "debug_stop", "debug_wait", "eval", "set_value", "stack", "vars", "vs_instances", "vs_select"],
             names);
+    }
+
+    [Fact]
+    public async Task Mutating_tools_are_not_annotated_read_only()
+    {
+        await using var client = await McpClient.CreateAsync(Transport());
+        var tools = (await client.ListToolsAsync()).ToDictionary(t => t.Name);
+
+        Assert.True(tools["set_value"].ProtocolTool.Annotations?.DestructiveHint);
+        Assert.NotEqual(true, tools["set_value"].ProtocolTool.Annotations?.ReadOnlyHint);
+        Assert.NotEqual(true, tools["eval"].ProtocolTool.Annotations?.ReadOnlyHint);
     }
 
     [Fact]
