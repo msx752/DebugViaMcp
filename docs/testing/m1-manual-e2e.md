@@ -57,7 +57,12 @@ that starts `vsmcpdebugger` redirects `USERPROFILE`/`LOCALAPPDATA`.
 | stack | PASS — Submit:8, Program.Main:9 |
 | debug_continue | PASS — program ran to completion → `design` |
 | debug_stop / bp_remove all / debug_status | PASS |
-| debug_wait right after a break-returning debug_start | Waits for the *next* break and returns `running` after the timeout — by design (see plan, M3 note) |
+| debug_wait right after a break-returning debug_start | Run 1: waited for the *next* break and returned `running`. Run 3 (after the final-review fix): returns the current break immediately |
 
 Deviations found by the first run (fixed before this run): handshake read DTE state off the UI thread; internal
 handshake failures were reported as `unauthorized`. Cosmetic: breakpoints without a hit count report `hitCount: 1`.
+
+## Run 3 2026-10-11 — after the final-review fix pass and the rename to VsMcpDebugger
+
+Same driver, Visual Studio Community 2026: every step PASS, including `debug_wait` returning the current break
+immediately, `eval order.TouchCount` = 0 after `order.Touch()`, and the instance file showing the open solution.
