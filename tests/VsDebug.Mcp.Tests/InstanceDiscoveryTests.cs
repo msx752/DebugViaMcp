@@ -35,7 +35,7 @@ public sealed class InstanceDiscoveryTests : IDisposable
     {
         Write(10);
         Write(20);
-        var discovery = new InstanceDiscovery(_dir, pid => pid == 10);
+        var discovery = new InstanceDiscovery(_dir, r => r.Pid == 10);
 
         var list = discovery.List();
 
@@ -50,5 +50,22 @@ public sealed class InstanceDiscoveryTests : IDisposable
         Write(10);
         var discovery = new InstanceDiscovery(_dir, _ => true);
         Assert.Equal(10, Assert.Single(discovery.List()).Pid);
+    }
+
+    /// <summary>Final review #1: protected processes throw Win32Exception from HasExited; that must mean "not ours".</summary>
+    [Fact]
+    public void Protected_process_pid_is_treated_as_stale_not_thrown()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "pid 4 is the Windows System process.");
+        Assert.False(InstanceDiscovery.IsLive(new InstanceRecord { Pid = 4, StartedAt = DateTimeOffset.UtcNow }));
+    }
+
+    /// <summary>Final review #1: a pid reused by a process that started after the instance file was written is a ghost.</summary>
+    [Fact]
+    public void Reused_pid_started_after_the_record_is_treated_as_stale()
+    {
+        var self = Environment.ProcessId;
+        Assert.False(InstanceDiscovery.IsLive(new InstanceRecord { Pid = self, StartedAt = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero) }));
+        Assert.True(InstanceDiscovery.IsLive(new InstanceRecord { Pid = self, StartedAt = DateTimeOffset.UtcNow.AddMinutes(1) }));
     }
 }
