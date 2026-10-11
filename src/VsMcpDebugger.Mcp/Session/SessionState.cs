@@ -21,6 +21,15 @@ public sealed class SessionState : IDebugBridgeEvents
     /// <summary>Sequence observed right before the latest resume command; debug_wait waits for a break after it.</summary>
     public long LastResumeSeq { get; private set; }
 
+    /// <summary>True after the IDE revoked access (Disconnect AI) on the current connection.</summary>
+    public bool AccessRevoked { get; private set; }
+
+    public Task OnAccessRevokedAsync()
+    {
+        lock (_gate) AccessRevoked = true;
+        return Task.CompletedTask;
+    }
+
     public void MarkResumed(long seq)
     {
         lock (_gate)
@@ -39,6 +48,7 @@ public sealed class SessionState : IDebugBridgeEvents
             LastEndSeq = 0;
             LastBreak = null;
             IsConnected = true;
+            AccessRevoked = false;
         }
     }
 

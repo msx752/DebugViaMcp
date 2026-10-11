@@ -57,8 +57,8 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
             var pipeName = DiscoveryWriter.NewPipeName();
             var settings = new DefaultBridgeSettings();
             var security = new BridgeSecurity(settings, new ConsentGate(new DenyAllPrompt(), () => settings.ConsentTimeout),
-                new AuditLog(DiscoveryPaths.LogsDirectory, () => 7, new NullActivitySink(), log));
-            _host = new PipeHost(pipeName, new SecurePipeFactory(), onAuth => new BridgeConnectionHandler(service, token, security, log, onAuth), broadcaster, log);
+                new AuditLog(DiscoveryPaths.LogsDirectory, () => 7, new NullActivitySink(), log), new AiAccessSwitch(enabled: true));
+            _host = new PipeHost(pipeName, new SecurePipeFactory(), hooks => new BridgeConnectionHandler(service, token, security, log, hooks), broadcaster, log);
             _host.Start();
 
             _discovery = new DiscoveryWriter(DiscoveryPaths.InstancesDirectory, RestrictToCurrentUser);

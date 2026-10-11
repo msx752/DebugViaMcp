@@ -3,11 +3,24 @@ using System;
 namespace VsMcpDebugger.Vsix.Core;
 
 /// <summary>Authorization state shared by every connection of one Visual Studio session.</summary>
-public sealed class BridgeSecurity(IBridgeSettings settings, ConsentGate consent, AuditLog audit)
+public sealed class BridgeSecurity(IBridgeSettings settings, ConsentGate consent, AuditLog audit, AiAccessSwitch access)
 {
+    public AiAccessSwitch Access { get; } = access;
     public IBridgeSettings Settings { get; } = settings;
     public ConsentGate Consent { get; } = consent;
     public AuditLog Audit { get; } = audit;
+
+    public void DisconnectAi()
+    {
+        Access.Disconnect();
+        Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Operation = "ai_disconnect", Outcome = "ok", Summary = "AI access disconnected by the user" });
+    }
+
+    public void ReconnectAi()
+    {
+        Access.Reconnect();
+        Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Operation = "ai_reconnect", Outcome = "ok", Summary = "AI access re-enabled by the user" });
+    }
 
     /// <summary>Called by the Options page after the user applied a change: audits it and drops all session grants.</summary>
     public void SettingsChanged(string summary)

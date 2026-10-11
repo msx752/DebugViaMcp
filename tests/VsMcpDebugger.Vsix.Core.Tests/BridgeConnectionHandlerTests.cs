@@ -13,8 +13,9 @@ public class BridgeConnectionHandlerTests
     {
         var settings = new TestSettings();
         var security = new BridgeSecurity(settings, new ConsentGate(new FakePrompt(), () => settings.ConsentTimeout),
-            new AuditLog(Path.Combine(Path.GetTempPath(), "vsmcpdebugger-tests-audit"), () => 7, new NullActivity(), new NullLog()));
-        return new(new DebugBridgeService(dte ?? new FakeDte(), new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), "secret", security, new NullLog(), onAuthenticated);
+            new AuditLog(Path.Combine(Path.GetTempPath(), "vsmcpdebugger-tests-audit"), () => 7, new NullActivity(), new NullLog()), new AiAccessSwitch(enabled: true));
+        return new(new DebugBridgeService(dte ?? new FakeDte(), new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), "secret", security, new NullLog(),
+            onAuthenticated is null ? null : new ConnectionHooks(onAuthenticated, () => Task.CompletedTask));
     }
 
     private sealed class NullActivity : IActivitySink
@@ -319,5 +320,38 @@ public class BridgeConnectionHandlerTests
 
         Assert.Contains(s.Activity, l => l.Contains("  connect  claude-code", StringComparison.Ordinal));
         Assert.Contains(s.Activity, l => l.Contains("  disconnect  claude-code", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Handshake_while_ai_is_disconnected_is_ai_disabled()
+    {
+        using var s = new SecurityHarness();
+        s.Access.Disconnect();
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.HandshakeAsync());
+
+        Assert.Equal((int)BridgeErrorCode.AiDisabled, ex.ErrorCode);
+        Assert.Contains("Reconnect AI", ((BridgeErrorData)ex.ErrorData!).Hint, StringComparison.Ordinal);
+    }
+
+    /// <summary>Review focus #3.</summary>
+    [Fact]
+    public async Task Disconnect_ai_while_prompting_denies_and_drops()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        Assert.Equal(["claude-code"], s.Access.Clients);
+
+        var call = s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx("c-000020"), CancellationToken.None);
+        await s.Prompt.WaitForPromptsAsync(1);
+        s.Security.DisconnectAi();
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => call);
+        Assert.Equal(DeniedReasons.Disconnected, ((BridgeErrorData)ex.ErrorData!).Reason);
+        Assert.Equal(1, s.Drops);
+        Assert.True(s.RevokedNotified);
+        Assert.Empty(s.Dte.Assignments);
+        Assert.Contains(s.AuditLines(), l => l.Contains("c-000020", StringComparison.Ordinal) && l.Contains("denied:disconnected", StringComparison.Ordinal));
+        Assert.Contains(s.Activity, l => l.Contains("ai_disconnect", StringComparison.Ordinal));
     }
 }

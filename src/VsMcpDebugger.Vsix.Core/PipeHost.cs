@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using StreamJsonRpc;
 using VsMcpDebugger.Protocol;
 
 namespace VsMcpDebugger.Vsix.Core;
@@ -13,7 +14,7 @@ public interface IPipeStreamFactory
 }
 
 /// <summary>Accept loop: each client gets its own handler (own handshake state) and is registered for events only once authenticated.</summary>
-public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<Action, IDebugBridge> handlerFactory, EventBroadcaster events, ILog log) : IDisposable
+public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<ConnectionHooks, BridgeConnectionHandler> handlerFactory, EventBroadcaster events, ILog log) : IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
 
@@ -44,16 +45,28 @@ public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<A
             }
 
             var rpc = RpcFactory.Create(stream);
-            var handler = handlerFactory(() => events.Add(rpc));
+            var handler = handlerFactory(new ConnectionHooks(() => events.Add(rpc), () => RevokeAndCloseAsync(rpc)));
             rpc.AddLocalRpcTarget(handler);
             rpc.Disconnected += (_, args) =>
             {
                 log.Info($"Client disconnected: {args.Reason}");
-                (handler as IDisposable)?.Dispose();
+                handler.Dispose();
                 stream.Dispose();
             };
             rpc.StartListening();
             log.Info("Client connected to pipe");
+        }
+    }
+
+    private static async Task RevokeAndCloseAsync(JsonRpc rpc)
+    {
+        try
+        {
+            await rpc.NotifyAsync(nameof(IDebugBridgeEvents.OnAccessRevokedAsync)).ConfigureAwait(false);
+        }
+        finally
+        {
+            rpc.Dispose();
         }
     }
 

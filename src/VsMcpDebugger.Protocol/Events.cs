@@ -19,4 +19,7 @@ public interface IDebugBridgeEvents
 {
     Task OnModeChangedAsync(ModeChangedEvent e);
     Task OnBreakAsync(BreakEvent e);
+
+    /// <summary>Sent just before the IDE closes the connection because the user chose Disconnect AI.</summary>
+    Task OnAccessRevokedAsync();
 }

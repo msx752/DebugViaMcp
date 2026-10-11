@@ -14,11 +14,12 @@ namespace VsMcpDebugger.Vsix.Core;
 /// One per pipe connection. Rejects everything until a handshake with the right token succeeds. Every later request
 /// goes through <see cref="Guard{T}"/>: permission policy → consent → the call → audit.
 /// </summary>
-public sealed class BridgeConnectionHandler(DebugBridgeService service, string token, BridgeSecurity security, ILog log, Action? onAuthenticated = null)
+public sealed class BridgeConnectionHandler(DebugBridgeService service, string token, BridgeSecurity security, ILog log, ConnectionHooks? hooks = null)
     : IDebugBridge, IDisposable
 {
     private readonly ConsentSession _consent = security.Consent.CreateSession();
     private volatile bool _authenticated;
+    private IDisposable? _registration;
     private string _client = "";
     private int _disposed;
 
@@ -30,6 +31,12 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         {
             log.Warn("Handshake rejected: invalid token");
             throw Rpc(BridgeErrorCode.Unauthorized, "Invalid token.", null);
+        }
+
+        if (!security.Access.Enabled)
+        {
+            log.Warn("Handshake rejected: AI access is disconnected");
+            throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Tools → VsMcpDebugger → Reconnect AI.");
         }
 
         if (request.ProtocolMajor != ProtocolInfo.Major)
@@ -61,8 +68,10 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         if (!_authenticated)
         {
             _client = ConsentText.ClientName(request.ClientName);
+            _registration = security.Access.TryAttach(_client, Revoke)
+                ?? throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Tools → VsMcpDebugger → Reconnect AI.");
             _authenticated = true;
-            onAuthenticated?.Invoke();
+            hooks?.OnAuthenticated();
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "connect", Outcome = "ok", Summary = _client });
         }
 
@@ -253,10 +262,21 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         spec is null ? ""
         : spec.Function ?? $"{spec.File}:{spec.Line?.ToString(CultureInfo.InvariantCulture)}" + (spec.Condition is null ? "" : $" when {spec.Condition}");
 
+    /// <summary>Disconnect AI: pending consent ends as denied:disconnected, then the client is told and the pipe closes.</summary>
+    private void Revoke()
+    {
+        _consent.Revoke();
+        if (hooks is null) return;
+        _ = hooks.RevokeAndClose().ContinueWith(
+            t => log.Warn($"Closing '{_client}' after Disconnect AI failed: {t.Exception?.GetBaseException().Message}"),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+    }
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
         _consent.Dispose();
+        _registration?.Dispose();
         if (_authenticated)
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "disconnect", Outcome = "ok", Summary = _client });
     }

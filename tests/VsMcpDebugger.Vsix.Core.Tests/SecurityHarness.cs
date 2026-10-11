@@ -12,12 +12,23 @@ public sealed class SecurityHarness : IDisposable
         AuditDir = Directory.CreateTempSubdirectory("vsmcpdebugger-gate-").FullName;
         Audit = new AuditLog(AuditDir, () => 7, new ListActivity(Activity), new NullLog());
         Consent = new ConsentGate(Prompt, () => Settings.ConsentTimeout, Delay.Delay);
-        Security = new BridgeSecurity(Settings, Consent, Audit);
+        Security = new BridgeSecurity(Settings, Consent, Audit, Access);
         Handler = new BridgeConnectionHandler(
-            new DebugBridgeService(Dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), "secret", Security, new NullLog());
+            new DebugBridgeService(Dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), "secret", Security, new NullLog(),
+            new ConnectionHooks(() => { }, () =>
+            {
+                RevokedNotified = true;
+                Interlocked.Increment(ref _drops);
+                return Task.CompletedTask;
+            }));
     }
 
+    private int _drops;
+
     public FakeDte Dte { get; }
+    public AiAccessSwitch Access { get; } = new(enabled: true);
+    public int Drops => Volatile.Read(ref _drops);
+    public bool RevokedNotified { get; private set; }
     public TestSettings Settings { get; } = new();
     public FakePrompt Prompt { get; } = new();
     public ManualDelay Delay { get; } = new();
