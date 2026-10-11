@@ -9,6 +9,10 @@ public interface IConnectionManager
     SessionState Session { get; }
     ILogger Logger { get; }
     InstanceRecord? Current { get; }
+
+    /// <summary>Protocol minor of the connected IDE adapter (from its handshake); 0 when not connected.</summary>
+    int RemoteProtocolMinor { get; }
+
     IReadOnlyList<InstanceRecord> ListInstances();
     Task<HandshakeResponse> SelectAsync(int pid, CancellationToken ct);
 
@@ -29,6 +33,7 @@ public sealed class ConnectionManager(
     public SessionState Session => session;
     public ILogger Logger => logger;
     public InstanceRecord? Current => _connection?.Instance;
+    public int RemoteProtocolMinor => _connection?.Handshake.ProtocolMinor ?? 0;
 
     public IReadOnlyList<InstanceRecord> ListInstances() => listInstances();
 

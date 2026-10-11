@@ -15,7 +15,7 @@ public sealed class SecurityHarness : IDisposable
         Security = new BridgeSecurity(Settings, Consent, Audit, Access);
         Handler = new BridgeConnectionHandler(
             new DebugBridgeService(Dte, new InlineUiThread(), Seq, new NullLog(), "0.1.0"), "secret", Security, new NullLog(),
-            new ConnectionHooks(() => { }, () =>
+            new ConnectionHooks(_ => { }, () =>
             {
                 RevokedNotified = true;
                 Interlocked.Increment(ref _drops);

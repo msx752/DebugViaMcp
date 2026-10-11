@@ -132,6 +132,19 @@ public class BridgeConnectionTests
         Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(1));
     }
 
+    [Fact]
+    public async Task Remote_minor_comes_from_the_handshake()
+    {
+        await using var server = new PipeTestServer(new FakeDebugBridge { ProtocolMinor = 7 });
+        await using var manager = new ConnectionManager(() => [server.Record],
+            (r, s, ct) => BridgeConnection.ConnectAsync(r, s, NullLogger.Instance, ct), new SessionState(), NullLogger.Instance);
+
+        Assert.Equal(0, manager.RemoteProtocolMinor);
+        await manager.GetBridgeAsync(CancellationToken.None);
+
+        Assert.Equal(7, manager.RemoteProtocolMinor);
+    }
+
     private static async Task WaitUntil(Func<bool> condition, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;

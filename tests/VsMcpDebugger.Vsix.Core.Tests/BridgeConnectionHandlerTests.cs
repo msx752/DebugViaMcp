@@ -9,7 +9,7 @@ public class BridgeConnectionHandlerTests
 {
     private static readonly CallContext Ctx = new() { CallId = "c-test" };
 
-    private static BridgeConnectionHandler Create(FakeDte? dte = null, Action? onAuthenticated = null)
+    private static BridgeConnectionHandler Create(FakeDte? dte = null, Action<int>? onAuthenticated = null)
     {
         var settings = new TestSettings();
         var security = new BridgeSecurity(settings, new ConsentGate(new FakePrompt(), () => settings.ConsentTimeout),
@@ -83,7 +83,7 @@ public class BridgeConnectionHandlerTests
     public async Task OnAuthenticated_fires_only_after_valid_handshake()
     {
         var fired = 0;
-        var h = Create(onAuthenticated: () => fired++);
+        var h = Create(onAuthenticated: _ => fired++);
 
         await Assert.ThrowsAsync<LocalRpcException>(() =>
             h.HandshakeAsync(new HandshakeRequest { Token = "nope", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None));
@@ -546,5 +546,16 @@ public class BridgeConnectionHandlerTests
 
         Assert.Empty(s.Prompt.Texts);
         Assert.Empty(s.Dte.Bps);
+    }
+
+    [Fact]
+    public async Task Handshake_registers_events_with_the_clients_minor()
+    {
+        var minors = new List<int>();
+        var h = Create(onAuthenticated: minors.Add);
+
+        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ProtocolMinor = 0 }, CancellationToken.None);
+
+        Assert.Equal([0], minors);
     }
 }

@@ -6,10 +6,11 @@ namespace VsMcpDebugger.Protocol.Tests;
 public class ProtocolInfoTests
 {
     [Fact]
-    public void Version_is_2_0_and_pipe_prefix_is_stable()
+    public void Version_is_2_1_and_pipe_prefix_is_stable()
     {
         Assert.Equal(2, ProtocolInfo.Major);
-        Assert.Equal(0, ProtocolInfo.Minor);
+        Assert.Equal(1, ProtocolInfo.Minor);
+        Assert.Equal(1, ProtocolInfo.MinorM3);
         Assert.Equal("vsmcpdebugger-", ProtocolInfo.PipeNamePrefix);
     }
 
@@ -20,5 +21,14 @@ public class ProtocolInfoTests
         Assert.Equal(-32011, (int)BridgeErrorCode.AiDisabled);
         Assert.Equal("denied", BridgeErrorNames.ToName(BridgeErrorCode.Denied));
         Assert.Equal("ai_disabled", BridgeErrorNames.ToName(BridgeErrorCode.AiDisabled));
+    }
+
+    [Fact]
+    public void M3_error_codes_have_stable_values_and_names()
+    {
+        Assert.Equal(-32012, (int)BridgeErrorCode.Stale);
+        Assert.Equal(-32013, (int)BridgeErrorCode.Unsupported);
+        Assert.Equal("stale", BridgeErrorNames.ToName(BridgeErrorCode.Stale));
+        Assert.Equal("unsupported", BridgeErrorNames.ToName(BridgeErrorCode.Unsupported));
     }
 }

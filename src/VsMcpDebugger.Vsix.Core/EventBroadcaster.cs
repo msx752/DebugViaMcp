@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using StreamJsonRpc;
@@ -9,30 +10,33 @@ namespace VsMcpDebugger.Vsix.Core;
 public sealed class EventBroadcaster(ILog log)
 {
     private readonly object _gate = new();
-    private readonly List<JsonRpc> _clients = [];
+    private readonly List<(JsonRpc Rpc, int Minor)> _clients = [];
 
     public int ConnectionCount
     {
         get { lock (_gate) return _clients.Count; }
     }
 
-    public void Add(JsonRpc rpc)
+    public void Add(JsonRpc rpc, int clientMinor)
     {
-        if (rpc is null) throw new System.ArgumentNullException(nameof(rpc));
-        lock (_gate) _clients.Add(rpc);
-        rpc.Disconnected += (_, _) => { lock (_gate) _clients.Remove(rpc); };
+        if (rpc is null) throw new ArgumentNullException(nameof(rpc));
+        lock (_gate) _clients.Add((rpc, clientMinor));
+        rpc.Disconnected += (_, _) => { lock (_gate) _clients.RemoveAll(c => c.Rpc == rpc); };
     }
 
-    public void PublishMode(ModeChangedEvent e) => Publish(nameof(IDebugBridgeEvents.OnModeChangedAsync), e);
+    public void PublishMode(ModeChangedEvent e) => Publish(nameof(IDebugBridgeEvents.OnModeChangedAsync), _ => e);
 
-    public void PublishBreak(BreakEvent e) => Publish(nameof(IDebugBridgeEvents.OnBreakAsync), e);
+    public void PublishBreak(BreakEvent e) => Publish(nameof(IDebugBridgeEvents.OnBreakAsync), minor => ClientCompat.ForClient(e, minor));
 
-    private void Publish(string method, object payload)
+    /// <param name="payloadFor">The payload for a client of the given minor; null skips that client.</param>
+    private void Publish(string method, Func<int, object?> payloadFor)
     {
-        JsonRpc[] targets;
+        (JsonRpc Rpc, int Minor)[] targets;
         lock (_gate) targets = _clients.ToArray();
-        foreach (var rpc in targets)
+        foreach (var (rpc, minor) in targets)
         {
+            var payload = payloadFor(minor);
+            if (payload is null) continue;
             _ = rpc.NotifyAsync(method, payload).ContinueWith(
                 t => log.Warn($"Event {method} not delivered: {t.Exception?.GetBaseException().Message}"),
                 CancellationTokenNone,

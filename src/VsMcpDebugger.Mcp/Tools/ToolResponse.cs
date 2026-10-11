@@ -30,6 +30,16 @@ internal static class ToolResponse
         Content = [new TextContentBlock { Text = JsonSerializer.Serialize(new { error = new { code = BridgeErrorNames.ToName(code), message, hint, reason } }, Options) }],
     };
 
+    /// <summary>Null when the connected extension implements protocol <paramref name="minor"/>; otherwise the 'unsupported' error to return without calling it.</summary>
+    public static CallToolResult? RequireMinor(IConnectionManager connections, int minor)
+    {
+        ArgumentNullException.ThrowIfNull(connections);
+        var remote = connections.RemoteProtocolMinor;
+        return remote >= minor ? null : Error(BridgeErrorCode.Unsupported,
+            $"The Visual Studio extension speaks protocol {ProtocolInfo.Major}.{remote}; this tool needs {ProtocolInfo.Major}.{minor}.",
+            "Update the VsMcpDebugger extension in Visual Studio to the same release as the vsmcpdebugger tool.");
+    }
+
     public static CallToolResult WrongMode(DebuggerMode required, DebuggerMode current, string hint) =>
         Error(BridgeErrorCode.WrongMode, $"Requires {required} mode; current: {current}.", hint);
 

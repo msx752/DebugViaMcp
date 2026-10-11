@@ -14,6 +14,8 @@ public enum BridgeErrorCode
     NotFound = -32009,
     Denied = -32010,
     AiDisabled = -32011,
+    Stale = -32012,
+    Unsupported = -32013,
     Internal = -32099,
 }
 
@@ -32,6 +34,8 @@ public static class BridgeErrorNames
         BridgeErrorCode.NotFound => "not_found",
         BridgeErrorCode.Denied => "denied",
         BridgeErrorCode.AiDisabled => "ai_disabled",
+        BridgeErrorCode.Stale => "stale",
+        BridgeErrorCode.Unsupported => "unsupported",
         _ => "internal",
     };
 }

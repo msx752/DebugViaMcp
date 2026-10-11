@@ -17,6 +17,7 @@ public sealed class FakeConnectionManager : IConnectionManager
     public SessionState Session { get; } = new();
     public InstanceRecord? Current { get; } = new() { Pid = 1, PipeName = "p", SolutionPath = @"C:\src\OrderDemo.sln" };
     public McpBridgeException? FailWith { get; set; }
+    public int RemoteProtocolMinor { get; set; } = ProtocolInfo.Minor;
     public CapturingLogger Logger { get; } = new();
     ILogger IConnectionManager.Logger => Logger;
 

@@ -45,7 +45,7 @@ public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<C
             }
 
             var rpc = RpcFactory.Create(stream);
-            var handler = handlerFactory(new ConnectionHooks(() => events.Add(rpc), () => RevokeAndCloseAsync(rpc)));
+            var handler = handlerFactory(new ConnectionHooks(minor => events.Add(rpc, minor), () => RevokeAndCloseAsync(rpc)));
             rpc.AddLocalRpcTarget(handler);
             rpc.Disconnected += (_, args) =>
             {

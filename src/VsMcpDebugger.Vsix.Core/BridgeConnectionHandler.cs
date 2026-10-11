@@ -72,7 +72,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             _registration = security.Access.TryAttach(_client, Revoke)
                 ?? throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.");
             _authenticated = true;
-            hooks?.OnAuthenticated();
+            hooks?.OnAuthenticated(request.ProtocolMinor);
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "connect", Outcome = "ok", Summary = _client });
         }
 

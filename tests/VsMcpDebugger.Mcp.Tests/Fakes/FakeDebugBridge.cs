@@ -8,6 +8,7 @@ public sealed class FakeDebugBridge : IDebugBridge
 {
     public string ExpectedToken { get; set; } = "secret";
     public int ProtocolMajor { get; set; } = ProtocolInfo.Major;
+    public int ProtocolMinor { get; set; } = ProtocolInfo.Minor;
     public DebuggerMode Mode { get; set; } = DebuggerMode.Break;
     public long Seq { get; set; } = 10;
     public List<string> Calls { get; } = [];
@@ -41,7 +42,7 @@ public sealed class FakeDebugBridge : IDebugBridge
             throw failure;
         return Task.FromResult(new HandshakeResponse
         {
-            ProtocolMajor = ProtocolMajor, ProtocolMinor = 0, VsVersion = "18.10", VsixVersion = "0.1.0",
+            ProtocolMajor = ProtocolMajor, ProtocolMinor = ProtocolMinor, VsVersion = "18.10", VsixVersion = "0.1.0",
             SolutionPath = @"C:\src\OrderDemo.sln", Mode = Mode, Seq = Seq,
         });
     }

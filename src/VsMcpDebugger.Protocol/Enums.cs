@@ -4,7 +4,7 @@ public enum DebuggerMode { Design, Run, Break }
 
 public enum StepKind { Into, Over, Out }
 
-public enum BreakReason { Breakpoint, Step, Exception, Pause, Other }
+public enum BreakReason { Breakpoint, Step, Exception, Pause, Other, RunTo }
 
 public enum ConditionKind { WhenTrue, WhenChanged }
 

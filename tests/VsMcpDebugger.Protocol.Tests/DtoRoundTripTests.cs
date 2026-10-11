@@ -85,4 +85,10 @@ public class DtoRoundTripTests
     [InlineData(BridgeErrorCode.EvalFailed, "eval_failed")]
     public void Error_codes_have_stable_snake_case_names(BridgeErrorCode code, string name)
         => Assert.Equal(name, BridgeErrorNames.ToName(code));
+
+    [Fact]
+    public void Run_to_reason_is_camel_case_on_the_wire()
+    {
+        Assert.Contains("\"reason\":\"runTo\"", ProtocolJson.Serialize(new BreakSnapshot { Reason = BreakReason.RunTo }), StringComparison.Ordinal);
+    }
 }
