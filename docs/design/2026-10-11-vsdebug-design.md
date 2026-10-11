@@ -357,7 +357,31 @@ vsdebug doctor
   - ADR-007 Language-neutral wire format and per-OS home (prepares the VS Code adapter)
   - ADR-008 macOS via a VS Code adapter (Visual Studio for Mac is retired)
 
-## 13. Open risks
+## 13. Phase 2 backlog (beyond the debugger)
+
+Captured on 2026-10-11; not part of M1–M5. Each group gets its own spec before work starts. Guiding rule: add a
+tool only where Visual Studio knows something the agent cannot get from the file system and CLI alone.
+
+**Code navigation (Roslyn via `VisualStudioWorkspace`, tier `read`)**
+
+| Tool | Purpose |
+|---|---|
+| `vs_open(file, line)` | Open a file in Visual Studio and move the caret to a line |
+| `symbol_definition(file, line, column \| name)` | Go to Definition — semantic, overload- and partial-aware |
+| `symbol_references(...)` | Find All References |
+| `symbol_implementations(...)` | Implementations of an interface or abstract member |
+| `call_hierarchy(...)` | Callers of a method |
+
+Results are file/line lists the agent can act on; `vs_open` also shows the location to the user.
+
+**IDE state the CLI cannot see (tier `read`)**: Error List / build diagnostics, Test Explorer results, active
+document and selection.
+
+**Project and repository operations (tier `control`, consent-gated where they change files)**: Git history for a
+file (incl. blame), csproj edits through the project system, NuGet add/update through Visual Studio's NuGet
+services (conflict resolution, project reload).
+
+## 14. Open risks
 
 | Risk | Mitigation |
 |---|---|
