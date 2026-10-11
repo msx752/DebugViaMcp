@@ -17,11 +17,40 @@ public static class PathUtil
             : path;
     }
 
+    /// <summary>Resolves against the solution directory and normalizes ".." segments.</summary>
     public static string ToAbsolute(string? solutionDir, string path)
     {
         if (path is null) throw new ArgumentNullException(nameof(path));
-        if (Path.IsPathRooted(path) || string.IsNullOrEmpty(solutionDir)) return path;
-        return Path.GetFullPath(Path.Combine(solutionDir!, path.Replace('/', '\\')));
+        var native = path.Replace('/', '\\');
+        if (Path.IsPathRooted(native) || string.IsNullOrEmpty(solutionDir)) return Path.GetFullPath(native);
+        return Path.GetFullPath(Path.Combine(solutionDir!, native));
+    }
+
+    /// <summary>True when <paramref name="absolutePath"/> (already normalized) lies inside <paramref name="directory"/>.</summary>
+    public static bool IsUnder(string? directory, string absolutePath)
+    {
+        if (string.IsNullOrEmpty(directory) || absolutePath is null) return false;
+        var root = Path.GetFullPath(directory!).TrimEnd('\\', '/') + "\\";
+        return absolutePath.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The {expression} placeholders of a tracepoint message.</summary>
+    public static IEnumerable<string> Placeholders(string message)
+    {
+        if (message is null) yield break;
+        var start = -1;
+        for (var i = 0; i < message.Length; i++)
+        {
+            if (message[i] == '{')
+            {
+                start = i + 1;
+            }
+            else if (message[i] == '}' && start >= 0)
+            {
+                yield return message.Substring(start, i - start);
+                start = -1;
+            }
+        }
     }
 
     public static string[] SourceContext(string file, int line, int radius = 3)

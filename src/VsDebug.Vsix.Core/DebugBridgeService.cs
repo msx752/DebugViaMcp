@@ -34,9 +34,19 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         {
             if (spec.File is not null)
             {
-                spec.File = PathUtil.ToAbsolute(SolutionDir, spec.File);
-                if (!dte.FileExists(spec.File))
-                    throw new BridgeException(BridgeErrorCode.InvalidArgument, $"File not found: {spec.File}", "Use a path relative to the solution directory.");
+                // Only files inside the solution: otherwise bp_set would be an oracle for any path on disk.
+                var absolute = PathUtil.ToAbsolute(SolutionDir, spec.File);
+                if (!PathUtil.IsUnder(SolutionDir, absolute))
+                    throw new BridgeException(BridgeErrorCode.InvalidArgument, "Breakpoint files must be inside the open solution's directory.", "Use a path relative to the solution directory.");
+                if (!dte.FileExists(absolute))
+                    throw new BridgeException(BridgeErrorCode.InvalidArgument, $"File not found: {PathUtil.ToRelative(SolutionDir, absolute)}", "Use a path relative to the solution directory.");
+                spec.File = absolute;
+            }
+
+            if (spec.Condition is not null) ExpressionPolicy.RequireNoSideEffects(spec.Condition);
+            if (spec.LogMessage is not null)
+            {
+                foreach (var placeholder in PathUtil.Placeholders(spec.LogMessage)) ExpressionPolicy.RequireNoSideEffects(placeholder);
             }
 
             var id = BreakpointKey.Compute(spec.File, spec.Line, spec.Function, spec.Condition);

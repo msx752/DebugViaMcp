@@ -53,6 +53,57 @@ public class DebugBridgeServiceTests
         Assert.Empty(dte.Bps);
     }
 
+    [Theory]
+    [InlineData(@"..\..\Windows\win.ini")]
+    [InlineData(@"C:\Windows\win.ini")]
+    public async Task Breakpoint_file_outside_solution_is_rejected_without_probing_disk(string file)
+    {
+        var (svc, dte, _) = Create();
+        var probed = new List<string>();
+        dte.FileExistsFunc = p => { probed.Add(p); return true; };
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() =>
+            svc.SetBreakpointAsync(new BreakpointSpec { File = file, Line = 1 }, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.InvalidArgument, ex.Code);
+        Assert.Empty(probed);
+        Assert.Empty(dte.Bps);
+    }
+
+    [Fact]
+    public async Task Condition_with_side_effects_is_rejected()
+    {
+        var (svc, dte, _) = Create();
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() =>
+            svc.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9, Condition = "order.Touch() > 0" }, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.InvalidArgument, ex.Code);
+        Assert.Empty(dte.Bps);
+    }
+
+    [Fact]
+    public async Task Tracepoint_placeholder_with_side_effects_is_rejected()
+    {
+        var (svc, dte, _) = Create();
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() =>
+            svc.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9, LogMessage = "total={total} touched={order.Touch()}" }, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.InvalidArgument, ex.Code);
+        Assert.Empty(dte.Bps);
+    }
+
+    [Fact]
+    public async Task Tracepoint_with_plain_placeholders_is_accepted()
+    {
+        var (svc, dte, _) = Create();
+
+        await svc.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9, LogMessage = "Order {order.Id} total={total}" }, CancellationToken.None);
+
+        Assert.Single(dte.Bps);
+    }
+
     [Fact]
     public async Task Remove_by_unknown_id_returns_zero()
     {
