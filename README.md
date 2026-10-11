@@ -1,4 +1,4 @@
-# VsDebug
+# VsMcpDebugger
 
 Let AI coding agents drive the Visual Studio debugger over the Model Context Protocol (MCP):
 breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
@@ -12,7 +12,7 @@ breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 - Inspection: call stack, locals/arguments, drill-down by path, side-effect-free evaluation
 - Safety: breakpoint conditions and tracepoint placeholders must not have side effects; evaluation runs with `, nse`;
   breakpoint files must be inside the open solution; the pipe and instance file are restricted to the current user
-- Logs: `%LOCALAPPDATA%\VsDebug\logs` and the **VsDebug** Output pane in Visual Studio
+- Logs: `%LOCALAPPDATA%\VsMcpDebugger\logs` and the **VsMcpDebugger** Output pane in Visual Studio
 
 ## Build from source
 
@@ -27,7 +27,7 @@ See [docs/testing/m1-manual-e2e.md](docs/testing/m1-manual-e2e.md).
 
 ## Design
 
-See [docs/design/2026-10-11-vsdebug-design.md](docs/design/2026-10-11-vsdebug-design.md).
+See [docs/design/2026-10-11-vsmcpdebugger-design.md](docs/design/2026-10-11-vsmcpdebugger-design.md).
 
 ## License
 

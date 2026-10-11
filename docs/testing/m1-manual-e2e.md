@@ -1,23 +1,23 @@
 # M1 end-to-end test
 
-The M1 end-to-end check drives the real `vsdebug` MCP server over stdio — exactly as Claude Code does — against a
-running Visual Studio with the VsDebug extension.
+The M1 end-to-end check drives the real `vsmcpdebugger` MCP server over stdio — exactly as Claude Code does — against a
+running Visual Studio with the VsMcpDebugger extension.
 
 ## Prerequisites
 
-1. Build: `powershell -File build.ps1` (or build `src/VsDebug.Vsix` with Visual Studio's MSBuild and `-nodeReuse:false`).
-2. Install `src/VsDebug.Vsix/bin/Debug/net48/VsDebug.Vsix.vsix` into Visual Studio 2026 (double-click, or
+1. Build: `powershell -File build.ps1` (or build `src/VsMcpDebugger.Vsix` with Visual Studio's MSBuild and `-nodeReuse:false`).
+2. Install `src/VsMcpDebugger.Vsix/bin/Debug/net48/VsMcpDebugger.Vsix.vsix` into Visual Studio 2026 (double-click, or
    `VSIXInstaller.exe /quiet /instanceIds:<id> <vsix>`). Remove it later via Extensions → Manage Extensions.
 3. Open `samples/OrderDemo/OrderDemo.csproj` in Visual Studio and make **OrderDemo** the startup project.
-4. Check the Output window → **VsDebug** pane shows `VsDebug 0.1.0 ready (pid …, protocol 1.0)`.
+4. Check the Output window → **VsMcpDebugger** pane shows `VsMcpDebugger 0.1.0 ready (pid …, protocol 1.0)`.
 
 ## Automated driver
 
-    dotnet run scripts/e2e/m1-e2e.cs -- <repo>\src\VsDebug.Mcp\bin\Debug\net10.0\VsDebug.Mcp.dll
+    dotnet run scripts/e2e/m1-e2e.cs -- <repo>\src\VsMcpDebugger.Mcp\bin\Debug\net10.0\VsMcpDebugger.Mcp.dll
 
 ## With Claude Code
 
-    claude mcp add vsdebug -- dotnet "<repo>/src/VsDebug.Mcp/bin/Debug/net10.0/VsDebug.Mcp.dll" serve
+    claude mcp add vsmcpdebugger -- dotnet "<repo>/src/VsMcpDebugger.Mcp/bin/Debug/net10.0/VsMcpDebugger.Mcp.dll" serve
 
 | # | Prompt to Claude | Expected |
 |---|---|---|
@@ -34,12 +34,12 @@ running Visual Studio with the VsDebug extension.
 
 ## Logs
 
-- `%LOCALAPPDATA%\VsDebug\logs\mcp-*.log` — one entry per tool call, no variable values
-- `%LOCALAPPDATA%\VsDebug\logs\vsix-*.log` — connections, breaks, mode changes
-- Visual Studio Output → **VsDebug** pane — same as the vsix log
+- `%LOCALAPPDATA%\VsMcpDebugger\logs\mcp-*.log` — one entry per tool call, no variable values
+- `%LOCALAPPDATA%\VsMcpDebugger\logs\vsix-*.log` — connections, breaks, mode changes
+- Visual Studio Output → **VsMcpDebugger** pane — same as the vsix log
 
 On Windows `%LOCALAPPDATA%` here means the user's real profile (`C:\Users\<user>\AppData\Local`), even when the shell
-that starts `vsdebug` redirects `USERPROFILE`/`LOCALAPPDATA`.
+that starts `vsmcpdebugger` redirects `USERPROFILE`/`LOCALAPPDATA`.
 
 ## Run 2026-10-11 — Visual Studio Community 2026 (18.10), automated driver
 

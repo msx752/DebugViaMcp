@@ -1,15 +1,15 @@
 #:package ModelContextProtocol
 #:property PublishAot=false
-// M1 end-to-end driver: talks to the real vsdebug MCP server over stdio, exactly like Claude Code,
-// against a running Visual Studio with the VsDebug extension and samples/OrderDemo open.
-// Usage: dotnet run scripts/e2e/m1-e2e.cs -- <path-to-VsDebug.Mcp.dll>
+// M1 end-to-end driver: talks to the real vsmcpdebugger MCP server over stdio, exactly like Claude Code,
+// against a running Visual Studio with the VsMcpDebugger extension and samples/OrderDemo open.
+// Usage: dotnet run scripts/e2e/m1-e2e.cs -- <path-to-VsMcpDebugger.Mcp.dll>
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
-var server = args.Length > 0 ? args[0] : Path.GetFullPath("src/VsDebug.Mcp/bin/Debug/net10.0/VsDebug.Mcp.dll");
+var server = args.Length > 0 ? args[0] : Path.GetFullPath("src/VsMcpDebugger.Mcp/bin/Debug/net10.0/VsMcpDebugger.Mcp.dll");
 await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
 {
-    Name = "vsdebug",
+    Name = "vsmcpdebugger",
     Command = "dotnet",
     Arguments = [server, "serve"],
 }));

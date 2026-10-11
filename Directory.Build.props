@@ -5,8 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
-    <Authors>VsDebug contributors</Authors>
-    <Copyright>Copyright (c) VsDebug contributors</Copyright>
+    <Authors>VsMcpDebugger contributors</Authors>
+    <Copyright>Copyright (c) VsMcpDebugger contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
