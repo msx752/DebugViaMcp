@@ -11,3 +11,7 @@ public enum ConditionKind { WhenTrue, WhenChanged }
 public enum HitCountKind { None, Equal, AtLeast, Multiple }
 
 public enum VariableScope { Locals, Args }
+
+public enum PermissionLevel { Allow, Ask, Deny }
+
+public enum LogVerbosity { Error, Warning, Information, Debug }

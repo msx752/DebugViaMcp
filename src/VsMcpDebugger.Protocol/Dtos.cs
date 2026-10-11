@@ -103,6 +103,14 @@ public sealed class EvaluateResult
     public bool Truncated { get; set; }
 }
 
+/// <summary>What the user allows per tier (Tools → Options → VsMcpDebugger). Informational for the client; the VSIX enforces it.</summary>
+public sealed class PermissionSet
+{
+    public PermissionLevel Read { get; set; } = PermissionLevel.Allow;
+    public PermissionLevel Control { get; set; } = PermissionLevel.Allow;
+    public PermissionLevel Mutate { get; set; } = PermissionLevel.Ask;
+}
+
 /// <summary>JSON-RPC <c>error.data</c> of every bridge error.</summary>
 public sealed class BridgeErrorData
 {

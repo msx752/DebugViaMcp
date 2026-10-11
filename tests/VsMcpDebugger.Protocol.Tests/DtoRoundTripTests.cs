@@ -27,6 +27,12 @@ public class DtoRoundTripTests
     }
 
     [Fact]
+    public void Permission_set_wire_format()
+    {
+        Assert.Equal("{\"read\":\"allow\",\"control\":\"allow\",\"mutate\":\"ask\"}", ProtocolJson.Serialize(new PermissionSet()));
+    }
+
+    [Fact]
     public void BreakEvent_round_trips()
     {
         var original = new BreakEvent
