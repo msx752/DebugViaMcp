@@ -124,6 +124,14 @@ public interface IDteFacade
     IReadOnlyList<string> OutputLines(Guid pane, int firstLine, int count);
 
     IReadOnlyList<RawErrorItem> ErrorItems();
+
+    bool IsBuilding { get; }
+
+    /// <summary>UniqueName of every project in the solution (solution folders flattened).</summary>
+    IReadOnlyList<string> ProjectNames();
+
+    /// <summary>Starts a build of the solution (null) or one project, active configuration, without waiting.</summary>
+    void StartBuild(string? projectUniqueName);
     IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems);
     IReadOnlyList<VariableInfo> Members(string expression, int maxItems);
     EvaluateResult Evaluate(string expression);

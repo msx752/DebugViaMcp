@@ -94,6 +94,11 @@ public sealed class FakeDte : IDteFacade
     public List<RawErrorItem> Errors { get; set; } = [];
     public IReadOnlyList<RawErrorItem> ErrorItems() { Ui(); return Errors; }
 
+    public bool IsBuilding { get; set; }
+    public List<string> Projects { get; set; } = [@"samples\OrderDemo\OrderDemo.csproj", @"samples\FaultDemo\FaultDemo.csproj"];
+    public IReadOnlyList<string> ProjectNames() { Ui(); return Projects; }
+    public void StartBuild(string? projectUniqueName) { Ui(); Calls.Add("StartBuild:" + projectUniqueName); IsBuilding = true; }
+
     public int CurrentFrameIndex { get; set; }
     public List<(int? ThreadId, int Index)> Selections { get; } = [];
 

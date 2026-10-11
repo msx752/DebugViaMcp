@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -9,7 +10,7 @@ using VsMcpDebugger.Protocol;
 namespace VsMcpDebugger.Vsix.Core;
 
 /// <summary>Implements the bridge operations on top of <see cref="IDteFacade"/>. Handshake lives in BridgeConnectionHandler.</summary>
-public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion)
+public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null)
 {
     /// <summary>Enforced here, not trusted from the client: deep offsets would enumerate members on the UI thread.</summary>
     public const int MaxVariableOffset = 100_000;
@@ -282,6 +283,42 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     public Task<ErrorListPage> GetErrorListAsync(ErrorSeverity[] severities, int offset, int max, CancellationToken ct) =>
         ui.RunAsync(() => ErrorListShaping.Page(dte.ErrorItems(), severities ?? [], SolutionDir, offset, max), ct);
+
+    public const int MaxBuildSeconds = 600;
+
+    public BuildMonitor Builds { get; } = builds ?? new BuildMonitor();
+
+    public async Task<BuildResult> BuildAsync(string? project, int timeoutSec, CancellationToken ct)
+    {
+        var timeout = TimeSpan.FromSeconds(Math.Min(Math.Max(1, timeoutSec), MaxBuildSeconds));
+        var started = Stopwatch.StartNew();
+        var completion = await ui.RunAsync(() =>
+        {
+            RequireMode(DebuggerMode.Design);
+            if (dte.IsBuilding) return Builds.Current;      // join the user's (or an earlier) build
+            var unique = project is null ? null : ResolveProject(project);
+            var current = Builds.Current;                    // tracked before it starts, so OnBuildDone cannot be missed
+            dte.StartBuild(unique);
+            log.Info($"Build started: {unique ?? "solution"}");
+            return current;
+        }, ct).ConfigureAwait(false);
+
+        var finished = await Task.WhenAny(completion, Task.Delay(timeout, ct)).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        if (finished != completion) return new BuildResult { State = BuildState.Building, DurationMs = started.ElapsedMilliseconds };
+
+        var failed = await completion.ConfigureAwait(false);
+        return new BuildResult { State = BuildState.Done, Succeeded = failed == 0, FailedProjects = failed, DurationMs = started.ElapsedMilliseconds };
+    }
+
+    private string ResolveProject(string project)
+    {
+        var names = dte.ProjectNames();
+        return names.FirstOrDefault(n => string.Equals(n, project, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Path.GetFileNameWithoutExtension(n), project, StringComparison.OrdinalIgnoreCase))
+            ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No project named '{project}' in the solution.",
+                "Projects: " + string.Join(", ", names.Select(Path.GetFileNameWithoutExtension)));
+    }
 
     private RawOutputPane ResolvePane(string? name)
     {

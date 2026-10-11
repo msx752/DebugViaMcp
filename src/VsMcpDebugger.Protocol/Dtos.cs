@@ -210,6 +210,14 @@ public sealed class ErrorListPage
     public int? NextOffset { get; set; }
 }
 
+public sealed class BuildResult
+{
+    public BuildState State { get; set; }
+    public bool Succeeded { get; set; }
+    public int FailedProjects { get; set; }
+    public long DurationMs { get; set; }
+}
+
 public sealed class EvaluateResult
 {
     public bool IsValid { get; set; }

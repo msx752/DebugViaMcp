@@ -71,6 +71,9 @@ public sealed class FakeDebugBridge : IDebugBridge
         return Task.FromResult(new ErrorListPage { Errors = 1, Items = [new ErrorItemInfo { Severity = ErrorSeverity.Error, Code = "CS0103", Message = "The name 'y' does not exist", File = "a.cs", Line = 3, Origin = "build" }] });
     }
 
+    public Func<string?, int, BuildResult> OnBuild { get; set; } = (_, _) => new BuildResult { State = BuildState.Done, Succeeded = true, DurationMs = 1200 };
+    public Task<BuildResult> BuildAsync(string? project, int timeoutSec, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add($"Build:{project}:{timeoutSec}"); return Task.FromResult(OnBuild(project, timeoutSec)); }
+
     public FakeDebugBridge() => OnStatus = () => new StatusInfo { Mode = Mode, Seq = Seq };
 
     public Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)

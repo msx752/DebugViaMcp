@@ -421,6 +421,28 @@
     }
   },
   {
+    "Name": "vs_build",
+    "Description": "Builds the solution, or one project, in Visual Studio and waits up to timeoutSec (max 600). If a build is already running, waits for that one instead. Afterwards errors_list and output_read(\u0027build\u0027) show the results.",
+    "Schema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "description": "Project name (e.g. OrderDemo); omit for the whole solution.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "timeoutSec": {
+          "description": "Seconds to wait (1-600).",
+          "type": "integer",
+          "default": 120
+        }
+      }
+    }
+  },
+  {
     "Name": "vs_instances",
     "Description": "Lists running Visual Studio instances that have the VsMcpDebugger extension.",
     "Schema": {

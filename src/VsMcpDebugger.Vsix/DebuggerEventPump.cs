@@ -10,6 +10,7 @@ namespace VsMcpDebugger.Vsix;
 internal sealed class DebuggerEventPump
 {
     private readonly DebuggerEvents _events;
+    private readonly BuildEvents _buildEvents;
     private readonly DebugBridgeService _service;
     private readonly EventSeq _seq;
     private readonly EventBroadcaster _broadcaster;
@@ -29,6 +30,13 @@ internal sealed class DebuggerEventPump
         _events.OnEnterRunMode += OnEnterRunMode;
         _events.OnEnterDesignMode += OnEnterDesignMode;
         _events.OnContextChanged += OnContextChanged;
+        _buildEvents = dte.Events.BuildEvents;
+        _buildEvents.OnBuildBegin += (scope, action) => _service.Builds.OnBuildBegin();
+        _buildEvents.OnBuildDone += (scope, action) =>
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _service.Builds.OnBuildDone(_dte.Solution.SolutionBuild.LastBuildInfo);
+        };
     }
 
     private void OnContextChanged(EnvDTE.Process newProcess, Program newProgram, EnvDTE.Thread newThread, EnvDTE.StackFrame newStackFrame)

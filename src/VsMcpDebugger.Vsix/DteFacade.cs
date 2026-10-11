@@ -17,6 +17,43 @@ namespace VsMcpDebugger.Vsix;
 /// <summary>IDteFacade over EnvDTE and the Error List table. Every member runs on the UI thread (enforced by IUiThread callers).</summary>
 internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
 {
+    public bool IsBuilding
+    {
+        get { ThreadHelper.ThrowIfNotOnUIThread(); return dte.Solution.SolutionBuild.BuildState == vsBuildState.vsBuildStateInProgress; }
+    }
+
+    public IReadOnlyList<string> ProjectNames()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var names = new List<string>();
+        foreach (Project p in dte.Solution.Projects) AddProject(p, names);
+        return names;
+    }
+
+    private static void AddProject(Project project, List<string> names)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        if (project.Kind == ProjectKinds.vsProjectKindSolutionFolder)
+        {
+            foreach (ProjectItem item in project.ProjectItems)
+            {
+                if (item.SubProject is { } sub) AddProject(sub, names);
+            }
+
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(project.FullName)) names.Add(project.UniqueName);
+    }
+
+    public void StartBuild(string? projectUniqueName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var build = dte.Solution.SolutionBuild;
+        if (projectUniqueName is null) build.Build(WaitForBuildToFinish: false);
+        else build.BuildProject(build.ActiveConfiguration.Name, projectUniqueName, WaitForBuildToFinish: false);
+    }
+
     public IReadOnlyList<RawErrorItem> ErrorItems()
     {
         ThreadHelper.ThrowIfNotOnUIThread();

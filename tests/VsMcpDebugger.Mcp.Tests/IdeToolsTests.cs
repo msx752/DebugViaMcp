@@ -49,4 +49,24 @@ public class IdeToolsTests
         var json = Json(await new IdeTools(new FakeConnectionManager(new FakeDebugBridge())).ErrorsList(severity, ct: CancellationToken.None));
         Assert.Equal("invalid_argument", json.GetProperty("error").GetProperty("code").GetString());
     }
+
+    [Fact]
+    public async Task Build_reports_the_result_and_points_at_errors_list()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design);
+
+        var json = Json(await new IdeTools(cm).Build(timeoutSec: 5000, ct: CancellationToken.None));
+
+        Assert.Equal("done", json.GetProperty("state").GetString());
+        Assert.True(json.GetProperty("succeeded").GetBoolean());
+        Assert.Contains("errors_list", json.GetProperty("hint").GetString(), StringComparison.Ordinal);
+        Assert.Contains("Build::600", cm.Bridge.Calls);
+    }
+
+    [Fact]
+    public async Task Build_while_debugging_is_wrong_mode()
+    {
+        var json = Json(await new IdeTools(new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Break)).Build(ct: CancellationToken.None));
+        Assert.Equal("wrong_mode", json.GetProperty("error").GetProperty("code").GetString());
+    }
 }

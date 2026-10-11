@@ -25,6 +25,8 @@ public enum Operation
     Attach,
 
     OutputRead, ErrorList,
+
+    Build,
 }
 
 /// <summary>User settings the bridge reads on every call, so changes apply without reconnecting.</summary>
@@ -45,7 +47,7 @@ public static class PermissionPolicy
             or Operation.ListProcesses or Operation.OutputRead or Operation.ErrorList => PermissionTier.Read,
         Operation.SetBreakpoint or Operation.RemoveBreakpoints or Operation.Start or Operation.Stop
             or Operation.Continue or Operation.Pause or Operation.Step or Operation.EnableBreakpoint
-            or Operation.RunTo => PermissionTier.Control,
+            or Operation.RunTo or Operation.Build => PermissionTier.Control,
         Operation.EvaluateWithSideEffects or Operation.SetValue or Operation.SetBreakpointWithExpression
             or Operation.EnableBreakpointWithExpression or Operation.Attach => PermissionTier.Mutate,
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Operation has no tier."),
@@ -85,6 +87,7 @@ public static class PermissionPolicy
         Operation.ListProcesses or Operation.Attach => "debug_attach",
         Operation.OutputRead => "output_read",
         Operation.ErrorList => "errors_list",
+        Operation.Build => "vs_build",
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Operation has no tool name."),
     };
 

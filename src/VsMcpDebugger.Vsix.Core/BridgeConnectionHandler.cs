@@ -185,6 +185,10 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     public Task<ErrorListPage> GetErrorListAsync(ErrorSeverity[] severities, int offset, int max, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.ErrorList, context, () => service.GetErrorListAsync(severities, offset, max, cancellationToken), null, null, cancellationToken);
 
+    public Task<BuildResult> BuildAsync(string? project, int timeoutSec, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Build, context, () => service.BuildAsync(project, timeoutSec, cancellationToken),
+            Request.Of(project ?? "solution", ("project", project), ("timeoutSec", timeoutSec.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
+
     public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Variables, context, () => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken),
             Request.Of(path ?? ScopeName(scope), ("scope", ScopeName(scope)), ("path", path)), null, cancellationToken);
