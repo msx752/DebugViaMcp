@@ -6,23 +6,60 @@ using VsDebug.Protocol;
 
 namespace VsDebug.Vsix.Core;
 
-/// <summary>Writes this instance's discovery file. File ACL hardening happens in the VSIX (Windows-only API).</summary>
-public sealed class DiscoveryWriter(string directory)
+/// <summary>
+/// Writes this instance's discovery file. Every write goes to a temporary file that is hardened first
+/// (<paramref name="harden"/>: user-only ACL, applied by the VSIX) and only then moved into place, so the
+/// token never sits in a readable file.
+/// </summary>
+public sealed class DiscoveryWriter(string directory, Action<string>? harden = null)
 {
+    private readonly object _gate = new();
+    private InstanceRecord? _record;
     private string? _path;
 
     public (InstanceRecord Record, string Path) Write(InstanceRecord record)
     {
         if (record is null) throw new ArgumentNullException(nameof(record));
-        Directory.CreateDirectory(directory);
-        _path = Path.Combine(directory, record.Pid + ".json");
-        File.WriteAllText(_path, JsonConvert.SerializeObject(record, Formatting.Indented, ProtocolJson.Settings));
-        return (record, _path);
+        lock (_gate)
+        {
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, record.Pid + ".json");
+            var temp = Path.Combine(directory, record.Pid + "." + Guid.NewGuid().ToString("N") + ".tmp");
+            try
+            {
+                File.WriteAllText(temp, JsonConvert.SerializeObject(record, Formatting.Indented, ProtocolJson.Settings));
+                harden?.Invoke(temp);
+                if (File.Exists(path)) File.Replace(temp, path, null);
+                else File.Move(temp, path);
+            }
+            finally
+            {
+                if (File.Exists(temp)) File.Delete(temp);
+            }
+
+            _record = record;
+            _path = path;
+            return (record, path);
+        }
+    }
+
+    /// <summary>Rewrites the record when the open solution changes (null when no solution is open).</summary>
+    public void UpdateSolution(string? solutionPath)
+    {
+        InstanceRecord? record;
+        lock (_gate) record = _record;
+        if (record is null) return;
+        record.SolutionPath = solutionPath;
+        Write(record);
     }
 
     public void Delete()
     {
-        if (_path is not null && File.Exists(_path)) File.Delete(_path);
+        lock (_gate)
+        {
+            if (_path is not null && File.Exists(_path)) File.Delete(_path);
+            _record = null;
+        }
     }
 
     public static string NewToken()

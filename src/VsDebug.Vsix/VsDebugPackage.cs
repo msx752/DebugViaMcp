@@ -29,6 +29,7 @@ public sealed class VsDebugPackage : AsyncPackage
     private PipeHost? _host;
     private DiscoveryWriter? _discovery;
     private DebuggerEventPump? _pump;
+    private SolutionEvents? _solutionEvents;
 
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
@@ -57,14 +58,17 @@ public sealed class VsDebugPackage : AsyncPackage
             _host = new PipeHost(pipeName, new SecurePipeFactory(), onAuth => new BridgeConnectionHandler(service, token, log, onAuth), broadcaster, log);
             _host.Start();
 
-            _discovery = new DiscoveryWriter(DiscoveryPaths.InstancesDirectory);
-            var (_, path) = _discovery.Write(new InstanceRecord
+            _discovery = new DiscoveryWriter(DiscoveryPaths.InstancesDirectory, RestrictToCurrentUser);
+            _discovery.Write(new InstanceRecord
             {
                 Pid = pid, PipeName = pipeName, Token = token, SolutionPath = service.SolutionPath,
                 VsVersion = dte.Version, VsixVersion = vsixVersion,
                 ProtocolMajor = ProtocolInfo.Major, ProtocolMinor = ProtocolInfo.Minor, StartedAt = DateTimeOffset.UtcNow,
             });
-            RestrictToCurrentUser(path);
+            // Keep the solution shown by vs_instances in sync with what is open (held in a field so COM keeps the subscription).
+            _solutionEvents = dte.Events.SolutionEvents;
+            _solutionEvents.Opened += () => { ThreadHelper.ThrowIfNotOnUIThread(); _discovery.UpdateSolution(service.SolutionPath); };
+            _solutionEvents.AfterClosing += () => _discovery.UpdateSolution(null);
             log.Info($"VsDebug {vsixVersion} ready (pid {pid}, protocol {ProtocolInfo.Major}.{ProtocolInfo.Minor})");
         }
 #pragma warning disable CA1031 // A startup failure must be logged, never crash Visual Studio.
