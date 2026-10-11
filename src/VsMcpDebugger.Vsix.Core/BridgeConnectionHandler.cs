@@ -128,6 +128,13 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Stack, context, () => service.GetStackAsync(maxFrames, cancellationToken), null, null, cancellationToken);
 
+    public Task<ThreadInfo[]> GetThreadsAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Threads, context, () => service.GetThreadsAsync(cancellationToken), null, null, cancellationToken);
+
+    public Task<StackInfo> GetThreadStackAsync(int? threadId, int maxFrames, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Stack, context, () => service.GetThreadStackAsync(threadId, maxFrames, cancellationToken),
+            Request.Of(threadId?.ToString(CultureInfo.InvariantCulture) ?? "current", ("threadId", threadId?.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
+
     public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Variables, context, () => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken),
             Request.Of(path ?? ScopeName(scope), ("scope", ScopeName(scope)), ("path", path)), null, cancellationToken);

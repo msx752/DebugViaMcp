@@ -32,7 +32,7 @@ public sealed class HostTests : IDisposable
     });
 
     [Fact]
-    public async Task Exposes_exactly_the_m2_tool_set()
+    public async Task Exposes_exactly_the_m3_tool_set()
     {
         await using var client = await McpClient.CreateAsync(Transport());
 
@@ -40,7 +40,7 @@ public sealed class HostTests : IDisposable
 
         Assert.Equal(
             ["bp_list", "bp_remove", "bp_set", "debug_continue", "debug_pause", "debug_start", "debug_status",
-             "debug_step", "debug_stop", "debug_wait", "eval", "set_value", "stack", "vars", "vs_instances", "vs_select"],
+             "debug_step", "debug_stop", "debug_wait", "eval", "set_value", "stack", "threads", "vars", "vs_instances", "vs_select"],
             names);
     }
 

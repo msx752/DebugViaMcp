@@ -31,6 +31,15 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Func<VariableScope, string?, int, VariableInfo[]> OnVariables { get; set; } =
         (_, _, _) => [new VariableInfo { Name = "x", Type = "int", Value = "1" }];
 
+    public Func<ThreadInfo[]> OnThreads { get; set; } = () => [new ThreadInfo { Id = 1, Name = "Main Thread", IsCurrent = true }];
+    public Func<int?, StackInfo> OnThreadStack { get; set; } = id => new StackInfo
+    {
+        Epoch = 3, ThreadId = id ?? 1, Frames = [new StackFrameInfo { Index = 0, Function = "A.M", File = "a.cs", Line = 1, Language = "C#" }],
+    };
+
+    public Task<ThreadInfo[]> GetThreadsAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetThreads"); return Task.FromResult(OnThreads()); }
+    public Task<StackInfo> GetThreadStackAsync(int? threadId, int maxFrames, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetThreadStack:" + threadId); return Task.FromResult(OnThreadStack(threadId)); }
+
     public FakeDebugBridge() => OnStatus = () => new StatusInfo { Mode = Mode, Seq = Seq };
 
     public Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)

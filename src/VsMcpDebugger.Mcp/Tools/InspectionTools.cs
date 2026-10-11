@@ -17,9 +17,26 @@ public sealed class InspectionTools(IConnectionManager connections)
 
     internal const string ConsentNote = "Requires the user's approval in Visual Studio unless they allowed it in settings. If the call returns 'denied', that is the user's decision: do not retry; ask the user how to proceed.";
 
-    [McpServerTool(Name = "stack", ReadOnly = true), Description("Call stack of the current thread.")]
-    public Task<CallToolResult> Stack(int max = 20, CancellationToken ct = default) => InBreak("stack", async (bridge, ctx) =>
-        ToolResponse.Ok(new { frames = await bridge.GetStackAsync(Math.Clamp(max, 1, 200), ctx, ct).ConfigureAwait(false) }), ct);
+    [McpServerTool(Name = "stack", ReadOnly = true), Description("Call stack of the current thread, or of threadId. Returns the epoch to pass to frame_select.")]
+    public Task<CallToolResult> Stack(int max = 20, [Description("Thread id from threads; default: the current thread.")] int? threadId = null, CancellationToken ct = default) =>
+        InBreak("stack", async (bridge, ctx) =>
+        {
+            var frames = Math.Clamp(max, 1, 200);
+            if (connections.RemoteProtocolMinor < ProtocolInfo.MinorM3)
+            {
+                return threadId is null
+                    ? ToolResponse.Ok(new { frames = await bridge.GetStackAsync(frames, ctx, ct).ConfigureAwait(false) })
+                    : ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3)!;
+            }
+
+            var stack = await bridge.GetThreadStackAsync(threadId, frames, ctx, ct).ConfigureAwait(false);
+            return ToolResponse.Ok(new { epoch = stack.Epoch, threadId = stack.ThreadId, frames = stack.Frames });
+        }, ct);
+
+    [McpServerTool(Name = "threads", ReadOnly = true), Description("Threads of the stopped program: id, name, location; isCurrent marks the thread vars and eval use.")]
+    public Task<CallToolResult> Threads(CancellationToken ct = default) => InBreak("threads", async (bridge, ctx) =>
+        ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3)
+        ?? ToolResponse.Ok(new { threads = await bridge.GetThreadsAsync(ctx, ct).ConfigureAwait(false) }), ct);
 
     /// <remarks><paramref name="depth"/> is accepted for forward compatibility; M1 returns one level and the agent drills down with <paramref name="path"/>.</remarks>
     [McpServerTool(Name = "vars", ReadOnly = true),

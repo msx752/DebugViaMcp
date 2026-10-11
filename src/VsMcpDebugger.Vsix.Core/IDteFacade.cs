@@ -26,6 +26,13 @@ public sealed class RawFrame
     public string Language { get; set; } = "";
 }
 
+public sealed class RawThread
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string? Location { get; set; }
+}
+
 /// <summary>Everything the bridge needs from Visual Studio. All members must be called on the UI thread.</summary>
 public interface IDteFacade
 {
@@ -42,6 +49,11 @@ public interface IDteFacade
     void Stop();
     void Step(StepKind kind);
     IReadOnlyList<RawFrame> Stack(int max);
+    int? CurrentThreadId { get; }
+    IReadOnlyList<RawThread> Threads();
+
+    /// <returns>Null when no thread has that id.</returns>
+    IReadOnlyList<RawFrame>? ThreadStack(int threadId, int max);
     IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems);
     IReadOnlyList<VariableInfo> Members(string expression, int maxItems);
     EvaluateResult Evaluate(string expression);

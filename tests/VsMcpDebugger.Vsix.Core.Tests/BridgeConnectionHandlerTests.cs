@@ -51,6 +51,8 @@ public class BridgeConnectionHandlerTests
         await h.EvaluateAsync("x", allowSideEffects: false, Ctx, CancellationToken.None);
         await h.StepAsync(StepKind.Over, Ctx, CancellationToken.None);
         await h.RemoveBreakpointsAsync(null, all: true, Ctx, CancellationToken.None);
+        await h.GetThreadsAsync(Ctx, CancellationToken.None);
+        await h.GetThreadStackAsync(null, 5, Ctx, CancellationToken.None);
     }
 
     [Fact]

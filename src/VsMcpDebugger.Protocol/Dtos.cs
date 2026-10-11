@@ -45,6 +45,7 @@ public sealed class BreakSnapshot
     public string[] Source { get; set; } = [];
     public VariableInfo[] Args { get; set; } = [];
     public string[] StackTop { get; set; } = [];
+    public int? ThreadId { get; set; }
 
     /// <summary>Break counter of this VS session; frame indices are only valid within the same epoch.</summary>
     public long Epoch { get; set; }
@@ -100,6 +101,21 @@ public sealed class StackFrameInfo
     public string? File { get; set; }
     public int? Line { get; set; }
     public string Language { get; set; } = "";
+}
+
+public sealed class ThreadInfo
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string? Location { get; set; }
+    public bool IsCurrent { get; set; }
+}
+
+public sealed class StackInfo
+{
+    public long Epoch { get; set; }
+    public int? ThreadId { get; set; }
+    public StackFrameInfo[] Frames { get; set; } = [];
 }
 
 public sealed class EvaluateResult

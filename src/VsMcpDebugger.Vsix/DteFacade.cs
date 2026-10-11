@@ -131,6 +131,50 @@ internal sealed class DteFacade(DTE2 dte) : IDteFacade
         return thread.StackFrames.Cast<EnvDTE.StackFrame>().Take(max).Select(ToFrame).ToList();
     }
 
+    public int? CurrentThreadId
+    {
+        get { ThreadHelper.ThrowIfNotOnUIThread(); return dte.Debugger.CurrentThread?.ID; }
+    }
+
+    public IReadOnlyList<RawThread> Threads()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var result = new List<RawThread>();
+        var program = dte.Debugger.CurrentProgram;
+        if (program is null) return result;
+        foreach (EnvDTE.Thread t in program.Threads)
+            result.Add(new RawThread { Id = t.ID, Name = t.Name ?? "", Location = string.IsNullOrEmpty(t.Location) ? null : t.Location });
+        return result;
+    }
+
+    public IReadOnlyList<RawFrame>? ThreadStack(int threadId, int max)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var thread = FindThread(threadId);
+        if (thread is null) return null;
+        var frames = new List<RawFrame>();
+        foreach (EnvDTE.StackFrame f in thread.StackFrames)
+        {
+            if (frames.Count >= max) break;
+            frames.Add(ToFrame(f));
+        }
+
+        return frames;
+    }
+
+    private EnvDTE.Thread? FindThread(int id)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var program = dte.Debugger.CurrentProgram;
+        if (program is null) return null;
+        foreach (EnvDTE.Thread t in program.Threads)
+        {
+            if (t.ID == id) return t;
+        }
+
+        return null;
+    }
+
     public IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems)
     {
         ThreadHelper.ThrowIfNotOnUIThread();

@@ -204,15 +204,31 @@
   },
   {
     "Name": "stack",
-    "Description": "Call stack of the current thread.",
+    "Description": "Call stack of the current thread, or of threadId. Returns the epoch to pass to frame_select.",
     "Schema": {
       "type": "object",
       "properties": {
         "max": {
           "type": "integer",
           "default": 20
+        },
+        "threadId": {
+          "description": "Thread id from threads; default: the current thread.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null
         }
       }
+    }
+  },
+  {
+    "Name": "threads",
+    "Description": "Threads of the stopped program: id, name, location; isCurrent marks the thread vars and eval use.",
+    "Schema": {
+      "type": "object",
+      "properties": {}
     }
   },
   {

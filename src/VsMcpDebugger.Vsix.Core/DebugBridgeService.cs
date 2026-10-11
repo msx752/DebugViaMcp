@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -124,12 +125,31 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return true;
     }, ct);
 
-    public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CancellationToken ct) => InBreak(() =>
-        dte.Stack(maxFrames).Select((f, i) => new StackFrameInfo
-        {
-            Index = i, Function = f.Function, Line = f.Line, Language = f.Language,
-            File = f.File is null ? null : PathUtil.ToRelative(SolutionDir, f.File),
-        }).ToArray(), ct);
+    public const int MaxStackFrames = 200;
+
+    public Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CancellationToken ct) => InBreak(() => ToFrames(dte.Stack(maxFrames)), ct);
+
+    public Task<ThreadInfo[]> GetThreadsAsync(CancellationToken ct) => InBreak(() =>
+    {
+        var current = dte.CurrentThreadId;
+        return dte.Threads().Select(t => new ThreadInfo { Id = t.Id, Name = t.Name, Location = t.Location, IsCurrent = t.Id == current }).ToArray();
+    }, ct);
+
+    public Task<StackInfo> GetThreadStackAsync(int? threadId, int maxFrames, CancellationToken ct) => InBreak(() =>
+    {
+        var max = Math.Min(Math.Max(1, maxFrames), MaxStackFrames);
+        var frames = threadId is { } id ? dte.ThreadStack(id, max) ?? throw NoSuchThread(id) : dte.Stack(max);
+        return new StackInfo { Epoch = Epoch, ThreadId = threadId ?? dte.CurrentThreadId, Frames = ToFrames(frames) };
+    }, ct);
+
+    private static BridgeException NoSuchThread(int id) =>
+        new(BridgeErrorCode.NotFound, $"No thread with id {id}.", "Call threads to list them.");
+
+    private StackFrameInfo[] ToFrames(IReadOnlyList<RawFrame> frames) => frames.Select((f, i) => new StackFrameInfo
+    {
+        Index = i, Function = f.Function, Line = f.Line, Language = f.Language,
+        File = f.File is null ? null : PathUtil.ToRelative(SolutionDir, f.File),
+    }).ToArray();
 
     public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CancellationToken ct) => InBreak(() =>
     {
@@ -227,6 +247,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             Source = top?.File is not null && top.Line is { } line ? PathUtil.SourceContext(top.File, line) : [],
             Args = dte.Variables(VariableScope.Args, 20).Select(Shape).ToArray(),
             StackTop = frames.Select(f => f.Line is { } l ? $"{f.Function}:{l}" : f.Function).ToArray(),
+            ThreadId = dte.CurrentThreadId,
             Epoch = Epoch,
         };
     }

@@ -24,6 +24,12 @@ public interface IDebugBridge
     Task<long> PauseAsync(CallContext context, CancellationToken cancellationToken);
     Task<long> StepAsync(StepKind kind, CallContext context, CancellationToken cancellationToken);
     Task<StackFrameInfo[]> GetStackAsync(int maxFrames, CallContext context, CancellationToken cancellationToken);
+    /// <summary>Protocol 2.1. Threads of the debugged program (Break mode).</summary>
+    Task<ThreadInfo[]> GetThreadsAsync(CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>Protocol 2.1. Stack of <paramref name="threadId"/> (default: the current thread) with the current epoch; does not change the selection.</summary>
+    Task<StackInfo> GetThreadStackAsync(int? threadId, int maxFrames, CallContext context, CancellationToken cancellationToken);
+
     Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken);
     Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken);
 

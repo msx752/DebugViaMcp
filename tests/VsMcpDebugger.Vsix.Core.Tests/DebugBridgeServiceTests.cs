@@ -327,4 +327,56 @@ public class DebugBridgeServiceTests
         Assert.Equal(2, status.Epoch);
         Assert.Equal(2, status.Snapshot!.Epoch);
     }
+
+    [Fact]
+    public async Task Threads_mark_the_current_one()
+    {
+        var (svc, dte, _) = Create();
+        dte.ThreadList = [new() { Id = 1, Name = "Main Thread" }, new() { Id = 7, Name = "Worker", Location = "Demo.Worker.Run" }];
+        dte.CurrentThreadId = 7;
+
+        var threads = await svc.GetThreadsAsync(CancellationToken.None);
+
+        Assert.Equal([false, true], threads.Select(t => t.IsCurrent));
+        Assert.Equal("Demo.Worker.Run", threads[1].Location);
+    }
+
+    [Fact]
+    public async Task Thread_stack_reads_another_thread_and_carries_the_epoch()
+    {
+        var (svc, dte, _) = Create();
+        dte.ThreadStacks[7] = [new() { Function = "Demo.Worker.Run", File = @"C:\src\Demo\Worker.cs", Line = 4, Language = "C#" }];
+        svc.OnEnterBreak(BreakReason.Pause);
+
+        var stack = await svc.GetThreadStackAsync(7, 20, CancellationToken.None);
+
+        Assert.Equal(1, stack.Epoch);
+        Assert.Equal(7, stack.ThreadId);
+        Assert.Equal("Worker.cs", Assert.Single(stack.Frames).File);
+    }
+
+    [Fact]
+    public async Task Thread_stack_without_thread_id_is_the_current_thread()
+    {
+        var (svc, _, _) = Create();
+        var stack = await svc.GetThreadStackAsync(null, 20, CancellationToken.None);
+        Assert.Equal(1, stack.ThreadId);
+        Assert.Equal("OrderService.cs", Assert.Single(stack.Frames).File);
+    }
+
+    [Fact]
+    public async Task Unknown_thread_is_not_found()
+    {
+        var (svc, _, _) = Create();
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.GetThreadStackAsync(99, 20, CancellationToken.None));
+        Assert.Equal(BridgeErrorCode.NotFound, ex.Code);
+    }
+
+    [Fact]
+    public void Snapshot_names_the_stopping_thread()
+    {
+        var (svc, dte, _) = Create();
+        dte.CurrentThreadId = 3;
+        Assert.Equal(3, svc.OnEnterBreak(BreakReason.Step).ThreadId);
+    }
 }

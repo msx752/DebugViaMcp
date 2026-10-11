@@ -92,4 +92,45 @@ public class InspectionToolsTests
         Assert.True(text.Length <= 16 * 1024, $"response was {text.Length} chars");
         Assert.True(Json(result).GetProperty("hasMore").GetBoolean());
     }
+
+    [Fact]
+    public async Task Stack_returns_epoch_thread_and_frames()
+    {
+        var tools = new InspectionTools(new FakeConnectionManager(new FakeDebugBridge()));
+
+        var json = Json(await tools.Stack(20, threadId: 7, ct: CancellationToken.None));
+
+        Assert.Equal(3, json.GetProperty("epoch").GetInt64());
+        Assert.Equal(7, json.GetProperty("threadId").GetInt32());
+        Assert.Equal(1, json.GetProperty("frames").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Stack_on_an_old_extension_uses_the_old_call_and_refuses_thread_id()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge()) { RemoteProtocolMinor = 0 };
+        var tools = new InspectionTools(cm);
+
+        var plain = Json(await tools.Stack(20, ct: CancellationToken.None));
+        var withThread = Json(await tools.Stack(20, threadId: 7, ct: CancellationToken.None));
+
+        Assert.Equal(1, plain.GetProperty("frames").GetArrayLength());
+        Assert.Contains("GetStack", cm.Bridge.Calls);
+        Assert.Equal("unsupported", withThread.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Threads_requires_break_mode()
+    {
+        var tools = new InspectionTools(new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Run));
+        Assert.Equal("wrong_mode", Json(await tools.Threads(CancellationToken.None)).GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Threads_lists_threads()
+    {
+        var tools = new InspectionTools(new FakeConnectionManager(new FakeDebugBridge()));
+        var json = Json(await tools.Threads(CancellationToken.None));
+        Assert.True(json.GetProperty("threads")[0].GetProperty("isCurrent").GetBoolean());
+    }
 }

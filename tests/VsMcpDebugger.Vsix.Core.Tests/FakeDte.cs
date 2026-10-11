@@ -39,6 +39,18 @@ public sealed class FakeDte : IDteFacade
     public RawBreakpoint? LastHitBreakpoint { get; set; }
     public Func<string, bool> FileExistsFunc { get; set; } = _ => true;
 
+    public int? CurrentThreadId { get; set; } = 1;
+    public List<RawThread> ThreadList { get; set; } = [new() { Id = 1, Name = "Main Thread", Location = "Demo.OrderService.Submit" }];
+    public Dictionary<int, List<RawFrame>> ThreadStacks { get; } = [];
+
+    public IReadOnlyList<RawThread> Threads() { Ui(); return ThreadList; }
+
+    public IReadOnlyList<RawFrame>? ThreadStack(int threadId, int max)
+    {
+        Ui();
+        return ThreadStacks.TryGetValue(threadId, out var frames) ? frames.Take(max).ToList() : null;
+    }
+
     public bool FileExists(string path) => FileExistsFunc(path);
     public IReadOnlyList<RawBreakpoint> Breakpoints() { Ui(); return Bps; }
 
