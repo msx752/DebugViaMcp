@@ -175,6 +175,13 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     public Task<ExceptionInfo?> GetExceptionAsync(CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Exception, context, () => service.GetExceptionAsync(cancellationToken), null, null, cancellationToken);
 
+    public Task<OutputPaneInfo[]> ListOutputPanesAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.OutputRead, context, () => service.ListOutputPanesAsync(cancellationToken), null, null, cancellationToken);
+
+    public Task<OutputPage> ReadOutputAsync(string pane, int tail, int offset, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.OutputRead, context, () => service.ReadOutputAsync(pane, tail, offset, cancellationToken),
+            Request.Of(pane ?? "", ("pane", pane), ("tail", tail.ToString(CultureInfo.InvariantCulture)), ("offset", offset.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
+
     public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Variables, context, () => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken),
             Request.Of(path ?? ScopeName(scope), ("scope", ScopeName(scope)), ("path", path)), null, cancellationToken);
@@ -270,7 +277,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         catch (BridgeException e)
         {
             Audit(BridgeErrorNames.ToName(e.Code));
-            throw Rpc(e.Code, e.Message, e.Hint);
+            throw Rpc(e.Code, e.Message, e.Hint, e.Reason);
         }
         catch (LocalRpcException e)
         {

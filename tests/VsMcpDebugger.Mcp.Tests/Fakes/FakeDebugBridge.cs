@@ -60,6 +60,10 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Task<ProcessInfo[]> ListAttachableAsync(string? processName, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("ListAttachable:" + processName); return Task.FromResult(OnListAttachable(processName)); }
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Attach:" + pid); return Task.FromResult(Seq); }
 
+    public Func<string, int, int, OutputPage> OnReadOutput { get; set; } = (pane, _, _) => new OutputPage { Pane = pane, TotalLines = 2, FirstLine = 1, Lines = ["a", "b"] };
+    public Task<OutputPaneInfo[]> ListOutputPanesAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("ListOutputPanes"); return Task.FromResult(new[] { new OutputPaneInfo { Name = "Build", Lines = 2 } }); }
+    public Task<OutputPage> ReadOutputAsync(string pane, int tail, int offset, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add($"ReadOutput:{pane}:{tail}:{offset}"); return Task.FromResult(OnReadOutput(pane, tail, offset)); }
+
     public FakeDebugBridge() => OnStatus = () => new StatusInfo { Mode = Mode, Seq = Seq };
 
     public Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)

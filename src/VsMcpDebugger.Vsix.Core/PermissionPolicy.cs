@@ -23,6 +23,8 @@ public enum Operation
 
     /// <summary>debug_attach: the debugger can read and change the attached process's memory.</summary>
     Attach,
+
+    OutputRead,
 }
 
 /// <summary>User settings the bridge reads on every call, so changes apply without reconnecting.</summary>
@@ -40,7 +42,7 @@ public static class PermissionPolicy
     {
         Operation.Status or Operation.ListBreakpoints or Operation.Stack or Operation.Variables or Operation.Evaluate
             or Operation.Threads or Operation.FrameSelect or Operation.Exception
-            or Operation.ListProcesses => PermissionTier.Read,
+            or Operation.ListProcesses or Operation.OutputRead => PermissionTier.Read,
         Operation.SetBreakpoint or Operation.RemoveBreakpoints or Operation.Start or Operation.Stop
             or Operation.Continue or Operation.Pause or Operation.Step or Operation.EnableBreakpoint
             or Operation.RunTo => PermissionTier.Control,
@@ -81,6 +83,7 @@ public static class PermissionPolicy
         Operation.EnableBreakpoint or Operation.EnableBreakpointWithExpression => "bp_enable",
         Operation.RunTo => "debug_run_to",
         Operation.ListProcesses or Operation.Attach => "debug_attach",
+        Operation.OutputRead => "output_read",
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Operation has no tool name."),
     };
 

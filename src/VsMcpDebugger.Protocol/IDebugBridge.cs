@@ -51,6 +51,12 @@ public interface IDebugBridge
     /// <summary>Protocol 2.1. The current exception in Break mode, or null when the break is not about one.</summary>
     Task<ExceptionInfo?> GetExceptionAsync(CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>Protocol 2.1. Output window panes the agent may read (never the extension's own).</summary>
+    Task<OutputPaneInfo[]> ListOutputPanesAsync(CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>Protocol 2.1. The last <paramref name="tail"/> lines of a pane, skipping the newest <paramref name="offset"/> lines.</summary>
+    Task<OutputPage> ReadOutputAsync(string pane, int tail, int offset, CallContext context, CancellationToken cancellationToken);
+
     Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken);
     Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken);
 

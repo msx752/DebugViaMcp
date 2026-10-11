@@ -48,7 +48,8 @@ builder.Services
     .WithTools<SessionTools>()
     .WithTools<BreakpointTools>()
     .WithTools<ExecutionTools>()
-    .WithTools<InspectionTools>();
+    .WithTools<InspectionTools>()
+    .WithTools<IdeTools>();
 
 await builder.Build().RunAsync().ConfigureAwait(false);
 return 0;

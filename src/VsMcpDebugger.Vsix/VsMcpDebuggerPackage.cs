@@ -30,7 +30,6 @@ namespace VsMcpDebugger.Vsix;
 public sealed class VsMcpDebuggerPackage : AsyncPackage
 {
     public const string PackageGuid = "3a7c1e52-8d4b-4f6e-9a21-6b0c2d9e4f13";
-    private static readonly Guid OutputPaneGuid = new("b5e0c9a4-2f17-4d38-8c6e-91a3d7f02b64");
 
     private PipeHost? _host;
     private DiscoveryWriter? _discovery;
@@ -47,7 +46,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
 
         var dte = (DTE2)(await GetServiceAsync(typeof(DTE)))!;
         var outputWindow = (IVsOutputWindow)(await GetServiceAsync(typeof(SVsOutputWindow)))!;
-        var paneGuid = OutputPaneGuid;
+        var paneGuid = OutputPaneIds.Log;
         outputWindow.CreatePane(ref paneGuid, "VsMcpDebugger", 1, 1);
         outputWindow.GetPane(ref paneGuid, out var pane);
 

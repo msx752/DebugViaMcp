@@ -161,6 +161,28 @@ public sealed class ProcessInfo
     public string Name { get; set; } = "";
 }
 
+public sealed class OutputPaneInfo
+{
+    public string Name { get; set; } = "";
+    public int Lines { get; set; }
+}
+
+/// <summary>A range of an Output pane, newest last. Lines are untrusted text written by tools and the program.</summary>
+public sealed class OutputPage
+{
+    public string Pane { get; set; } = "";
+    public int TotalLines { get; set; }
+
+    /// <summary>1-based line number of Lines[0].</summary>
+    public int FirstLine { get; set; }
+    public string[] Lines { get; set; } = [];
+    public bool Truncated { get; set; }
+    public bool HasMore { get; set; }
+
+    /// <summary>Offset for the next (older) page.</summary>
+    public int? NextOffset { get; set; }
+}
+
 public sealed class EvaluateResult
 {
     public bool IsValid { get; set; }

@@ -271,6 +271,30 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         };
     }, ct);
 
+    public Task<OutputPaneInfo[]> ListOutputPanesAsync(CancellationToken ct) => ui.RunAsync(() =>
+        dte.OutputPanes().Where(p => !OutputPaneIds.IsProtected(p.Id)).Select(p => new OutputPaneInfo { Name = p.Name, Lines = p.Lines }).ToArray(), ct);
+
+    public Task<OutputPage> ReadOutputAsync(string pane, int tail, int offset, CancellationToken ct) => ui.RunAsync(() =>
+    {
+        var target = ResolvePane(pane);
+        return OutputPaging.Page(target.Name, target.Lines, tail, offset, (first, count) => dte.OutputLines(target.Id, first, count));
+    }, ct);
+
+    private RawOutputPane ResolvePane(string? name)
+    {
+        var wanted = (name ?? "").Trim();
+        var panes = dte.OutputPanes();
+        Guid? alias = wanted.ToUpperInvariant() switch { "BUILD" => OutputPaneIds.Build, "DEBUG" => OutputPaneIds.Debug, _ => null };
+        var match = (alias is { } id ? panes.FirstOrDefault(p => p.Id == id) : null)
+            ?? panes.FirstOrDefault(p => string.Equals(p.Name, wanted, StringComparison.OrdinalIgnoreCase))
+            ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No Output pane named '{wanted}'.",
+                "Panes: " + string.Join(", ", panes.Where(p => !OutputPaneIds.IsProtected(p.Id)).Select(p => p.Name)));
+        if (OutputPaneIds.IsProtected(match.Id))
+            throw new BridgeException(BridgeErrorCode.Denied, "The extension's own Output panes cannot be read.",
+                "They hold this session's log and audit trail.", DeniedReasons.Policy);
+        return match;
+    }
+
     private SourceLocation ToLocation(RawFrame f) => new()
     {
         File = f.File is null ? "" : PathUtil.ToRelative(SolutionDir, f.File), Line = f.Line ?? 0, Function = f.Function,

@@ -52,6 +52,15 @@ public sealed class RawProcess
     public bool OwnedByCurrentUser { get; set; }
 }
 
+public sealed class RawOutputPane
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+
+    /// <summary>Number of lines, not counting the empty line after a trailing newline.</summary>
+    public int Lines { get; set; }
+}
+
 /// <summary>Everything the bridge needs from Visual Studio. All members must be called on the UI thread.</summary>
 public interface IDteFacade
 {
@@ -90,6 +99,11 @@ public interface IDteFacade
 
     /// <summary>$exception of the current break with up to <paramref name="maxInner"/> inner exceptions; null when there is none.</summary>
     RawExceptionInfo? CurrentException(int maxInner);
+
+    IReadOnlyList<RawOutputPane> OutputPanes();
+
+    /// <summary>Lines <paramref name="firstLine"/> (1-based) to <paramref name="firstLine"/> + <paramref name="count"/> - 1; reads only that range.</summary>
+    IReadOnlyList<string> OutputLines(Guid pane, int firstLine, int count);
     IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems);
     IReadOnlyList<VariableInfo> Members(string expression, int maxItems);
     EvaluateResult Evaluate(string expression);

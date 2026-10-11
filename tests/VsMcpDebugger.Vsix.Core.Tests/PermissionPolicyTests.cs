@@ -38,6 +38,7 @@ public class PermissionPolicyTests
     [InlineData(Operation.RunTo, PermissionTier.Control)]
     [InlineData(Operation.ListProcesses, PermissionTier.Read)]
     [InlineData(Operation.Attach, PermissionTier.Mutate)]
+    [InlineData(Operation.OutputRead, PermissionTier.Read)]
     public void Every_operation_has_its_spec_tier(Operation operation, PermissionTier tier) =>
         Assert.Equal(tier, PermissionPolicy.TierOf(operation));
 

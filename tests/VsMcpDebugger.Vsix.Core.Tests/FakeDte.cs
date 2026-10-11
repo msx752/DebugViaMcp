@@ -74,6 +74,23 @@ public sealed class FakeDte : IDteFacade
     public void Attach(int pid) { Ui(); Calls.Add("Attach:" + pid); }
     public void DetachAll() { Ui(); Calls.Add("DetachAll"); }
 
+    public List<RawOutputPane> Panes { get; set; } =
+    [
+        new() { Id = OutputPaneIds.Build, Name = "Build", Lines = 3 },
+        new() { Id = OutputPaneIds.Activity, Name = "VsMcpDebugger Activity", Lines = 2 },
+    ];
+
+    public List<(Guid Pane, int First, int Count)> OutputReads { get; } = [];
+
+    public IReadOnlyList<RawOutputPane> OutputPanes() { Ui(); return Panes; }
+
+    public IReadOnlyList<string> OutputLines(Guid pane, int firstLine, int count)
+    {
+        Ui();
+        OutputReads.Add((pane, firstLine, count));
+        return Enumerable.Range(firstLine, count).Select(n => "line " + n).ToList();
+    }
+
     public int CurrentFrameIndex { get; set; }
     public List<(int? ThreadId, int Index)> Selections { get; } = [];
 

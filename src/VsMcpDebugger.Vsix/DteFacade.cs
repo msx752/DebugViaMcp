@@ -285,6 +285,39 @@ internal sealed class DteFacade(DTE2 dte) : IDteFacade
         return open >= 0 && close > open ? type.Substring(open + 1, close - open - 1) : type;
     }
 
+    public IReadOnlyList<RawOutputPane> OutputPanes()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var result = new List<RawOutputPane>();
+        foreach (OutputWindowPane pane in dte.ToolWindows.OutputWindow.OutputWindowPanes)
+        {
+            if (!Guid.TryParse(pane.Guid, out var id)) continue;
+            result.Add(new RawOutputPane { Id = id, Name = pane.Name, Lines = LineCount(pane.TextDocument) });
+        }
+
+        return result;
+    }
+
+    public IReadOnlyList<string> OutputLines(Guid paneId, int firstLine, int count)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        foreach (OutputWindowPane pane in dte.ToolWindows.OutputWindow.OutputWindowPanes)
+        {
+            if (!Guid.TryParse(pane.Guid, out var id) || id != paneId) continue;
+            var text = pane.TextDocument.StartPoint.CreateEditPoint().GetLines(firstLine, firstLine + count);
+            return text.Split(["\r\n", "\n"], StringSplitOptions.None).Take(count).ToList();
+        }
+
+        return [];
+    }
+
+    private static int LineCount(TextDocument doc)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var end = doc.EndPoint;
+        return end.AtStartOfLine ? end.Line - 1 : end.Line;
+    }
+
     private static bool SameFrame(EnvDTE.StackFrame a, EnvDTE.StackFrame b)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
