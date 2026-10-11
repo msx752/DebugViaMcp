@@ -16,7 +16,7 @@
 |---|---|---|
 | **M1 Walking skeleton** (this plan) | Repo foundation, `, nse` spike, Protocol, Mcp core + 15 tools, Vsix.Core, VSIX package, basic logging, manual E2E | §2, §3 (subset), §4.1, §4.3, §5 (basic), §7 (subset) |
 | M2 Safety & control | Permission tiers, consent info bar, `set_value`, side-effecting `eval`, audit log, callId correlation, status-bar indicator, Disconnect AI, options page | §5 audit/correlation, §6 |
-| M3 Full tool set & tooling | `debug_attach`, `debug_run_to`, `threads`, `frame_select` + break epochs/`stale`, `exception`, `bp_enable`, `diag`, `debug_start(project)`, `vsdebug doctor`, `vsdebug setup claude` | §3 rest, §4.2, §5 doctor |
+| M3 Full tool set & tooling | `debug_attach`, `debug_run_to`, `threads`, `frame_select` + break epochs/`stale`, `exception`, `bp_enable`, `diag`, `debug_start(project)`, `vsdebug doctor`, `vsdebug setup claude`, optional `instance` (pid or solution) parameter on every tool with per-instance connections/sessions so one MCP server can drive several VS instances at once | §3 rest, §4.2, §5 doctor |
 | M4 Release readiness | Automated E2E (VS experimental instance), generated `docs/tools.md`, all docs + ADRs, CI workflows (local only; Mcp tests on Windows + macOS), packaging, MinVer | §9, §10, §11, §12 |
 | M5 VS Code adapter | TypeScript extension implementing `IDebugBridge` over `vscode.debug` (macOS, Linux, Windows); separate spec | §2.4 |
 
