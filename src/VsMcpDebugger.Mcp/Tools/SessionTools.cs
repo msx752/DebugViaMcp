@@ -2,12 +2,21 @@ using System.ComponentModel;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using VsMcpDebugger.Mcp.Connection;
+using VsMcpDebugger.Mcp.Logging;
+using VsMcpDebugger.Protocol;
 
 namespace VsMcpDebugger.Mcp.Tools;
 
 [McpServerToolType]
 public sealed class SessionTools(IConnectionManager connections)
 {
+    [McpServerTool(Name = "diag", ReadOnly = true), Description("Recent lines of this MCP server's own log (JSON), for diagnosing connection or tool problems. Contains no program values.")]
+    public Task<CallToolResult> Diag([Description("Number of lines (1-500).")] int tail = 50) => ToolResponse.RunAsync(connections, "diag", _ =>
+    {
+        var (file, lines) = DiagnosticsReader.Tail(DiscoveryPaths.LogsDirectory, tail);
+        return Task.FromResult(ToolResponse.Ok(new { file, lines }));
+    });
+
     [McpServerTool(Name = "vs_instances", ReadOnly = true), Description("Lists running Visual Studio instances that have the VsMcpDebugger extension.")]
     public Task<CallToolResult> Instances() => ToolResponse.RunAsync(connections, "vs_instances", _ =>
     {

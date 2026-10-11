@@ -40,8 +40,16 @@ public sealed class HostTests : IDisposable
 
         Assert.Equal(
             ["bp_enable", "bp_list", "bp_remove", "bp_set", "debug_attach", "debug_continue", "debug_pause", "debug_run_to", "debug_start", "debug_status",
-             "debug_step", "debug_stop", "debug_wait", "errors_list", "eval", "exception", "frame_select", "output_read", "set_value", "stack", "threads", "vars", "vs_build", "vs_instances", "vs_select"],
+             "debug_step", "debug_stop", "debug_wait", "diag", "errors_list", "eval", "exception", "frame_select", "output_read", "set_value", "stack", "threads", "vars", "vs_build", "vs_instances", "vs_select"],
             names);
+    }
+
+    [Fact]
+    public async Task Diag_works_without_visual_studio()
+    {
+        await using var client = await McpClient.CreateAsync(Transport());
+        var result = await client.CallToolAsync("diag", new Dictionary<string, object?> { ["tail"] = 5 });
+        Assert.NotEqual(true, result.IsError);
     }
 
     [Fact]
