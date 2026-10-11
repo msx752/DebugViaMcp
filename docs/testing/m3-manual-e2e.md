@@ -68,13 +68,21 @@ Findings of the first run, fixed before this one (each with a test):
 Deferred to M3.1 (see the ledger): HRESULT mapping and mode re-check at the Visual Studio boundary, event-based
 settling instead of polling, a deadline for commands that block in a modal dialog.
 
-### Manual checks 1–6
+### Manual checks 1–6 and the instruction pointer (2026-10-17)
 
 | # | Result |
 |---|---|
 | 1 | `debug_attach`: info bar answered by the driver (the audit line shows `allowOnce`) |
 | 2 | `bp_enable true`: info bar answered by the driver |
 | 3 | Activity pane: `denied` / `policy` |
-| 4 | (pending: needs the user at the keyboard) |
-| 5 | (pending: needs the user at the keyboard) |
-| 6 | (pending: needs the user at the keyboard) |
+| 4 | Import and Export Settings: the page is listed (`ProvideProfile` was missing before this run and was added). Importing a file with Mutate = Deny took effect at once (audit: `Imported settings: Mutate: Allow → Deny`). A file with Mutate = Allow left Mutate at Ask (audit: `Imported settings (Mutate = Allow ignored; set it in Options): Mutate: Deny → Ask`). The unrelated errors VS lists for the JavaScript/TypeScript categories of the exported file are Visual Studio's own. |
+| 5 | A 497-character value: the info bar showed Allow once / Allow for session / Deny; Deny gave `user_denied`, nothing assigned |
+| 6 | `scripts/e2e/m3-consent-check.ps1 -Scenario frame` (moves the selected frame through DTE while the question is open, then Allow once): frame `Calculate` → `Submit`, audit `allowOnce` + `wrong_mode`, nothing assigned; the agent receives a structured `wrong_mode` |
+| 7 | `-Scenario ip` (caret to line 21, Debug > Set Next Statement, then Allow once): audit `allowOnce` + `wrong_mode`, `sum` still 0 |
+
+Findings of this part, fixed with a test each: the extension's `wrong_mode` reached the agent as a generic SDK error because its
+wire code (-32003) is reserved by StreamJsonRpc (now -32014; pinned for every code the extension sends); the Options page was not
+registered for Import and Export Settings; an imported file could have granted Mutate = Allow without the Options confirmation.
+
+Not yet verified on a real Visual Studio: after importing a Mutate = Allow file and restarting Visual Studio, `debug_status` must
+still show `mutate: ask` (the fix saves the downgraded value; unit tests cannot reach the profile storage).
