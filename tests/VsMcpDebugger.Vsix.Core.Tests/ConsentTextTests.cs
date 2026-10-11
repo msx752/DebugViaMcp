@@ -82,6 +82,20 @@ public class ConsentTextTests
         Assert.Equal("e" + acute + bs + "u0301" + bs + "u0301", ConsentText.Visible("e" + acute + acute + acute));
     }
 
+    /// <summary>Security review: a mark with no visible base of its own would decorate the text around it.</summary>
+    [Fact]
+    public void Marks_without_a_visible_base_are_escaped()
+    {
+        const string bs = "\\";
+        var acute = ((char)0x0301).ToString();
+        var supplementaryMark = char.ConvertFromUtf32(0x1D167);   // MUSICAL SYMBOL COMBINING TREMOLO-1
+
+        Assert.Equal(bs + "u0301x", ConsentText.Visible(acute + "x"));
+        Assert.Equal(bs + "n" + bs + "u0301", ConsentText.Visible((char)10 + acute));
+        Assert.Equal(" " + bs + "u0301", ConsentText.Visible(" " + acute));
+        Assert.Equal("e" + acute + bs + "U0001d167", ConsentText.Visible("e" + acute + supplementaryMark));
+    }
+
     [Fact]
     public void Client_name_is_sanitised_capped_and_defaulted()
     {

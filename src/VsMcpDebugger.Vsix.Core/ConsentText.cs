@@ -33,50 +33,49 @@ public static class ConsentText
     /// <summary>
     /// Escapes everything that is invisible or ambiguous on screen: control and format characters (incl. bidi
     /// overrides and tag characters outside the BMP), line/paragraph separators, spaces other than U+0020,
-    /// private-use, unassigned and lone surrogate code points, and every combining mark after the first in a row
-    /// (stacked marks can paint over neighbouring text). A literal backslash is doubled, so an escape shown to the
-    /// user can only come from this method. Works on code points, not UTF-16 units.
+    /// private-use, unassigned and lone surrogate code points, and every combining mark that does not sit directly
+    /// on a visible base character (a stray or stacked mark would decorate the text around it). A literal backslash
+    /// is doubled, so an escape shown to the user can only come from this method. Works on code points.
     /// </summary>
     public static string Visible(string? text)
     {
         if (string.IsNullOrEmpty(text)) return "";
         var s = text!;
         var sb = new StringBuilder(s.Length);
-        var previousWasMark = false;
+        var afterVisibleBase = false;
         for (var i = 0; i < s.Length; i++)
         {
             var c = s[i];
-            var isMark = IsMark(CharUnicodeInfo.GetUnicodeCategory(c));
-            if (isMark && previousWasMark)
-            {
-                sb.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
-                continue;
-            }
-
-            previousWasMark = isMark;
             switch (c)
             {
-                case '\\': sb.Append("\\\\"); continue;
-                case '\n': sb.Append("\\n"); continue;
-                case '\r': sb.Append("\\r"); continue;
-                case '\t': sb.Append("\\t"); continue;
+                case '\\': sb.Append("\\\\"); afterVisibleBase = false; continue;
+                case '\n': sb.Append("\\n"); afterVisibleBase = false; continue;
+                case '\r': sb.Append("\\r"); afterVisibleBase = false; continue;
+                case '\t': sb.Append("\\t"); afterVisibleBase = false; continue;
             }
 
-            if (char.IsHighSurrogate(c) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
+            var isPair = char.IsHighSurrogate(c) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]);
+            var unit = isPair ? s.Substring(i, 2) : c.ToString();
+            var category = CharUnicodeInfo.GetUnicodeCategory(unit, 0);
+            var escape = (!isPair && char.IsSurrogate(c)) || IsHidden(category)
+                || (category == UnicodeCategory.SpaceSeparator && c != ' ')
+                || (IsMark(category) && !afterVisibleBase);
+
+            if (escape)
             {
-                var pair = s.Substring(i, 2);
-                if (IsHidden(CharUnicodeInfo.GetUnicodeCategory(pair, 0)))
+                if (isPair)
                     sb.Append("\\U").Append(char.ConvertToUtf32(c, s[i + 1]).ToString("x8", CultureInfo.InvariantCulture));
                 else
-                    sb.Append(pair);
-                i++;
-                continue;
+                    sb.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
+                afterVisibleBase = false;
+            }
+            else
+            {
+                sb.Append(unit);
+                afterVisibleBase = !IsMark(category) && c != ' ';
             }
 
-            if (char.IsSurrogate(c) || IsHidden(CharUnicodeInfo.GetUnicodeCategory(c)) || (c != ' ' && CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.SpaceSeparator))
-                sb.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
-            else
-                sb.Append(c);
+            if (isPair) i++;
         }
 
         return sb.ToString();
