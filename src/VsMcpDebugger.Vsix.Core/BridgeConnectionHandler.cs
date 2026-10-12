@@ -208,6 +208,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         Guard(Operation.Build, context, () => service.BuildAsync(project, timeoutSec, cancellationToken),
             Request.Of(project ?? "solution", ("project", project), ("timeoutSec", timeoutSec.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
 
+    // Protocol 2.2 methods; later M3.1 tasks replace these stubs.
+    public Task<long> StartProjectAsync(string project, CallContext context, CancellationToken cancellationToken) =>
+        throw Rpc(BridgeErrorCode.Unsupported, "Not implemented yet.", null);
+
+    public Task<BuildWarning[]> CheckBuildFreshnessAsync(string? project, string? file, CallContext context, CancellationToken cancellationToken) =>
+        throw Rpc(BridgeErrorCode.Unsupported, "Not implemented yet.", null);
+
+    public Task ReleaseAsync(CallContext context, CancellationToken cancellationToken) =>
+        throw Rpc(BridgeErrorCode.Unsupported, "Not implemented yet.", null);
+
     public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Variables, context, () => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken),
             Request.Of(path ?? ScopeName(scope), ("scope", ScopeName(scope)), ("path", path)), null, cancellationToken);

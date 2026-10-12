@@ -117,6 +117,7 @@ public class BridgeConnectionTests
     [InlineData(BridgeErrorCode.AiDisabled)]
     [InlineData(BridgeErrorCode.Stale)]
     [InlineData(BridgeErrorCode.Unsupported)]
+    [InlineData(BridgeErrorCode.InUse)]
     [InlineData(BridgeErrorCode.Internal)]
     public async Task Every_code_the_extension_sends_reaches_the_server_as_a_coded_error(BridgeErrorCode code)
     {
@@ -129,6 +130,40 @@ public class BridgeConnectionTests
 
         Assert.Equal(code, BridgeErrors.Read(ex).Code);
         Assert.Equal("try this", BridgeErrors.Read(ex).Hint);
+    }
+
+    [Fact]
+    public async Task New_bridge_methods_round_trip_over_the_pipe()
+    {
+        var fake = new FakeDebugBridge
+        {
+            OnStartProject = project => project == "OrderDemo" ? 77 : 0,
+            OnCheckBuild = (project, _) => [new BuildWarning { Code = "stale_build", Message = "m", Project = project }],
+        };
+        await using var server = new PipeTestServer(fake);
+        await using var connection = await BridgeConnection.ConnectAsync(server.Record, new SessionState(), NullLogger.Instance, CancellationToken.None);
+        var context = new CallContext { CallId = "c-000001" };
+
+        var seq = await connection.Bridge.StartProjectAsync("OrderDemo", context, CancellationToken.None);
+        var warnings = await connection.Bridge.CheckBuildFreshnessAsync("OrderDemo", null, context, CancellationToken.None);
+        await connection.Bridge.ReleaseAsync(context, CancellationToken.None);
+
+        Assert.Equal(77, seq);
+        Assert.Equal("stale_build", Assert.Single(warnings).Code);
+        Assert.Equal("OrderDemo", warnings[0].Project);
+        Assert.Equal(1, fake.Released);
+    }
+
+    [Fact]
+    public async Task Handshake_carries_the_client_working_directory()
+    {
+        var fake = new FakeDebugBridge();
+        await using var server = new PipeTestServer(fake);
+        await using var connection = await BridgeConnection.ConnectAsync(server.Record, new SessionState(), NullLogger.Instance, CancellationToken.None);
+
+        await connection.Bridge.HandshakeAsync(new HandshakeRequest { Token = fake.ExpectedToken, ProtocolMajor = ProtocolInfo.Major, ClientWorkingDirectory = @"D:\x" }, CancellationToken.None);
+
+        Assert.Equal(@"D:\x", fake.LastHandshake!.ClientWorkingDirectory);
     }
 
     [Fact]

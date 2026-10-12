@@ -16,6 +16,12 @@ public sealed class InstanceRecord
     public int ProtocolMajor { get; set; }
     public int ProtocolMinor { get; set; }
     public DateTimeOffset StartedAt { get; set; }
+
+    /// <summary>Protocol 2.2. Client name of the agent that holds this Visual Studio; null when it is free.</summary>
+    public string? LeaseHolder { get; set; }
+
+    /// <summary>Protocol 2.2. Working directory the holder reported; null when free or unknown.</summary>
+    public string? LeaseHolderFolder { get; set; }
 }
 
 /// <summary>VsMcpDebugger home per OS (spec §2.4). Every adapter, in any language, must resolve the same directory.</summary>

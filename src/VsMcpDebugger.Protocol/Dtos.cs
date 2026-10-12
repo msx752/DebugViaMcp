@@ -6,6 +6,22 @@ public sealed class HandshakeRequest
     public int ProtocolMajor { get; set; }
     public int ProtocolMinor { get; set; }
     public string ClientName { get; set; } = "";
+
+    /// <summary>Protocol 2.2. Working directory of the agent's process; self-reported, used to choose and to approve the connection.</summary>
+    public string? ClientWorkingDirectory { get; set; }
+}
+
+/// <summary>Protocol 2.2. A non-blocking hint about a tool call, such as an out-of-date build.</summary>
+public sealed class BuildWarning
+{
+    public string Code { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string? Project { get; set; }
+}
+
+public static class BuildWarningCodes
+{
+    public const string StaleBuild = "stale_build";
 }
 
 public sealed class HandshakeResponse

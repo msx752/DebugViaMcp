@@ -25,6 +25,9 @@ public enum BridgeErrorCode
     AiDisabled = -32011,
     Stale = -32012,
     Unsupported = -32013,
+
+    /// <summary>Protocol 2.2. Another agent holds this Visual Studio.</summary>
+    InUse = -32015,
     Internal = -32099,
 }
 
@@ -45,6 +48,7 @@ public static class BridgeErrorNames
         BridgeErrorCode.AiDisabled => "ai_disabled",
         BridgeErrorCode.Stale => "stale",
         BridgeErrorCode.Unsupported => "unsupported",
+        BridgeErrorCode.InUse => "in_use",
         _ => "internal",
     };
 }

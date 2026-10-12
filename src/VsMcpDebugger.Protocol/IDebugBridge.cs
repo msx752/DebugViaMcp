@@ -66,6 +66,15 @@ public interface IDebugBridge
     /// </summary>
     Task<BuildResult> BuildAsync(string? project, int timeoutSec, CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>Protocol 2.2. Starts <paramref name="project"/> without changing the startup project (Design mode, tier control). Returns the event sequence observed before starting.</summary>
+    Task<long> StartProjectAsync(string project, CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>Protocol 2.2. Out-of-date builds in scope: <paramref name="project"/>, else every project containing <paramref name="file"/>, else the startup project.</summary>
+    Task<BuildWarning[]> CheckBuildFreshnessAsync(string? project, string? file, CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>Protocol 2.2. Gives up this connection's hold on the Visual Studio so another agent can use it.</summary>
+    Task ReleaseAsync(CallContext context, CancellationToken cancellationToken);
+
     Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken);
     Task<EvaluateResult> EvaluateAsync(string expression, bool allowSideEffects, CallContext context, CancellationToken cancellationToken);
 

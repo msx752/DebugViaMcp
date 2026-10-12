@@ -74,11 +74,21 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Func<string?, int, BuildResult> OnBuild { get; set; } = (_, _) => new BuildResult { State = BuildState.Done, Succeeded = true, DurationMs = 1200 };
     public Task<BuildResult> BuildAsync(string? project, int timeoutSec, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add($"Build:{project}:{timeoutSec}"); return Task.FromResult(OnBuild(project, timeoutSec)); }
 
+    public HandshakeRequest? LastHandshake { get; private set; }
+    public int Released { get; private set; }
+    public Func<string, long> OnStartProject { get; set; } = _ => 10;
+    public Func<string?, string?, BuildWarning[]> OnCheckBuild { get; set; } = (_, _) => [];
+
+    public Task<long> StartProjectAsync(string project, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("StartProject:" + project); return Task.FromResult(OnStartProject(project)); }
+    public Task<BuildWarning[]> CheckBuildFreshnessAsync(string? project, string? file, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add($"CheckBuild:{project ?? file}"); return Task.FromResult(OnCheckBuild(project, file)); }
+    public Task ReleaseAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Release"); Released++; return Task.CompletedTask; }
+
     public FakeDebugBridge() => OnStatus = () => new StatusInfo { Mode = Mode, Seq = Seq };
 
     public Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)
     {
         Calls.Add(nameof(HandshakeAsync));
+        LastHandshake = request;
         if (request.Token != ExpectedToken)
             throw new LocalRpcException("Invalid token.") { ErrorCode = (int)BridgeErrorCode.Unauthorized };
         if (HandshakeFailure is { } failure)

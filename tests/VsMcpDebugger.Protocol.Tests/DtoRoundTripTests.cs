@@ -87,6 +87,27 @@ public class DtoRoundTripTests
         => Assert.Equal(name, BridgeErrorNames.ToName(code));
 
     [Fact]
+    public void InstanceRecord_without_lease_fields_omits_them_and_a_2_1_record_reads_with_them_null()
+    {
+        var json = ProtocolJson.Serialize(new InstanceRecord { Pid = 1, PipeName = "p", Token = "t" });
+
+        Assert.DoesNotContain("leaseHolder", json, StringComparison.OrdinalIgnoreCase);
+        var old = ProtocolJson.Deserialize<InstanceRecord>("{\"pid\":7,\"pipeName\":\"p\",\"token\":\"t\",\"protocolMajor\":2,\"protocolMinor\":1}")!;
+        Assert.Equal(7, old.Pid);
+        Assert.Null(old.LeaseHolder);
+        Assert.Null(old.LeaseHolderFolder);
+    }
+
+    [Fact]
+    public void InstanceRecord_lease_fields_round_trip()
+    {
+        var copy = RoundTrip(new InstanceRecord { Pid = 1, LeaseHolder = "codex", LeaseHolderFolder = @"D:\x" });
+
+        Assert.Equal("codex", copy.LeaseHolder);
+        Assert.Equal(@"D:\x", copy.LeaseHolderFolder);
+    }
+
+    [Fact]
     public void Run_to_reason_is_camel_case_on_the_wire()
     {
         Assert.Contains("\"reason\":\"runTo\"", ProtocolJson.Serialize(new BreakSnapshot { Reason = BreakReason.RunTo }), StringComparison.Ordinal);
