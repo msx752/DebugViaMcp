@@ -46,6 +46,58 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         if (!string.IsNullOrEmpty(project.FullName)) names.Add(project.UniqueName);
     }
 
+    public string? StartupProject
+    {
+        get
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            return dte.Solution.SolutionBuild.StartupProjects is object[] { Length: > 0 } names ? names[0] as string : null;
+        }
+        set
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (value is not null) dte.Solution.SolutionBuild.StartupProjects = value;
+            else dte.Solution.SolutionBuild.StartupProjects = Array.Empty<string>();
+        }
+    }
+
+    // Startable means the project's output is an executable: its OutputType property is WinExe (1) or Exe (0). Class
+    // libraries (2) and projects without that property are not offered.
+    public bool IsLaunchable(string uniqueName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var project = FindProject(uniqueName);
+        if (project is null) return false;
+        return ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return project.Properties.Item("OutputType").Value; }, out var value) && value is int type && type is 0 or 1;
+    }
+
+    private Project? FindProject(string uniqueName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        foreach (Project p in dte.Solution.Projects)
+        {
+            if (FindIn(p, uniqueName) is { } found) return found;
+        }
+
+        return null;
+    }
+
+    private static Project? FindIn(Project project, string uniqueName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        if (project.Kind == ProjectKinds.vsProjectKindSolutionFolder)
+        {
+            foreach (ProjectItem item in project.ProjectItems)
+            {
+                if (item.SubProject is { } sub && FindIn(sub, uniqueName) is { } found) return found;
+            }
+
+            return null;
+        }
+
+        return string.Equals(project.UniqueName, uniqueName, StringComparison.OrdinalIgnoreCase) ? project : null;
+    }
+
     public void StartBuild(string? projectUniqueName)
     {
         ThreadHelper.ThrowIfNotOnUIThread();

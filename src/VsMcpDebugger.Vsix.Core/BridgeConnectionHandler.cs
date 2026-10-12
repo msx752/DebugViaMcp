@@ -216,7 +216,8 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
     // Protocol 2.2 methods; later M3.1 tasks replace these stubs.
     public Task<long> StartProjectAsync(string project, CallContext context, CancellationToken cancellationToken) =>
-        throw Rpc(BridgeErrorCode.Unsupported, "Not implemented yet.", null);
+        Guard(Operation.Start, context, () => service.StartProjectAsync(project, cancellationToken),
+            Request.Of(project ?? "", ("project", project)), null, cancellationToken);
 
     public Task<BuildWarning[]> CheckBuildFreshnessAsync(string? project, string? file, CallContext context, CancellationToken cancellationToken) =>
         throw Rpc(BridgeErrorCode.Unsupported, "Not implemented yet.", null);

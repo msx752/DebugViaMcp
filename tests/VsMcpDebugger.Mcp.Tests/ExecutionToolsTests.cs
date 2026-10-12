@@ -23,6 +23,57 @@ public class ExecutionToolsTests
     };
 
     [Fact]
+    public async Task Start_with_a_project_calls_start_project()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design);
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        var result = await tools.Start("OrderDemo", CancellationToken.None);
+
+        Assert.NotEqual(true, result.IsError);
+        Assert.Contains("StartProject:OrderDemo", cm.Bridge.Calls);
+        Assert.DoesNotContain("Start", cm.Bridge.Calls);
+    }
+
+    [Fact]
+    public async Task Start_without_a_project_calls_the_plain_start()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design);
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        await tools.Start(null, CancellationToken.None);
+        await tools.Start("  ", CancellationToken.None);
+
+        Assert.Equal(2, cm.Bridge.Calls.Count(c => c == "Start"));
+        Assert.DoesNotContain(cm.Bridge.Calls, c => c.StartsWith("StartProject", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Start_with_a_project_against_a_2_1_extension_is_unsupported()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design) { RemoteProtocolMinor = ProtocolInfo.MinorM3 };
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        var json = Json(await tools.Start("OrderDemo", CancellationToken.None));
+
+        Assert.Equal("unsupported", json.GetProperty("error").GetProperty("code").GetString());
+        Assert.DoesNotContain(cm.Bridge.Calls, c => c.StartsWith("Start", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Start_project_not_found_is_returned_as_not_found()
+    {
+        var bridge = new FakeDebugBridge { OnStartProject = _ => throw new McpBridgeException(BridgeErrorCode.NotFound, "No project named 'Nope' in the solution.", "Projects: OrderDemo, FaultDemo") };
+        var cm = new FakeConnectionManager(bridge, DebuggerMode.Design);
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        var error = Json(await tools.Start("Nope", CancellationToken.None)).GetProperty("error");
+
+        Assert.Equal("not_found", error.GetProperty("code").GetString());
+        Assert.Contains("OrderDemo", error.GetProperty("hint").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Step_returns_snapshot_of_next_break()
     {
         var cm = new FakeConnectionManager(new FakeDebugBridge());

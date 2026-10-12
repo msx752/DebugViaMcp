@@ -130,6 +130,12 @@ public interface IDteFacade
     /// <summary>UniqueName of every project in the solution (solution folders flattened).</summary>
     IReadOnlyList<string> ProjectNames();
 
+    /// <summary>Unique name of the solution's startup project; null when none. Setting it changes the solution's setting.</summary>
+    string? StartupProject { get; set; }
+
+    /// <summary>True when <paramref name="uniqueName"/> is a project Visual Studio can start (an executable or web project, not a library).</summary>
+    bool IsLaunchable(string uniqueName);
+
     /// <summary>Starts a build of the solution (null) or one project, active configuration, without waiting.</summary>
     void StartBuild(string? projectUniqueName);
     IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems);

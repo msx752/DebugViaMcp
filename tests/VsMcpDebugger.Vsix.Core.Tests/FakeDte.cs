@@ -130,7 +130,33 @@ public sealed class FakeDte : IDteFacade
     public Func<BreakpointSpec, int>? BoundCountFor { get; set; }
 
     public int RemoveBreakpoints(Func<RawBreakpoint, bool> match) => Bps.RemoveAll(b => match(b));
-    public void Go() => Calls.Add("Go");
+    public void Go()
+    {
+        Calls.Add("Go");
+        StartupAtGo.Add(_startupProject);
+        OnGo?.Invoke();
+    }
+
+    private string? _startupProject;
+
+    public string? StartupProject
+    {
+        get { Ui(); return _startupProject; }
+        set { Ui(); StartupHistory.Add(value); _startupProject = value; }
+    }
+
+    /// <summary>Every assignment to <see cref="StartupProject"/>, in order.</summary>
+    public List<string?> StartupHistory { get; } = [];
+
+    /// <summary>The startup project at the moment of each <see cref="Go"/>.</summary>
+    public List<string?> StartupAtGo { get; } = [];
+
+    public Action? OnGo { get; set; }
+
+    /// <summary>Projects that can be started; null means all of them.</summary>
+    public List<string>? LaunchableProjects { get; set; }
+
+    public bool IsLaunchable(string uniqueName) { Ui(); return LaunchableProjects?.Contains(uniqueName) ?? true; }
     public void Break() => Calls.Add("Break");
     public void Stop() => Calls.Add("Stop");
     public void Step(StepKind kind) { Ui(); Calls.Add("Step:" + kind); }

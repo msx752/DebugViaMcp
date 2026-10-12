@@ -229,6 +229,36 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     }, ct);
 
     public Task<long> StartAsync(CancellationToken ct) => Command(DebuggerMode.Design, dte.Go, ct);
+    /// <summary>
+    /// Starts <paramref name="project"/> without leaving the solution's startup project changed: it is switched for the
+    /// launch and put back afterwards, whatever happens.
+    /// </summary>
+    public Task<long> StartProjectAsync(string project, CancellationToken ct) => ui.RunAsync(() =>
+    {
+        RequireMode(DebuggerMode.Design);
+        var unique = ResolveProject(project);
+        if (!dte.IsLaunchable(unique))
+        {
+            var launchable = dte.ProjectNames().Where(dte.IsLaunchable).Select(Path.GetFileNameWithoutExtension);
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, $"Project '{Path.GetFileNameWithoutExtension(unique)}' cannot be started.",
+                "Projects that can be started: " + string.Join(", ", launchable));
+        }
+
+        var observed = seq.Current;
+        var original = dte.StartupProject;
+        try
+        {
+            dte.StartupProject = unique;
+            dte.Go();
+        }
+        finally
+        {
+            dte.StartupProject = original;
+        }
+
+        return observed;
+    }, ct);
+
     public Task<long> ContinueAsync(CancellationToken ct) => Command(DebuggerMode.Break, dte.Go, ct);
     public Task<long> PauseAsync(CancellationToken ct) => Command(DebuggerMode.Run, dte.Break, ct);
     public Task<long> StepAsync(StepKind kind, CancellationToken ct) => Command(DebuggerMode.Break, () => dte.Step(kind), ct);
