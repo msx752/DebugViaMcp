@@ -24,6 +24,9 @@ public sealed class SecurityHarness : IDisposable
             }, connectionId: 1));
     }
 
+    /// <summary>A folder inside the solution folder of <see cref="FakeDte"/>: connections from it are approved without a question.</summary>
+    public const string TrustedFolder = @"C:\src\Demo";
+
     private int _drops;
     private int _lastConnectionId = 1;
     private readonly List<BridgeConnectionHandler> _extra = [];
@@ -46,11 +49,11 @@ public sealed class SecurityHarness : IDisposable
 
     public static CallContext Ctx(string id = "c-000001") => new() { CallId = id };
 
-    public Task<HandshakeResponse> HandshakeAsync(string client = "claude-code", string? folder = null) =>
+    public Task<HandshakeResponse> HandshakeAsync(string client = "claude-code", string? folder = TrustedFolder) =>
         Handler.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ClientName = client, ClientWorkingDirectory = folder }, CancellationToken.None);
 
     /// <summary>Another connection to the same Visual Studio (shared security, service and DTE), already through its handshake.</summary>
-    public async Task<BridgeConnectionHandler> AddConnectionAsync(string client = "claude-code", string? folder = null)
+    public async Task<BridgeConnectionHandler> AddConnectionAsync(string client = "claude-code", string? folder = TrustedFolder)
     {
         var id = Interlocked.Increment(ref _lastConnectionId);
         var handler = new BridgeConnectionHandler(Service, "secret", Security, new NullLog(), new ConnectionHooks(_ => { }, () => Task.CompletedTask, id));

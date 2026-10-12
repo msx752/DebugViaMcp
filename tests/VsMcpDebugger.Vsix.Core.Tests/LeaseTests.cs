@@ -75,6 +75,7 @@ public class LeaseTests
     public async Task The_error_names_the_holder_and_the_folder_and_escapes_them()
     {
         using var s = new SecurityHarness();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;   // this folder is not the solution's
         await s.HandshakeAsync("bo\nt", @"D:\x" + (char)0x202E + "y");
         var b = await s.AddConnectionAsync("codex");
         await SetBp(s.Handler);
@@ -91,6 +92,7 @@ public class LeaseTests
     public async Task The_error_caps_a_very_long_folder()
     {
         using var s = new SecurityHarness();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;   // this folder is not the solution's
         await s.HandshakeAsync("claude-code", @"D:\" + new string('x', 500));
         var b = await s.AddConnectionAsync("codex");
         await SetBp(s.Handler);

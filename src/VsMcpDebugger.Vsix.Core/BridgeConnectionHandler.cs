@@ -24,6 +24,8 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     private readonly object _attachGate = new();
     private string _client = "";
     private string? _clientFolder;
+    private volatile bool _approved;
+    private readonly SemaphoreSlim _approvalGate = new(1, 1);
     private int _disposed;
     private readonly int _connectionId = hooks?.ConnectionId ?? 0;
 
@@ -77,6 +79,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             {
                 _client = ConsentText.ClientName(request.ClientName);
                 _clientFolder = request.ClientWorkingDirectory;
+                _approved = FolderMatch.Trusts(request.ClientWorkingDirectory, response.SolutionPath);
                 _registration = security.Access.TryAttach(_client, Revoke)
                     ?? throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.");
                 _authenticated = true;
@@ -289,11 +292,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
         try
         {
-            switch (PermissionPolicy.Decide(operation, security.Settings.Permissions))
+            var level = PermissionPolicy.Decide(operation, security.Settings.Permissions);
+            if (level == PermissionLevel.Deny)
             {
-                case PermissionLevel.Deny:
-                    decision = AuditDecision.DeniedPolicy;
-                    throw PolicyDenied(tier);
+                decision = AuditDecision.DeniedPolicy;
+                throw PolicyDenied(tier);
+            }
+
+            if (operation != Operation.Release) await EnsureApprovedAsync(ct).ConfigureAwait(false);
+            switch (level)
+            {
                 case PermissionLevel.Ask:
                     EnsureLeaseAvailable(operation);
                     var text = prepare is null ? null : await prepare().ConfigureAwait(false);
@@ -341,6 +349,37 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             log.Error($"[{callId}] Unexpected bridge failure", e);
             Audit("internal");
             throw Rpc(BridgeErrorCode.Internal, e.Message, "See the VsMcpDebugger output pane in Visual Studio.");
+        }
+    }
+
+    /// <summary>
+    /// An agent whose folder is not the solution's must be approved once by the owner, on its first call. Calls that
+    /// arrive meanwhile wait for that single answer.
+    /// </summary>
+    private async Task EnsureApprovedAsync(CancellationToken ct)
+    {
+        if (_approved) return;
+        await _approvalGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_approved) return;
+            ThrowIfRevoked();
+            // No policy shortcut here: Read = Allow must not skip the owner's approval of an unknown folder.
+            var outcome = await security.Consent.RequestAsync(_consent, Operation.Connect, ConsentText.Connect(_client, _clientFolder), ct).ConfigureAwait(false);
+            var decision = ToDecision(outcome);
+            security.Audit.Record(new AuditEntry
+            {
+                Ts = DateTimeOffset.UtcNow, Client = _client, Operation = PermissionPolicy.ToolName(Operation.Connect),
+                Tier = PermissionPolicy.TierName(PermissionTier.Read), Decision = decision,
+                Outcome = outcome is ConsentOutcome.AllowedOnce or ConsentOutcome.AllowedForSession or ConsentOutcome.AllowedBySessionGrant ? "ok" : "denied",
+                Summary = ConsentText.Connect(_client, _clientFolder),
+            });
+            ThrowIfDenied(outcome, PermissionTier.Read);
+            _approved = true;
+        }
+        finally
+        {
+            _approvalGate.Release();
         }
     }
 
@@ -459,6 +498,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         _consent.Dispose();
         _registration?.Dispose();
         ReleaseLease();
+        _approvalGate.Dispose();
         _ = service.ReleaseRunToAsync(this).ContinueWith(
             t => log.Warn($"Removing the run-to breakpoint of '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);

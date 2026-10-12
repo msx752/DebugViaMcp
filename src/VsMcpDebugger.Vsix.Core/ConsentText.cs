@@ -39,6 +39,12 @@ public static class ConsentText
             ? $"{client} wants to run {tool}"
             : $"{client} wants to run {tool}: {Visible(summary)}";
 
+    /// <summary>Question for an agent whose folder is not the solution's; <paramref name="client"/> is already escaped.</summary>
+    public static string Connect(string client, string? folder) =>
+        string.IsNullOrEmpty(folder)
+            ? $"{client} (it did not report a folder) wants to control this Visual Studio"
+            : $"{client} (folder {CappedFolder(folder)}) wants to control this Visual Studio";
+
     /// <summary>Refusal shown to an agent while another one holds this Visual Studio; <paramref name="holderClient"/> is already escaped.</summary>
     public static string InUse(string holderClient, string? holderFolder) =>
         string.IsNullOrEmpty(holderFolder)

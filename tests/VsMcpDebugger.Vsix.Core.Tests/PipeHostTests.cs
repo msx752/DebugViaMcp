@@ -54,7 +54,7 @@ public class PipeHostTests
             var bridge = rpc.Attach<IDebugBridge>();
             rpc.StartListening();
             if (handshake)
-                await bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
+                await bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
             return (rpc, bridge, events);
         }
 
@@ -96,7 +96,7 @@ public class PipeHostTests
             rpc.AddLocalRpcTarget(events);
             var bridge = rpc.Attach<IDebugBridge>();
             rpc.StartListening();
-            await bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ClientName = name }, CancellationToken.None);
+            await bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major, ClientName = name }, CancellationToken.None);
             return (rpc, bridge, events);
         }
 
@@ -168,7 +168,7 @@ public class PipeHostTests
         }
 
         var first = await ConnectAsync();
-        await first.Bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ClientName = "claude-code" }, CancellationToken.None);
+        await first.Bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major, ClientName = "claude-code" }, CancellationToken.None);
 
         security.DisconnectAi();
 
@@ -177,12 +177,12 @@ public class PipeHostTests
 
         var second = await ConnectAsync();
         var refused = await Assert.ThrowsAsync<RemoteInvocationException>(() =>
-            second.Bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None));
+            second.Bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None));
         Assert.Equal((int)BridgeErrorCode.AiDisabled, refused.ErrorCode);
 
         security.ReconnectAi();
         var third = await ConnectAsync();
-        await third.Bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
+        await third.Bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
         second.Rpc.Dispose();
         third.Rpc.Dispose();
     }

@@ -31,7 +31,7 @@ public class BridgeConnectionHandlerTests
     {
         var h = Create(new FakeDte { EnforceUiThread = true });
 
-        var r = await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
+        var r = await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
 
         Assert.Equal("18.10", r.VsVersion);
         Assert.Equal(@"C:\src\Demo\Demo.sln", r.SolutionPath);
@@ -41,7 +41,7 @@ public class BridgeConnectionHandlerTests
     public async Task Every_operation_touches_vs_only_on_the_ui_thread()
     {
         var h = Create(new FakeDte { EnforceUiThread = true });
-        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
+        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
 
         await h.GetStatusAsync(Ctx, CancellationToken.None);
         await h.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, Ctx, CancellationToken.None);
@@ -78,7 +78,7 @@ public class BridgeConnectionHandlerTests
     {
         var h = Create();
         var ex = await Assert.ThrowsAsync<LocalRpcException>(() =>
-            h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major + 1 }, CancellationToken.None));
+            h.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major + 1 }, CancellationToken.None));
         Assert.Equal((int)BridgeErrorCode.VersionMismatch, ex.ErrorCode);
     }
 
@@ -92,8 +92,8 @@ public class BridgeConnectionHandlerTests
             h.HandshakeAsync(new HandshakeRequest { Token = "nope", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None));
         Assert.Equal(0, fired);
 
-        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
-        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
+        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
+        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
         Assert.Equal(1, fired);
     }
 
@@ -101,7 +101,7 @@ public class BridgeConnectionHandlerTests
     public async Task Valid_handshake_returns_versions_and_unlocks_calls()
     {
         var h = Create();
-        var r = await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ClientName = "t" }, CancellationToken.None);
+        var r = await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major, ClientName = "t" }, CancellationToken.None);
 
         Assert.Equal(ProtocolInfo.Major, r.ProtocolMajor);
         Assert.Equal("0.1.0", r.VsixVersion);
@@ -112,7 +112,7 @@ public class BridgeConnectionHandlerTests
     public async Task Bridge_exception_becomes_coded_rpc_error_with_hint()
     {
         var h = Create(new FakeDte { FileExistsFunc = _ => false });
-        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
+        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major }, CancellationToken.None);
 
         var ex = await Assert.ThrowsAsync<LocalRpcException>(() =>
             h.SetBreakpointAsync(new BreakpointSpec { File = "missing.cs", Line = 1 }, Ctx, CancellationToken.None));
@@ -557,7 +557,7 @@ public class BridgeConnectionHandlerTests
         var minors = new List<int>();
         var h = Create(onAuthenticated: minors.Add);
 
-        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ProtocolMinor = 0 }, CancellationToken.None);
+        await h.HandshakeAsync(new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major, ProtocolMinor = 0 }, CancellationToken.None);
 
         Assert.Equal([0], minors);
     }
@@ -730,7 +730,7 @@ public class BridgeConnectionHandlerTests
             var security = new BridgeSecurity(settings, new ConsentGate(new FakePrompt(), () => settings.ConsentTimeout),
                 new AuditLog(Path.Combine(Path.GetTempPath(), "vsmcpdebugger-tests-audit"), () => 7, new NullActivity(), new NullLog()), access);
             var h = new BridgeConnectionHandler(new DebugBridgeService(new FakeDte(), ui, new EventSeq(), new NullLog(), "0.1.0"), "secret", security, new NullLog());
-            var request = new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ClientName = "claude-code" };
+            var request = new HandshakeRequest { Token = "secret", ClientWorkingDirectory = SecurityHarness.TrustedFolder, ProtocolMajor = ProtocolInfo.Major, ClientName = "claude-code" };
 
             var a = h.HandshakeAsync(request, CancellationToken.None);
             var b = h.HandshakeAsync(request, CancellationToken.None);
