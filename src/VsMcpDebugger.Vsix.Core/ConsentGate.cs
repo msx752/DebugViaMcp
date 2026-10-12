@@ -46,7 +46,7 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
     }
 
     public async Task<ConsentOutcome> RequestAsync(ConsentSession session, Operation operation, string text, CancellationToken ct,
-        Func<PermissionLevel>? currentLevel = null)
+        Func<PermissionLevel>? currentLevel = null, Func<bool>? stillNeeded = null)
     {
         if (session is null) throw new ArgumentNullException(nameof(session));
         if (session.RevokedToken.IsCancellationRequested) return ConsentOutcome.Disconnected;
@@ -66,6 +66,9 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
             await _one.WaitAsync(linked.Token).ConfigureAwait(false);
             entered = true;
             if (session.IsGranted(operation)) return ConsentOutcome.AllowedBySessionGrant;
+
+            // Something else may have made the question pointless while it waited (for example another agent took the lease).
+            if (stillNeeded is not null && !stillNeeded()) return ConsentOutcome.Cancelled;
 
             // Settings may have changed while this request waited behind another question (M2 review minor 1).
             switch (currentLevel?.Invoke())

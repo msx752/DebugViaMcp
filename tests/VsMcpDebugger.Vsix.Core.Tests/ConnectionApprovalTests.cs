@@ -123,6 +123,18 @@ public class ConnectionApprovalTests
     }
 
     [Fact]
+    public async Task The_approval_audit_entry_carries_the_call_id()
+    {
+        using var s = new SecurityHarness();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+        await s.HandshakeAsync("claude-code", Elsewhere);
+
+        await Status(s.Handler, "c-000777");
+
+        Assert.Contains(s.AuditLines(), l => l.Contains("\"operation\":\"connect\"", StringComparison.Ordinal) && l.Contains("c-000777", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_denied_connection_is_asked_again_on_the_next_call()
     {
         using var s = new SecurityHarness();

@@ -102,6 +102,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         {
             var status = await service.GetStatusAsync(cancellationToken).ConfigureAwait(false);
             status.Permissions = security.Settings.Permissions;
+            status.LeaseHolder = security.Lease.Holder?.Client;
             return status;
         }, null, null, cancellationToken);
 
@@ -294,14 +295,15 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
         try
         {
-            var level = PermissionPolicy.Decide(operation, security.Settings.Permissions);
+            // Giving up a hold can never hurt, so no setting may block it.
+            var level = operation == Operation.Release ? PermissionLevel.Allow : PermissionPolicy.Decide(operation, security.Settings.Permissions);
             if (level == PermissionLevel.Deny)
             {
                 decision = AuditDecision.DeniedPolicy;
                 throw PolicyDenied(tier);
             }
 
-            if (operation != Operation.Release) await EnsureApprovedAsync(ct).ConfigureAwait(false);
+            if (operation != Operation.Release) await EnsureApprovedAsync(callId, ct).ConfigureAwait(false);
             switch (level)
             {
                 case PermissionLevel.Ask:
@@ -311,8 +313,9 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                     prompted = true;
                     var outcome = await security.Consent.RequestAsync(_consent, operation,
                         text ?? ConsentText.Operation(_client, PermissionPolicy.ToolName(operation), request.Summary), ct,
-                        () => PermissionPolicy.Decide(operation, security.Settings.Permissions)).ConfigureAwait(false);
+                        () => PermissionPolicy.Decide(operation, security.Settings.Permissions), () => !LeaseTakenByOther(operation)).ConfigureAwait(false);
                     decision = ToDecision(outcome);
+                    if (outcome == ConsentOutcome.Cancelled) EnsureLeaseAvailable(operation);
                     ThrowIfDenied(outcome, tier);
                     break;
                 default:
@@ -358,7 +361,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     /// An agent whose folder is not the solution's must be approved once by the owner, on its first call. Calls that
     /// arrive meanwhile wait for that single answer.
     /// </summary>
-    private async Task EnsureApprovedAsync(CancellationToken ct)
+    private async Task EnsureApprovedAsync(string callId, CancellationToken ct)
     {
         if (_approved) return;
         await _approvalGate.WaitAsync(ct).ConfigureAwait(false);
@@ -371,7 +374,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             var decision = ToDecision(outcome);
             security.Audit.Record(new AuditEntry
             {
-                Ts = DateTimeOffset.UtcNow, Client = _client, Operation = PermissionPolicy.ToolName(Operation.Connect),
+                Ts = DateTimeOffset.UtcNow, CallId = callId, Client = _client, Operation = PermissionPolicy.ToolName(Operation.Connect),
                 Tier = PermissionPolicy.TierName(PermissionTier.Read), Decision = decision,
                 Outcome = outcome is ConsentOutcome.AllowedOnce or ConsentOutcome.AllowedForSession or ConsentOutcome.AllowedBySessionGrant ? "ok" : "denied",
                 Summary = ConsentText.Connect(_client, _clientFolder),
@@ -391,6 +394,9 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         if (LeaseRules.For(operation) == LeaseNeed.None) return;
         if (security.Lease.Holder is { } holder && holder.ConnectionId != _connectionId) throw InUse(holder);
     }
+
+    private bool LeaseTakenByOther(Operation operation) =>
+        LeaseRules.For(operation) != LeaseNeed.None && security.Lease.Holder is { } holder && holder.ConnectionId != _connectionId;
 
     /// <summary>
     /// The last check before the call, after any question to the user: a read re-checks the holder (the lease may have been

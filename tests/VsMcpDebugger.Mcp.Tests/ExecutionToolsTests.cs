@@ -128,12 +128,23 @@ public class ExecutionToolsTests
     }
 
     [Fact]
-    public async Task Attach_by_pid_has_no_name_to_check()
+    public async Task Attach_by_pid_checks_the_name_of_that_process()
     {
         var bridge = new FakeDebugBridge();
         var tools = new ExecutionTools(new FakeConnectionManager(bridge, DebuggerMode.Design), TimeSpan.FromMilliseconds(50));
 
         await tools.Attach(400, null, CancellationToken.None);
+
+        Assert.Contains("CheckBuild:OrderDemo", bridge.Calls);
+    }
+
+    [Fact]
+    public async Task Attach_by_pid_of_an_unlisted_process_has_no_name_to_check()
+    {
+        var bridge = new FakeDebugBridge { OnListAttachable = _ => [] };
+        var tools = new ExecutionTools(new FakeConnectionManager(bridge, DebuggerMode.Design), TimeSpan.FromMilliseconds(50));
+
+        await tools.Attach(999, null, CancellationToken.None);
 
         Assert.DoesNotContain(bridge.Calls, c => c.StartsWith("CheckBuild", StringComparison.Ordinal));
     }

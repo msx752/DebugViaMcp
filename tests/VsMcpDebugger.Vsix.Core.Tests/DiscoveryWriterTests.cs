@@ -101,6 +101,27 @@ public sealed class DiscoveryWriterTests : IDisposable
     }
 
     [Fact]
+    public void UpdateLease_from_the_lease_publishes_the_current_holder_and_does_nothing_after_delete()
+    {
+        var lease = new InstanceLease();
+        var writer = new DiscoveryWriter(_dir);
+        var (_, path) = writer.Write(new InstanceRecord { Pid = 4242, PipeName = "vsmcpdebugger-x", Token = "secret" });
+
+        lease.TryAcquire(1, "codex", null);
+        writer.UpdateLease(lease);
+        Assert.Equal("codex", ProtocolJson.Deserialize<InstanceRecord>(File.ReadAllText(path))!.LeaseHolder);
+
+        lease.Release(1);
+        writer.UpdateLease(lease);
+        Assert.Null(ProtocolJson.Deserialize<InstanceRecord>(File.ReadAllText(path))!.LeaseHolder);
+
+        writer.Delete();
+        lease.TryAcquire(2, "late", null);
+        writer.UpdateLease(lease);
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
     public void UpdateLease_before_write_does_nothing()
     {
         var writer = new DiscoveryWriter(_dir);

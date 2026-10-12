@@ -152,6 +152,7 @@ public sealed class ConnectionManager(
         try
         {
             _connection = await connect(record, session, probe.Token).ConfigureAwait(false);
+            session.MarkConnectionRestored();
             return _connection;
         }
         catch (McpBridgeException e) when (e.Code == BridgeErrorCode.AiDisabled)

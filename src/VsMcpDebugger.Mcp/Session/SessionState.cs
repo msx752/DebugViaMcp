@@ -102,6 +102,25 @@ public sealed class SessionState : IDebugBridgeEvents
         }
     }
 
+    private bool _connectionRestored;
+
+    /// <summary>The pipe was lost and re-opened by the MCP server: holds and approvals of the old connection are gone.</summary>
+    public void MarkConnectionRestored()
+    {
+        lock (_gate) _connectionRestored = true;
+    }
+
+    /// <summary>True once after a restore, so the agent is told exactly once.</summary>
+    public bool TakeConnectionRestored()
+    {
+        lock (_gate)
+        {
+            var was = _connectionRestored;
+            _connectionRestored = false;
+            return was;
+        }
+    }
+
     public void MarkDisconnected()
     {
         lock (_gate)

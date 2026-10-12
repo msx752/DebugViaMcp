@@ -80,6 +80,22 @@ public class SessionToolsTests
     }
 
     [Fact]
+    public async Task Status_reports_who_holds_it_and_a_restored_connection_once()
+    {
+        var bridge = new FakeDebugBridge { OnStatus = () => new StatusInfo { Mode = DebuggerMode.Design, Seq = 1, LeaseHolder = "claude-code" } };
+        var cm = new FakeConnectionManager(bridge, DebuggerMode.Design);
+        cm.Session.MarkConnectionRestored();
+
+        var first = Json(await new SessionTools(cm).Status(CancellationToken.None));
+        var second = Json(await new SessionTools(cm).Status(CancellationToken.None));
+
+        Assert.Equal("claude-code", first.GetProperty("heldBy").GetString());
+        Assert.True(first.GetProperty("connectionRestored").GetBoolean());
+        Assert.Contains("hold", first.GetProperty("connectionRestoredNote").GetString(), StringComparison.Ordinal);
+        Assert.False(second.TryGetProperty("connectionRestored", out _));
+    }
+
+    [Fact]
     public async Task Release_keeps_the_connection_usable()
     {
         var fake = new FakeDebugBridge();

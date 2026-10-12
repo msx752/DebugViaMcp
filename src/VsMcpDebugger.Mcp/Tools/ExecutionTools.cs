@@ -118,6 +118,19 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
             (pid, name) = (candidates[0].Pid, candidates[0].Name);
         }
 
+        if (name is null)
+        {
+            // Best effort: the process name lets the stale-build check find the project.
+            try
+            {
+                name = (await bridge.ListAttachableAsync(null, ctx, ct).ConfigureAwait(false)).FirstOrDefault(c => c.Pid == pid)?.Name;
+            }
+            catch (StreamJsonRpc.RemoteInvocationException)
+            {
+                name = null;
+            }
+        }
+
         var warnings = name is null ? [] : await ToolResponse.CheckBuildAsync(connections, bridge, name, null, ctx, ct).ConfigureAwait(false);
         await connections.Session.IssueAsync(() => bridge.AttachAsync(pid.Value, ctx, ct)).ConfigureAwait(false);
         return ToolResponse.OkWithWarnings(new { state = "attached", pid, process = name, hint = "Set breakpoints with bp_set, then debug_wait or debug_pause. debug_stop detaches." }, warnings);

@@ -64,6 +64,17 @@ public sealed class DiscoveryWriter(string directory, Action<string>? harden = n
         Write(record);
     }
 
+    /// <summary>Publishes the lease's current holder; the read and the write are one step, so concurrent changes cannot land out of order.</summary>
+    public void UpdateLease(InstanceLease lease)
+    {
+        if (lease is null) throw new ArgumentNullException(nameof(lease));
+        lock (_gate)
+        {
+            var holder = lease.Holder;
+            UpdateLease(holder?.Client, holder?.Folder);
+        }
+    }
+
     public void Delete()
     {
         lock (_gate)

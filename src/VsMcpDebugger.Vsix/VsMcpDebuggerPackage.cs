@@ -96,10 +96,9 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
             // Publish who holds this Visual Studio, so other agents' vs_instances shows it.
             lease.Changed += (_, _) =>
             {
-                var holder = lease.Holder;
                 try
                 {
-                    _discovery.UpdateLease(holder?.Client, holder?.Folder);
+                    _discovery.UpdateLease(lease);
                 }
 #pragma warning disable CA1031 // Publishing the holder is advisory; a failed write must never fail the bridge call that changed the lease.
                 catch (Exception e)

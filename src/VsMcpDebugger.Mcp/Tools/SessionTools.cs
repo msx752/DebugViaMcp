@@ -53,6 +53,12 @@ public sealed class SessionTools(IConnectionManager connections)
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
         var status = await bridge.GetStatusAsync(ctx, ct).ConfigureAwait(false);
         connections.Session.Sync(status.Mode, status.Seq);
-        return ToolResponse.Ok(new { mode = status.Mode, permissions = status.Permissions, snapshot = ToolResponse.Snapshot(status.Snapshot) });
+        var restored = connections.Session.TakeConnectionRestored();
+        return ToolResponse.Ok(new
+        {
+            mode = status.Mode, permissions = status.Permissions, snapshot = ToolResponse.Snapshot(status.Snapshot), heldBy = status.LeaseHolder,
+            connectionRestored = restored ? true : (bool?)null,
+            connectionRestoredNote = restored ? "The connection to Visual Studio was lost and re-established: any hold on it and any approval from before are gone, and breakpoints you set earlier may need checking." : null,
+        });
     });
 }

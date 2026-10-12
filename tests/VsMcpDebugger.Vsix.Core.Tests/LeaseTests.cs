@@ -298,6 +298,50 @@ public class LeaseTests
     }
 
     [Fact]
+    public async Task Release_works_even_when_reads_are_denied_by_settings()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        await SetBp(s.Handler);
+        s.Settings.Permissions.Read = PermissionLevel.Deny;
+
+        await s.Handler.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Null(s.Security.Lease.Holder);
+    }
+
+    [Fact]
+    public async Task A_queued_question_is_not_shown_once_another_agent_holds_the_lease()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        var b = await s.AddConnectionAsync("codex");
+
+        var first = s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx("c-000001"), CancellationToken.None);
+        await s.Prompt.WaitForPromptsAsync(1);
+        var second = b.SetValueAsync("total", "1", SecurityHarness.Ctx("c-000002"), CancellationToken.None);
+        await Task.Delay(100);   // the second question is queued behind the first
+        s.Prompt.Answer(ConsentChoice.AllowOnce);
+        await first;
+
+        AssertInUse(await Assert.ThrowsAsync<LocalRpcException>(() => second));
+        Assert.Single(s.Prompt.Texts);
+    }
+
+    [Fact]
+    public async Task Status_names_the_lease_holder()
+    {
+        using var s = new SecurityHarness();
+        await s.HandshakeAsync("claude-code");
+        Assert.Null((await s.Handler.GetStatusAsync(SecurityHarness.Ctx(), CancellationToken.None)).LeaseHolder);
+        await SetBp(s.Handler);
+
+        var status = await s.Handler.GetStatusAsync(SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Equal("claude-code", status.LeaseHolder);
+    }
+
+    [Fact]
     public async Task Refusals_are_audited()
     {
         using var s = new SecurityHarness();

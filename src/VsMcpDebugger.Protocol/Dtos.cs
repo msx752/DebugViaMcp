@@ -74,6 +74,9 @@ public sealed class StatusInfo
     public BreakSnapshot? Snapshot { get; set; }
     public PermissionSet? Permissions { get; set; }
     public long Epoch { get; set; }
+
+    /// <summary>Protocol 2.2. Client name of the agent that holds this Visual Studio; null when it is free.</summary>
+    public string? LeaseHolder { get; set; }
 }
 
 public sealed class BreakpointSpec
