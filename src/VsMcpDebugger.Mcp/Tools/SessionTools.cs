@@ -24,6 +24,8 @@ public sealed class SessionTools(IConnectionManager connections)
         var list = connections.ListInstances().Select(r => new
         {
             pid = r.Pid, solution = r.SolutionPath, vsVersion = r.VsVersion, vsixVersion = r.VsixVersion, selected = r.Pid == current,
+            availability = r.LeaseHolder is null ? "free" : "in_use", heldBy = r.LeaseHolder, heldByFolder = r.LeaseHolderFolder,
+            matchesFolder = FolderMatch.Relates(connections.WorkingDirectory, r.SolutionPath),
         });
         return Task.FromResult(ToolResponse.Ok(new { instances = list }));
     });

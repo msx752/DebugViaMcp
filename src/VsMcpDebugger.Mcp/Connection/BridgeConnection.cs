@@ -28,7 +28,7 @@ public sealed class BridgeConnection : IAsyncDisposable
     public bool IsAlive => !_rpc.IsDisposed && !_rpc.Completion.IsCompleted;
 
     public static async Task<BridgeConnection> ConnectAsync(
-        InstanceRecord instance, SessionState session, ILogger logger, CancellationToken ct, TimeSpan? connectTimeout = null, string clientName = "vsmcpdebugger")
+        InstanceRecord instance, SessionState session, ILogger logger, CancellationToken ct, TimeSpan? connectTimeout = null, string clientName = "vsmcpdebugger", string? workingDirectory = null)
     {
         ArgumentNullException.ThrowIfNull(instance);
         ArgumentNullException.ThrowIfNull(session);
@@ -76,6 +76,7 @@ public sealed class BridgeConnection : IAsyncDisposable
                 ProtocolMajor = ProtocolInfo.Major,
                 ProtocolMinor = ProtocolInfo.Minor,
                 ClientName = clientName,
+                ClientWorkingDirectory = workingDirectory ?? Environment.CurrentDirectory,
             }, ct).ConfigureAwait(false);
         }
         catch (RemoteInvocationException e)

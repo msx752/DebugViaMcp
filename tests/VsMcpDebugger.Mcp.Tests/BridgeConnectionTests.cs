@@ -167,6 +167,28 @@ public class BridgeConnectionTests
     }
 
     [Fact]
+    public async Task Connect_sends_the_working_directory_in_the_handshake()
+    {
+        var fake = new FakeDebugBridge();
+        await using var server = new PipeTestServer(fake);
+
+        await using var connection = await BridgeConnection.ConnectAsync(server.Record, new SessionState(), NullLogger.Instance, CancellationToken.None, workingDirectory: @"D:\agent\here");
+
+        Assert.Equal(@"D:\agent\here", fake.LastHandshake!.ClientWorkingDirectory);
+    }
+
+    [Fact]
+    public async Task Connect_defaults_the_working_directory_to_the_process_directory()
+    {
+        var fake = new FakeDebugBridge();
+        await using var server = new PipeTestServer(fake);
+
+        await using var connection = await BridgeConnection.ConnectAsync(server.Record, new SessionState(), NullLogger.Instance, CancellationToken.None);
+
+        Assert.Equal(Environment.CurrentDirectory, fake.LastHandshake!.ClientWorkingDirectory);
+    }
+
+    [Fact]
     public async Task Missing_pipe_fails_with_not_connected()
     {
         var record = new InstanceRecord { Pid = 1, PipeName = "vsmcpdebugger-does-not-exist-" + Guid.NewGuid().ToString("N"), Token = "x" };

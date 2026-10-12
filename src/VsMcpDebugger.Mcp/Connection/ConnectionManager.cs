@@ -10,6 +10,9 @@ public interface IConnectionManager
     ILogger Logger { get; }
     InstanceRecord? Current { get; }
 
+    /// <summary>Working directory of this MCP server's process; decides which Visual Studio belongs to the agent.</summary>
+    string WorkingDirectory { get; }
+
     /// <summary>Protocol minor of the connected IDE adapter (from its handshake); 0 when not connected.</summary>
     int RemoteProtocolMinor { get; }
 
@@ -24,7 +27,8 @@ public sealed class ConnectionManager(
     Func<IReadOnlyList<InstanceRecord>> listInstances,
     Func<InstanceRecord, SessionState, CancellationToken, Task<BridgeConnection>> connect,
     SessionState session,
-    ILogger logger) : IConnectionManager, IAsyncDisposable
+    ILogger logger,
+    string? workingDirectory = null) : IConnectionManager, IAsyncDisposable
 {
     private readonly SemaphoreSlim _lock = new(1, 1);
     private BridgeConnection? _connection;
@@ -33,6 +37,7 @@ public sealed class ConnectionManager(
     public SessionState Session => session;
     public ILogger Logger => logger;
     public InstanceRecord? Current => _connection?.Instance;
+    public string WorkingDirectory { get; } = workingDirectory ?? Environment.CurrentDirectory;
     public int RemoteProtocolMinor => _connection?.Handshake.ProtocolMinor ?? 0;
 
     public IReadOnlyList<InstanceRecord> ListInstances() => listInstances();
@@ -85,16 +90,7 @@ public sealed class ConnectionManager(
 
             var instances = listInstances();
             var target = _selectedPid is { } pid ? instances.FirstOrDefault(r => r.Pid == pid) : null;
-            target ??= instances.Count switch
-            {
-                0 => throw new McpBridgeException(BridgeErrorCode.NotConnected,
-                    "No Visual Studio instance with VsMcpDebugger is running.",
-                    "Open Visual Studio with the VsMcpDebugger extension installed, or run `vsmcpdebugger doctor`."),
-                1 => instances[0],
-                _ => throw new McpBridgeException(BridgeErrorCode.AmbiguousInstance,
-                    $"{instances.Count} Visual Studio instances are running.",
-                    "Call vs_instances and then vs_select(pid) to choose one."),
-            };
+            target ??= ChooseByFolder(instances);
 
             _connection = await connect(target, session, ct).ConfigureAwait(false);
             _selectedPid = target.Pid;
@@ -104,6 +100,34 @@ public sealed class ConnectionManager(
         {
             _lock.Release();
         }
+    }
+
+    /// <summary>
+    /// One instance is taken as is. With several, the one whose solution folder relates to the working directory is
+    /// chosen when there is exactly one; otherwise the agent must pick with vs_select.
+    /// </summary>
+    private InstanceRecord ChooseByFolder(IReadOnlyList<InstanceRecord> instances)
+    {
+        if (instances.Count == 0)
+            throw new McpBridgeException(BridgeErrorCode.NotConnected,
+                "No Visual Studio instance with VsMcpDebugger is running.",
+                "Open Visual Studio with the VsMcpDebugger extension installed, or run `vsmcpdebugger doctor`.");
+        if (instances.Count == 1) return instances[0];
+
+        var related = instances.Where(r => FolderMatch.Relates(WorkingDirectory, r.SolutionPath)).ToList();
+        if (related.Count == 1) return related[0];
+
+        var lines = string.Join("; ", instances.Select(Describe));
+        throw new McpBridgeException(BridgeErrorCode.AmbiguousInstance,
+            $"{instances.Count} Visual Studio instances are running and none can be chosen from the working directory: {lines}.",
+            "Call vs_instances and then vs_select(pid) to choose one.");
+    }
+
+    private static string Describe(InstanceRecord r)
+    {
+        var solution = string.IsNullOrEmpty(r.SolutionPath) ? "no solution" : System.IO.Path.GetFileName(r.SolutionPath);
+        var availability = r.LeaseHolder is { } holder ? $"in use by {holder}" : "free";
+        return $"pid {r.Pid} ({solution}, {availability})";
     }
 
     /// <summary>How long the one reconnect attempt after a lost pipe may take.</summary>

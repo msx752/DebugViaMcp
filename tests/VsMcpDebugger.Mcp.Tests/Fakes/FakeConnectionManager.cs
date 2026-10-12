@@ -21,7 +21,10 @@ public sealed class FakeConnectionManager : IConnectionManager
     public CapturingLogger Logger { get; } = new();
     ILogger IConnectionManager.Logger => Logger;
 
-    public IReadOnlyList<InstanceRecord> ListInstances() => [Current!];
+    public string WorkingDirectory { get; set; } = @"C:\src";
+    public IReadOnlyList<InstanceRecord>? Instances { get; set; }
+
+    public IReadOnlyList<InstanceRecord> ListInstances() => Instances ?? [Current!];
 
     public Task<HandshakeResponse> SelectAsync(int pid, CancellationToken ct) =>
         Bridge.HandshakeAsync(new HandshakeRequest { Token = Bridge.ExpectedToken }, ct);
