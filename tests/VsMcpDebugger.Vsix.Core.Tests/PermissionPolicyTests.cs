@@ -41,6 +41,9 @@ public class PermissionPolicyTests
     [InlineData(Operation.OutputRead, PermissionTier.Read)]
     [InlineData(Operation.ErrorList, PermissionTier.Read)]
     [InlineData(Operation.Build, PermissionTier.Control)]
+    [InlineData(Operation.Connect, PermissionTier.Read)]
+    [InlineData(Operation.Release, PermissionTier.Read)]
+    [InlineData(Operation.BuildCheck, PermissionTier.Read)]
     public void Every_operation_has_its_spec_tier(Operation operation, PermissionTier tier) =>
         Assert.Equal(tier, PermissionPolicy.TierOf(operation));
 
@@ -70,5 +73,8 @@ public class PermissionPolicyTests
         Assert.Equal("eval", PermissionPolicy.ToolName(Operation.EvaluateWithSideEffects));
         Assert.Equal("debug_step", PermissionPolicy.ToolName(Operation.Step));
         Assert.Equal("mutate", PermissionPolicy.TierName(PermissionTier.Mutate));
+        Assert.Equal("connect", PermissionPolicy.ToolName(Operation.Connect));
+        Assert.Equal("vs_release", PermissionPolicy.ToolName(Operation.Release));
+        Assert.Equal("build_check", PermissionPolicy.ToolName(Operation.BuildCheck));
     }
 }

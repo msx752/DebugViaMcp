@@ -75,6 +75,35 @@ public class PipeHostTests
     }
 
     [Fact]
+    public async Task Each_client_gets_its_own_connection_id()
+    {
+        var pipe = DiscoveryWriter.NewPipeName();
+        var service = new DebugBridgeService(new FakeDte(), new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0");
+        var settings = new TestSettings();
+        var security = new BridgeSecurity(settings, new ConsentGate(new FakePrompt(), () => settings.ConsentTimeout),
+            new AuditLog(Path.Combine(Path.GetTempPath(), "vsmcpdebugger-tests-audit"), () => 7, new NullActivitySink(), new NullLog()), new AiAccessSwitch(enabled: true));
+        var ids = new System.Collections.Concurrent.ConcurrentQueue<int>();
+        using var host = new PipeHost(pipe, new PlainPipeFactory(), hooks =>
+        {
+            ids.Enqueue(hooks.ConnectionId);
+            return new BridgeConnectionHandler(service, "secret", security, new NullLog(), hooks);
+        }, new EventBroadcaster(new NullLog()), new NullLog());
+        host.Start();
+
+        using var first = new NamedPipeClientStream(".", pipe, PipeDirection.InOut, PipeOptions.Asynchronous);
+        await first.ConnectAsync(5000);
+        using var second = new NamedPipeClientStream(".", pipe, PipeDirection.InOut, PipeOptions.Asynchronous);
+        await second.ConnectAsync(5000);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (ids.Count < 2 && DateTime.UtcNow < deadline) await Task.Delay(10);
+
+        var seen = ids.ToArray();
+        Assert.Equal(2, seen.Length);
+        Assert.NotEqual(seen[0], seen[1]);
+        Assert.All(seen, id => Assert.True(id > 0));
+    }
+
+    [Fact]
     public async Task Disconnect_ai_closes_live_pipes_and_refuses_new_handshakes_until_reconnect()
     {
         var pipe = DiscoveryWriter.NewPipeName();

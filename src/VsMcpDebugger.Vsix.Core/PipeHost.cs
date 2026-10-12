@@ -17,6 +17,7 @@ public interface IPipeStreamFactory
 public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<ConnectionHooks, BridgeConnectionHandler> handlerFactory, EventBroadcaster events, ILog log) : IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
+    private int _lastConnectionId;
 
     public void Start() => _ = Task.Run(() => AcceptLoopAsync(_cts.Token));
 
@@ -45,7 +46,8 @@ public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<C
             }
 
             var rpc = RpcFactory.Create(stream);
-            var handler = handlerFactory(new ConnectionHooks(minor => events.Add(rpc, minor), () => RevokeAndCloseAsync(rpc)));
+            var connectionId = Interlocked.Increment(ref _lastConnectionId);
+            var handler = handlerFactory(new ConnectionHooks(minor => events.Add(rpc, minor), () => RevokeAndCloseAsync(rpc), connectionId));
             rpc.AddLocalRpcTarget(handler);
             rpc.Disconnected += (_, args) =>
             {

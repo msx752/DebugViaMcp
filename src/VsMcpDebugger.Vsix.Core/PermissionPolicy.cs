@@ -27,6 +27,15 @@ public enum Operation
     OutputRead, ErrorList,
 
     Build,
+
+    /// <summary>Approval of a connection whose folder is not the solution's. Never reaches Visual Studio.</summary>
+    Connect,
+
+    /// <summary>vs_release: gives up the lease.</summary>
+    Release,
+
+    /// <summary>Stale-build check behind the warnings of debug_start, debug_attach and bp_set.</summary>
+    BuildCheck,
 }
 
 /// <summary>User settings the bridge reads on every call, so changes apply without reconnecting.</summary>
@@ -44,7 +53,8 @@ public static class PermissionPolicy
     {
         Operation.Status or Operation.ListBreakpoints or Operation.Stack or Operation.Variables or Operation.Evaluate
             or Operation.Threads or Operation.FrameSelect or Operation.Exception
-            or Operation.ListProcesses or Operation.OutputRead or Operation.ErrorList => PermissionTier.Read,
+            or Operation.ListProcesses or Operation.OutputRead or Operation.ErrorList
+            or Operation.Connect or Operation.Release or Operation.BuildCheck => PermissionTier.Read,
         Operation.SetBreakpoint or Operation.RemoveBreakpoints or Operation.Start or Operation.Stop
             or Operation.Continue or Operation.Pause or Operation.Step or Operation.EnableBreakpoint
             or Operation.RunTo or Operation.Build => PermissionTier.Control,
@@ -88,6 +98,9 @@ public static class PermissionPolicy
         Operation.OutputRead => "output_read",
         Operation.ErrorList => "errors_list",
         Operation.Build => "vs_build",
+        Operation.Connect => "connect",
+        Operation.Release => "vs_release",
+        Operation.BuildCheck => "build_check",
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Operation has no tool name."),
     };
 

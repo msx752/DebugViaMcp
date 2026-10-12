@@ -23,7 +23,9 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     private IDisposable? _registration;
     private readonly object _attachGate = new();
     private string _client = "";
+    private string? _clientFolder;
     private int _disposed;
+    private readonly int _connectionId = hooks?.ConnectionId ?? 0;
 
     public async Task<HandshakeResponse> HandshakeAsync(HandshakeRequest request, CancellationToken cancellationToken)
     {
@@ -74,6 +76,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             if (!_authenticated)
             {
                 _client = ConsentText.ClientName(request.ClientName);
+                _clientFolder = request.ClientWorkingDirectory;
                 _registration = security.Access.TryAttach(_client, Revoke)
                     ?? throw Rpc(BridgeErrorCode.AiDisabled, "AI access is disconnected in Visual Studio.", "Ask the user to run Extensions → VsMcpDebugger → Reconnect AI.");
                 _authenticated = true;
@@ -216,7 +219,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         throw Rpc(BridgeErrorCode.Unsupported, "Not implemented yet.", null);
 
     public Task ReleaseAsync(CallContext context, CancellationToken cancellationToken) =>
-        throw Rpc(BridgeErrorCode.Unsupported, "Not implemented yet.", null);
+        Guard(Operation.Release, context, () => { ReleaseLease(); return Task.FromResult(true); }, null, null, cancellationToken);
 
     public Task<VariableInfo[]> GetVariablesAsync(VariableScope scope, string? path, int offset, int maxItems, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Variables, context, () => service.GetVariablesAsync(scope, path, offset, maxItems, cancellationToken),
@@ -292,6 +295,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                     decision = AuditDecision.DeniedPolicy;
                     throw PolicyDenied(tier);
                 case PermissionLevel.Ask:
+                    EnsureLeaseAvailable(operation);
                     var text = prepare is null ? null : await prepare().ConfigureAwait(false);
                     ThrowIfRevoked();
                     prompted = true;
@@ -302,11 +306,13 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                     ThrowIfDenied(outcome, tier);
                     break;
                 default:
+                    EnsureLeaseAvailable(operation);
                     decision = AuditDecision.Allow;
                     break;
             }
 
             ThrowIfRevoked();
+            AcquireLease(operation);
             var result = await call().ConfigureAwait(false);
             Audit(succeeded is null || succeeded(result) ? "ok" : "failed");
             return result;
@@ -337,6 +343,34 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             throw Rpc(BridgeErrorCode.Internal, e.Message, "See the VsMcpDebugger output pane in Visual Studio.");
         }
     }
+
+    /// <summary>Refuses before anything else happens (no question to the user, no call) while another agent holds this Visual Studio.</summary>
+    private void EnsureLeaseAvailable(Operation operation)
+    {
+        if (LeaseRules.For(operation) == LeaseNeed.None) return;
+        if (security.Lease.Holder is { } holder && holder.ConnectionId != _connectionId) throw InUse(holder);
+    }
+
+    /// <summary>The first state-changing command takes the lease; the take is atomic, so of two simultaneous agents exactly one wins.</summary>
+    private void AcquireLease(Operation operation)
+    {
+        if (LeaseRules.For(operation) != LeaseNeed.Change) return;
+        var attempt = security.Lease.TryAcquire(_connectionId, _client, _clientFolder);
+        if (attempt.Outcome == LeaseOutcome.HeldByOther) throw InUse(attempt.Holder!);
+        if (attempt.Outcome == LeaseOutcome.Acquired) AuditLease("acquired");
+    }
+
+    private void ReleaseLease()
+    {
+        if (security.Lease.Release(_connectionId)) AuditLease("released");
+    }
+
+    private void AuditLease(string outcome) =>
+        security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "lease", Outcome = outcome, Summary = outcome });
+
+    private static LocalRpcException InUse(LeaseHolder holder) =>
+        Rpc(BridgeErrorCode.InUse, ConsentText.InUse(holder.Client, holder.Folder),
+            "Use another Visual Studio instance (vs_instances), or retry when the other agent has finished or released it.");
 
     /// <summary>Fail closed between Disconnect AI and the pipe actually closing; a revoked connection never comes back.</summary>
     private void ThrowIfRevoked()
@@ -407,6 +441,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     {
         _revoked = true;
         _consent.Revoke();
+        ReleaseLease();
         if (hooks is null) return;
         _ = hooks.RevokeAndClose().ContinueWith(
             t => log.Warn($"Closing '{_client}' after Disconnect AI failed: {t.Exception?.GetBaseException().Message}"),
@@ -418,6 +453,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
         _consent.Dispose();
         _registration?.Dispose();
+        ReleaseLease();
         _ = service.ReleaseRunToAsync(this).ContinueWith(
             t => log.Warn($"Removing the run-to breakpoint of '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);

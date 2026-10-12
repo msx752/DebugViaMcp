@@ -10,6 +10,7 @@ namespace VsMcpDebugger.Vsix.Core;
 public static class ConsentText
 {
     public const int MaxClientNameLength = 64;
+    public const int MaxFolderLength = 120;
 
     // Every builder: <paramref name="client"/> is the name ClientName returned at handshake (already escaped and capped).
 
@@ -37,6 +38,21 @@ public static class ConsentText
         string.IsNullOrEmpty(summary)
             ? $"{client} wants to run {tool}"
             : $"{client} wants to run {tool}: {Visible(summary)}";
+
+    /// <summary>Refusal shown to an agent while another one holds this Visual Studio; <paramref name="holderClient"/> is already escaped.</summary>
+    public static string InUse(string holderClient, string? holderFolder) =>
+        string.IsNullOrEmpty(holderFolder)
+            ? $"This Visual Studio is in use by {holderClient}."
+            : $"This Visual Studio is in use by {holderClient} (working in {CappedFolder(holderFolder)}).";
+
+    /// <summary>The folder an agent reported, escaped and cut to <see cref="MaxFolderLength"/> characters.</summary>
+    public static string CappedFolder(string? folder)
+    {
+        var visible = Visible(folder);
+        if (visible.Length <= MaxFolderLength) return visible;
+        var cut = char.IsHighSurrogate(visible[MaxFolderLength - 1]) ? MaxFolderLength - 1 : MaxFolderLength;
+        return visible.Substring(0, cut) + "…";
+    }
 
     public static string ClientName(string? name)
     {

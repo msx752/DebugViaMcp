@@ -3,8 +3,11 @@ using System;
 namespace VsMcpDebugger.Vsix.Core;
 
 /// <summary>Authorization state shared by every connection of one Visual Studio session.</summary>
-public sealed class BridgeSecurity(IBridgeSettings settings, ConsentGate consent, AuditLog audit, AiAccessSwitch access)
+public sealed class BridgeSecurity(IBridgeSettings settings, ConsentGate consent, AuditLog audit, AiAccessSwitch access, InstanceLease? lease = null)
 {
+    /// <summary>Which connection holds this Visual Studio; shared by all connections of the session.</summary>
+    public InstanceLease Lease { get; } = lease ?? new InstanceLease();
+
     public AiAccessSwitch Access { get; } = access;
     public IBridgeSettings Settings { get; } = settings;
     public ConsentGate Consent { get; } = consent;
