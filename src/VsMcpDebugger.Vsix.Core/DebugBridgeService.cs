@@ -10,8 +10,10 @@ using VsMcpDebugger.Protocol;
 namespace VsMcpDebugger.Vsix.Core;
 
 /// <summary>Implements the bridge operations on top of <see cref="IDteFacade"/>. Handshake lives in BridgeConnectionHandler.</summary>
-public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null)
+public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IRebuildPrompt? rebuildPrompt = null)
 {
+    private readonly StaleBuildNotifier? _notifier = rebuildPrompt is null ? null : new StaleBuildNotifier(rebuildPrompt, () => dte.Mode, dte.RebuildProject);
+
     /// <summary>Enforced here, not trusted from the client: deep offsets would enumerate members on the UI thread.</summary>
     public const int MaxVariableOffset = 100_000;
 
@@ -133,6 +135,21 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     {
         _attached = false;
         ReleaseRunTo(null);
+        _notifier?.OnSessionEnded();
+    }
+
+    /// <summary>Called by the event pump when a debug session starts (UI thread): Rebuild bars step aside.</summary>
+    public void OnSessionStarted() => _notifier?.OnSessionStarted();
+
+    /// <summary>Called when the owner closes a Rebuild bar.</summary>
+    public void RebuildBarDismissed(string project) => _notifier?.Dismissed(project);
+
+    /// <summary>Called by the event pump when a build finishes (UI thread): bars of projects that are up to date now go away.</summary>
+    public void OnBuildFinished()
+    {
+        if (_notifier is null) return;
+        foreach (var unique in _notifier.ShownProjects)
+            _notifier.Observe(unique, StaleBuildChecker.IsStale(dte.GetBuildInfo(unique)));
     }
 
     /// <summary>A closing connection removes the run-to breakpoint it armed.</summary>
@@ -440,7 +457,15 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             scope = dte.StartupProject is { } startup ? [startup] : [];
         }
 
-        return scope.Where(unique => StaleBuildChecker.IsStale(dte.GetBuildInfo(unique))).Select(StaleWarning).ToArray();
+        var stale = new List<BuildWarning>();
+        foreach (var unique in scope)
+        {
+            var isStale = StaleBuildChecker.IsStale(dte.GetBuildInfo(unique));
+            _notifier?.Observe(unique, isStale);
+            if (isStale) stale.Add(StaleWarning(unique));
+        }
+
+        return stale.ToArray();
     }, ct);
 
     private static BuildWarning StaleWarning(string unique)

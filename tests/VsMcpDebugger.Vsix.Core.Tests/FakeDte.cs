@@ -177,6 +177,8 @@ public sealed class FakeDte : IDteFacade
         return FileProjects.TryGetValue(file, out var projects) ? projects : [];
     }
 
+    public void RebuildProject(string uniqueName) { Ui(); Calls.Add("RebuildProject:" + uniqueName); }
+
     public bool IsLaunchable(string uniqueName) { Ui(); return LaunchableProjects?.Contains(uniqueName) ?? true; }
     public void Break() => Calls.Add("Break");
     public void Stop() => Calls.Add("Stop");

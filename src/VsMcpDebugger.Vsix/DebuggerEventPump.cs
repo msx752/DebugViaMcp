@@ -36,6 +36,7 @@ internal sealed class DebuggerEventPump
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             _service.Builds.OnBuildDone(_dte.Solution.SolutionBuild.LastBuildInfo);
+            _service.OnBuildFinished();
         };
     }
 
@@ -55,7 +56,11 @@ internal sealed class DebuggerEventPump
         }
     }
 
-    private void OnEnterRunMode(dbgEventReason reason) => PublishMode(DebuggerMode.Run);
+    private void OnEnterRunMode(dbgEventReason reason)
+    {
+        _service.OnSessionStarted();
+        PublishMode(DebuggerMode.Run);
+    }
 
     private void OnEnterDesignMode(dbgEventReason reason)
     {
