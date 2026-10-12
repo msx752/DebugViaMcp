@@ -47,7 +47,7 @@ public sealed class PipeHost(string pipeName, IPipeStreamFactory factory, Func<C
 
             var rpc = RpcFactory.Create(stream);
             var connectionId = Interlocked.Increment(ref _lastConnectionId);
-            var handler = handlerFactory(new ConnectionHooks(minor => events.Add(rpc, minor), () => RevokeAndCloseAsync(rpc), connectionId));
+            var handler = handlerFactory(new ConnectionHooks(minor => events.Add(rpc, minor, connectionId), () => RevokeAndCloseAsync(rpc), connectionId));
             rpc.AddLocalRpcTarget(handler);
             rpc.Disconnected += (_, args) =>
             {

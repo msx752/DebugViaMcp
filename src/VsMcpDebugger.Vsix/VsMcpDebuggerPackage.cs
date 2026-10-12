@@ -68,7 +68,8 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
         {
             var seq = new EventSeq();
             var service = new DebugBridgeService(new DteFacade(dte, errorList), new JtfUiThread(JoinableTaskFactory), seq, log, vsixVersion);
-            var broadcaster = new EventBroadcaster(log);
+            var lease = new InstanceLease();
+            var broadcaster = new EventBroadcaster(log, lease);
             _pump = new DebuggerEventPump((DTE)dte, service, seq, broadcaster, log);
 
             var token = DiscoveryWriter.NewToken();
@@ -77,7 +78,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
             var access = new AiAccessSwitch(page.Applied.AcceptConnectionsOnStartup);
             var consent = new ConsentGate(new InfoBarConsentPrompt(this, JoinableTaskFactory), () => settings.ConsentTimeout);
             var audit = new AuditLog(DiscoveryPaths.LogsDirectory, () => page.Applied.LogRetentionDays, Activity, log);
-            var security = new BridgeSecurity(settings, consent, audit, access);
+            var security = new BridgeSecurity(settings, consent, audit, access, lease);
             Security = security;
             page.PermissionsChanged += (_, summary) => security.SettingsChanged(summary);
             _host = new PipeHost(pipeName, new SecurePipeFactory(), hooks => new BridgeConnectionHandler(service, token, security, log, hooks), broadcaster, log);

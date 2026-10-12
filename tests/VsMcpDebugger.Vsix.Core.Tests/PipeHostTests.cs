@@ -75,6 +75,45 @@ public class PipeHostTests
     }
 
     [Fact]
+    public async Task Events_reach_only_the_lease_holder_once_there_is_one()
+    {
+        var pipe = DiscoveryWriter.NewPipeName();
+        var lease = new InstanceLease();
+        var service = new DebugBridgeService(new FakeDte(), new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0");
+        var broadcaster = new EventBroadcaster(new NullLog(), lease);
+        var settings = new TestSettings();
+        var security = new BridgeSecurity(settings, new ConsentGate(new FakePrompt(), () => settings.ConsentTimeout),
+            new AuditLog(Path.Combine(Path.GetTempPath(), "vsmcpdebugger-tests-audit"), () => 7, new NullActivitySink(), new NullLog()), new AiAccessSwitch(enabled: true), lease);
+        using var host = new PipeHost(pipe, new PlainPipeFactory(), hooks => new BridgeConnectionHandler(service, "secret", security, new NullLog(), hooks), broadcaster, new NullLog());
+        host.Start();
+
+        async Task<(JsonRpc Rpc, IDebugBridge Bridge, Events Events)> ConnectAsync(string name)
+        {
+            var client = new NamedPipeClientStream(".", pipe, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await client.ConnectAsync(5000);
+            var events = new Events();
+            var rpc = RpcFactory.Create(client);
+            rpc.AddLocalRpcTarget(events);
+            var bridge = rpc.Attach<IDebugBridge>();
+            rpc.StartListening();
+            await bridge.HandshakeAsync(new HandshakeRequest { Token = "secret", ProtocolMajor = ProtocolInfo.Major, ClientName = name }, CancellationToken.None);
+            return (rpc, bridge, events);
+        }
+
+        var a = await ConnectAsync("claude-code");
+        var b = await ConnectAsync("codex");
+        await b.Bridge.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, new CallContext { CallId = "c-000001" }, CancellationToken.None);
+
+        broadcaster.PublishBreak(new BreakEvent { Seq = 1, Snapshot = new BreakSnapshot { Reason = BreakReason.Pause } });
+
+        Assert.Equal(1, (await b.Events.Got.Task.WaitAsync(TimeSpan.FromSeconds(5))).Seq);
+        await Task.Delay(200);
+        Assert.False(a.Events.Got.Task.IsCompleted);
+        a.Rpc.Dispose();
+        b.Rpc.Dispose();
+    }
+
+    [Fact]
     public async Task Each_client_gets_its_own_connection_id()
     {
         var pipe = DiscoveryWriter.NewPipeName();
