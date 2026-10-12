@@ -112,8 +112,8 @@ The Visual Studio owner decides which agent controls it.
   stepping, `set_value`, side-effect `eval`, `frame_select`, `debug_stop`, `vs_release`). Reading without ever changing
   state does not take it.
 - Reads while another agent holds the lease are refused with `in_use` too (a non-holder must not see another agent's
-  locals, stack or breakpoints mid-session). Two things stay open to everyone: `vs_instances`, and `debug_status`,
-  which for a non-holder returns only that the instance is in use and by whom.
+  locals, stack or breakpoints mid-session). That includes `debug_status`: a non-holder gets the `in_use` error, which
+  names the holder. Only `vs_instances` (read from the instance file) stays open to everyone.
 - While a connection holds the lease, any other connection's state-changing command fails with the new error `in_use`
   ("This Visual Studio is in use by another agent: <client name> (folder <path>). Use another instance or retry
   later.").
@@ -126,7 +126,7 @@ The Visual Studio owner decides which agent controls it.
 - Break/mode events go only to the lease holder (and to connections that hold nothing and ask for status).
 - The user is never locked out: stepping, stopping and clicking in the Visual Studio UI always work. If the user
   starts or stops debugging by hand while an agent holds the lease, the agent's next call reports the changed state
-  (`stale` / `wrong_mode` as today) and the lease follows the debug session: when the session ends, the lease ends.
+  (`stale` / `wrong_mode` as today); the lease stays with the agent until it is released (§ above).
 
 ### 3.4 `debug_start(project?)`
 
@@ -143,7 +143,7 @@ The Visual Studio owner decides which agent controls it.
 
 ### 3.5 Stale-build awareness
 
-- Before `debug_start`, `debug_attach` (target's project, when it can be mapped) and `bp_set`/`bp_enable` on a file
+- Before `debug_start`, `debug_attach` (target's project, when its name matches a project) and `bp_set` on a file
   that belongs to a project, the extension checks whether the project's built output is older than its sources
   (or missing). The signal is the builder's choice; Visual Studio's own up-to-date check for the project is preferred,
   timestamps of compile inputs against the output and its `.pdb` are the fallback.
