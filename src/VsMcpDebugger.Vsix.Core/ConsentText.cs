@@ -45,11 +45,11 @@ public static class ConsentText
             ? $"{client} (it did not report a folder) wants to control this Visual Studio"
             : $"{client} (folder {CappedFolder(folder)}) wants to control this Visual Studio";
 
-    /// <summary>Refusal shown to an agent while another one holds this Visual Studio; <paramref name="holderClient"/> is already escaped.</summary>
+    /// <summary>Refusal shown to an agent while another one holds this Visual Studio; client and folder are already escaped and capped (lease values).</summary>
     public static string InUse(string holderClient, string? holderFolder) =>
         string.IsNullOrEmpty(holderFolder)
             ? $"This Visual Studio is in use by {holderClient}."
-            : $"This Visual Studio is in use by {holderClient} (working in {CappedFolder(holderFolder)}).";
+            : $"This Visual Studio is in use by {holderClient} (working in {holderFolder}).";
 
     /// <summary>The folder an agent reported, escaped and cut to <see cref="MaxFolderLength"/> characters.</summary>
     public static string CappedFolder(string? folder)

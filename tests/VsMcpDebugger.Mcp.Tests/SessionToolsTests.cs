@@ -66,6 +66,19 @@ public class SessionToolsTests
         Assert.Equal("retry later", error.GetProperty("hint").GetString());
     }
 
+    /// <summary>Final review 2: events went to another agent, so debug_status must bring this session back in step.</summary>
+    [Fact]
+    public async Task Status_brings_the_session_state_in_step_with_Visual_Studio()
+    {
+        var bridge = new FakeDebugBridge { OnStatus = () => new StatusInfo { Mode = DebuggerMode.Break, Seq = 20 } };
+        var cm = new FakeConnectionManager(bridge, DebuggerMode.Design, seq: 5);
+
+        await new SessionTools(cm).Status(CancellationToken.None);
+
+        Assert.Equal(DebuggerMode.Break, cm.Session.Mode);
+        Assert.Equal(20, cm.Session.LastSeq);
+    }
+
     [Fact]
     public async Task Release_keeps_the_connection_usable()
     {

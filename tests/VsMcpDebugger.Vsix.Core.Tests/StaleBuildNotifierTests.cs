@@ -203,6 +203,8 @@ public class StaleBuildNotifierTests
         var dte = new FakeDte { Mode = DebuggerMode.Design };
         dte.BuildInfos[Order] = new ProjectBuildInfo { UniqueName = Order, NewestSourceUtc = DateTime.UtcNow, OldestOutputUtc = DateTime.UtcNow.AddHours(-1) };
         var service = new DebugBridgeService(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0", rebuildPrompt: prompt);
+        var now = DateTime.UtcNow;
+        service.BuildInfoClock = () => now;
 
         await service.CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
         await service.CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
@@ -211,6 +213,7 @@ public class StaleBuildNotifierTests
         Assert.DoesNotContain(dte.Calls, c => c.StartsWith("Rebuild", StringComparison.Ordinal));
 
         dte.BuildInfos[Order] = new ProjectBuildInfo { UniqueName = Order, NewestSourceUtc = DateTime.UtcNow.AddHours(-2), OldestOutputUtc = DateTime.UtcNow };
+        now = now.AddSeconds(DebugBridgeService.BuildInfoCacheSeconds + 1);
         await service.CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
 
         Assert.Equal([Order], prompt.Hidden);

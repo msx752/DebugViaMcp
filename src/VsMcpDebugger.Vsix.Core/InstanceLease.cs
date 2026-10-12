@@ -54,6 +54,18 @@ public sealed class InstanceLease
         return new LeaseAttempt(LeaseOutcome.Acquired, current);
     }
 
+    /// <summary>Frees the lease whoever holds it (Disconnect AI).</summary>
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            if (_holder is null) return;
+            _holder = null;
+        }
+
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <returns>True when <paramref name="connectionId"/> was the holder.</returns>
     public bool Release(int connectionId)
     {

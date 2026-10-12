@@ -16,6 +16,7 @@ public sealed class BridgeSecurity(IBridgeSettings settings, ConsentGate consent
     public void DisconnectAi()
     {
         Access.Disconnect();
+        Lease.Clear();
         Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Operation = "ai_disconnect", Outcome = "ok", Summary = "AI access disconnected by the user" });
     }
 

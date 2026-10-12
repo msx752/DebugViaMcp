@@ -83,6 +83,25 @@ public sealed class SessionState : IDebugBridgeEvents
         }
     }
 
+    /// <summary>
+    /// Brings mode and sequence in step with what Visual Studio reports. Events of a period in which another agent held the
+    /// Visual Studio went to that agent only, so this session may have missed mode changes.
+    /// </summary>
+    public void Sync(DebuggerMode mode, long seq)
+    {
+        lock (_gate)
+        {
+            if (Mode != mode)
+            {
+                Mode = mode;
+                if (mode == DebuggerMode.Run) LastResumeSeq = Math.Max(LastResumeSeq, seq);
+                if (mode == DebuggerMode.Design) CompleteAll(new WaitOutcome(WaitOutcomeKind.Ended, null));
+            }
+
+            LastSeq = Math.Max(LastSeq, seq);
+        }
+    }
+
     public void MarkDisconnected()
     {
         lock (_gate)

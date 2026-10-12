@@ -37,7 +37,7 @@ internal static class ToolResponse
 
     /// <summary>
     /// Asks the extension about out-of-date builds in scope. Never blocks and never fails the tool, except that
-    /// <c>in_use</c> propagates: another agent holds the Visual Studio, so the tool must not run.
+    /// <c>in_use</c>, <c>denied</c> and <c>ai_disabled</c> propagate: the Visual Studio is held, or its owner refused or cut the agent off, so the tool must not run (or ask the owner again).
     /// </summary>
     public static async Task<IReadOnlyList<BuildWarning>> CheckBuildAsync(
         IConnectionManager connections, IDebugBridge bridge, string? project, string? file, CallContext context, CancellationToken ct)
@@ -49,7 +49,7 @@ internal static class ToolResponse
         {
             return await bridge.CheckBuildFreshnessAsync(project, file, context, ct).ConfigureAwait(false);
         }
-        catch (RemoteInvocationException e) when (BridgeErrors.Read(e).Code != BridgeErrorCode.InUse)
+        catch (RemoteInvocationException e) when (BridgeErrors.Read(e).Code is not (BridgeErrorCode.InUse or BridgeErrorCode.Denied or BridgeErrorCode.AiDisabled))
         {
             Log.CheckBuildFailed(connections.Logger, context.CallId, e.Message);
             return [];

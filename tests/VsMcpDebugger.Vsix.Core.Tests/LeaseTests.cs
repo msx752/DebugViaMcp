@@ -266,6 +266,37 @@ public class LeaseTests
         AssertInUse(await Assert.ThrowsAsync<LocalRpcException>(() => waiting));
     }
 
+    /// <summary>Final review 1: Disconnect AI must free the lease even if its holder is no longer registered anywhere.</summary>
+    [Fact]
+    public async Task Disconnect_AI_clears_a_lease_whose_holder_is_not_registered()
+    {
+        using var s = new SecurityHarness();
+        s.Security.Lease.TryAcquire(99, "ghost", null);
+
+        s.Security.DisconnectAi();
+
+        Assert.Null(s.Security.Lease.Holder);
+        s.Security.ReconnectAi();
+        var b = await s.AddConnectionAsync("codex");
+        await SetBp(b);
+    }
+
+    /// <summary>Final review 6: the folder another agent reported is escaped and capped before it is stored, shown or published.</summary>
+    [Fact]
+    public async Task The_holders_folder_is_escaped_and_capped_before_it_is_published()
+    {
+        using var s = new SecurityHarness();
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+        await s.HandshakeAsync("claude-code", @"D:\x" + (char)0x202E + new string('y', 500));
+        await SetBp(s.Handler);
+
+        var folder = s.Security.Lease.Holder!.Folder!;
+
+        Assert.DoesNotContain((char)0x202E, folder);
+        Assert.True(folder.Length <= ConsentText.MaxFolderLength + 1, folder);
+        Assert.Contains("\\u202e", folder, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Refusals_are_audited()
     {

@@ -401,9 +401,18 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     {
         if (LeaseRules.For(operation) == LeaseNeed.Read) EnsureLeaseAvailable(operation);
         if (LeaseRules.For(operation) != LeaseNeed.Change) return;
-        var attempt = security.Lease.TryAcquire(_connectionId, _client, _clientFolder);
+        var attempt = security.Lease.TryAcquire(_connectionId, _client, string.IsNullOrEmpty(_clientFolder) ? null : ConsentText.CappedFolder(_clientFolder));
         if (attempt.Outcome == LeaseOutcome.HeldByOther) throw InUse(attempt.Holder!);
-        if (attempt.Outcome == LeaseOutcome.Acquired) AuditLease("acquired");
+        if (attempt.Outcome == LeaseOutcome.Acquired)
+        {
+            AuditLease("acquired");
+            // The connection may have been closed or revoked between the check above and the take: never keep a lease for a dead connection.
+            if (_revoked || Volatile.Read(ref _disposed) == 1)
+            {
+                ReleaseLease();
+                ThrowIfRevoked();
+            }
+        }
     }
 
     private void ReleaseLease()

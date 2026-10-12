@@ -87,7 +87,7 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
     }
 
     private static readonly string[] SourceExtensions = [".cs", ".vb", ".fs", ".xaml", ".razor", ".cshtml", ".resx", ".csproj", ".vbproj", ".fsproj", ".props", ".targets"];
-    private static readonly string[] SkippedFolders = ["bin", "obj", ".vs", ".git", "node_modules", "packages"];
+    private static readonly string[] SkippedFolders = ["bin", "obj", ".vs", ".git", "node_modules", "packages", "artifacts", "TestResults", ".idea"];
 
     private static DateTime? NewestSource(string projectFile)
     {
@@ -103,6 +103,8 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
             {
                 foreach (var sub in System.IO.Directory.EnumerateDirectories(directory))
                 {
+                    // Junctions and symbolic links can lead anywhere (or in circles); they are not part of the project's own sources.
+                    if ((System.IO.File.GetAttributes(sub) & System.IO.FileAttributes.ReparsePoint) != 0) continue;
                     if (!SkippedFolders.Contains(System.IO.Path.GetFileName(sub), StringComparer.OrdinalIgnoreCase)) pending.Push(sub);
                 }
 
@@ -152,18 +154,17 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         return best;
     }
 
-    public string? StartupProject
+    public IReadOnlyList<string> StartupProjects
     {
         get
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            return dte.Solution.SolutionBuild.StartupProjects is object[] { Length: > 0 } names ? names[0] as string : null;
+            return dte.Solution.SolutionBuild.StartupProjects is object[] names ? names.OfType<string>().ToArray() : [];
         }
         set
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (value is not null) dte.Solution.SolutionBuild.StartupProjects = value;
-            else dte.Solution.SolutionBuild.StartupProjects = Array.Empty<string>();
+            dte.Solution.SolutionBuild.StartupProjects = value.ToArray();
         }
     }
 

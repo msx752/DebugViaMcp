@@ -12,6 +12,22 @@ namespace VsMcpDebugger.Vsix.Core;
 /// <summary>Implements the bridge operations on top of <see cref="IDteFacade"/>. Handshake lives in BridgeConnectionHandler.</summary>
 public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IRebuildPrompt? rebuildPrompt = null)
 {
+    /// <summary>How long a project's build state is reused: reading it walks the project folder on the UI thread.</summary>
+    public const int BuildInfoCacheSeconds = 5;
+
+    private readonly Dictionary<string, (DateTime At, ProjectBuildInfo Info)> _buildInfo = new(StringComparer.OrdinalIgnoreCase);
+
+    internal Func<DateTime> BuildInfoClock { get; set; } = () => DateTime.UtcNow;
+
+    private ProjectBuildInfo BuildInfoOf(string unique)
+    {
+        var now = BuildInfoClock();
+        if (_buildInfo.TryGetValue(unique, out var cached) && now - cached.At < TimeSpan.FromSeconds(BuildInfoCacheSeconds)) return cached.Info;
+        var info = dte.GetBuildInfo(unique);
+        _buildInfo[unique] = (now, info);
+        return info;
+    }
+
     private readonly StaleBuildNotifier? _notifier = rebuildPrompt is null ? null : new StaleBuildNotifier(rebuildPrompt, () => dte.Mode, dte.RebuildProject);
 
     /// <summary>Enforced here, not trusted from the client: deep offsets would enumerate members on the UI thread.</summary>
@@ -147,6 +163,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     /// <summary>Called by the event pump when a build finishes (UI thread): bars of projects that are up to date now go away.</summary>
     public void OnBuildFinished()
     {
+        _buildInfo.Clear();
         if (_notifier is null) return;
         foreach (var unique in _notifier.ShownProjects)
             _notifier.Observe(unique, StaleBuildChecker.IsStale(dte.GetBuildInfo(unique)));
@@ -262,15 +279,15 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         }
 
         var observed = seq.Current;
-        var original = dte.StartupProject;
+        var original = dte.StartupProjects.ToArray();   // all of them: "Multiple startup projects" must survive
         try
         {
-            dte.StartupProject = unique;
+            dte.StartupProjects = [unique];
             dte.Go();
         }
         finally
         {
-            dte.StartupProject = original;
+            dte.StartupProjects = original;
         }
 
         return observed;
@@ -454,13 +471,13 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         }
         else
         {
-            scope = dte.StartupProject is { } startup ? [startup] : [];
+            scope = dte.StartupProjects.ToArray();
         }
 
         var stale = new List<BuildWarning>();
         foreach (var unique in scope)
         {
-            var isStale = StaleBuildChecker.IsStale(dte.GetBuildInfo(unique));
+            var isStale = StaleBuildChecker.IsStale(BuildInfoOf(unique));
             _notifier?.Observe(unique, isStale);
             if (isStale) stale.Add(StaleWarning(unique));
         }

@@ -163,6 +163,21 @@ public class ExecutionToolsTests
         Assert.Contains("Start", bridge.Calls);
     }
 
+    /// <summary>Final review 5: a refused approval must end the call, not be asked a second time by the real command.</summary>
+    [Theory]
+    [InlineData(BridgeErrorCode.Denied, "denied")]
+    [InlineData(BridgeErrorCode.AiDisabled, "ai_disabled")]
+    public async Task Denied_or_disconnected_from_the_check_is_the_tools_result(BridgeErrorCode code, string name)
+    {
+        var bridge = new FakeDebugBridge { OnCheckBuild = (_, _) => throw new StreamJsonRpc.RemoteInvocationException("no", (int)code, new BridgeErrorData()) };
+        var tools = new ExecutionTools(new FakeConnectionManager(bridge, DebuggerMode.Design), TimeSpan.FromMilliseconds(50));
+
+        var json = Json(await tools.Start(null, CancellationToken.None));
+
+        Assert.Equal(name, json.GetProperty("error").GetProperty("code").GetString());
+        Assert.DoesNotContain("Start", bridge.Calls);
+    }
+
     [Fact]
     public async Task In_use_from_the_check_is_the_tools_result()
     {

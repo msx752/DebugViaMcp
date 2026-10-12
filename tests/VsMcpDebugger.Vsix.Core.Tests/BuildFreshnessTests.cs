@@ -30,6 +30,28 @@ public class BuildFreshnessTests
         Assert.Equal("OrderDemo", warning.Project);
     }
 
+    /// <summary>Final review 4: repeated checks must not re-read the project every time.</summary>
+    [Fact]
+    public async Task Checks_within_a_few_seconds_read_the_project_once_and_a_build_refreshes_it()
+    {
+        var now = new DateTime(2026, 10, 12, 12, 0, 0, DateTimeKind.Utc);
+        var dte = new FakeDte();
+        MarkStale(dte, Order);
+        var service = ServiceFor(dte);
+        service.BuildInfoClock = () => now;
+
+        for (var i = 0; i < 20; i++) await service.CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
+        Assert.Equal(1, dte.GetBuildInfoCalls);
+
+        now = now.AddSeconds(DebugBridgeService.BuildInfoCacheSeconds + 1);
+        await service.CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
+        Assert.Equal(2, dte.GetBuildInfoCalls);
+
+        service.OnBuildFinished();
+        await service.CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
+        Assert.Equal(3, dte.GetBuildInfoCalls);
+    }
+
     [Fact]
     public async Task Unknown_project_gives_no_warning()
     {

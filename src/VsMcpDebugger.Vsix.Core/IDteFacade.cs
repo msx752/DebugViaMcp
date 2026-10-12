@@ -136,8 +136,8 @@ public interface IDteFacade
     /// <summary>Unique names of the projects that contain <paramref name="file"/> (absolute path); empty when none does.</summary>
     IReadOnlyList<string> ProjectsContaining(string file);
 
-    /// <summary>Unique name of the solution's startup project; null when none. Setting it changes the solution's setting.</summary>
-    string? StartupProject { get; set; }
+    /// <summary>Unique names of the solution's startup projects (several with "Multiple startup projects"); empty when none. Setting it changes the solution's setting.</summary>
+    IReadOnlyList<string> StartupProjects { get; set; }
 
     /// <summary>True when <paramref name="uniqueName"/> is a project Visual Studio can start (an executable or web project, not a library).</summary>
     bool IsLaunchable(string uniqueName);

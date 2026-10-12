@@ -133,16 +133,23 @@ public sealed class FakeDte : IDteFacade
     public void Go()
     {
         Calls.Add("Go");
-        StartupAtGo.Add(_startupProject);
+        StartupAtGo.Add(_startupProjects.Count > 0 ? _startupProjects[0] : null);
         OnGo?.Invoke();
     }
 
-    private string? _startupProject;
+    private IReadOnlyList<string> _startupProjects = [];
 
+    public IReadOnlyList<string> StartupProjects
+    {
+        get { Ui(); return _startupProjects; }
+        set { Ui(); StartupHistory.Add(value.Count > 0 ? value[0] : null); _startupProjects = value; }
+    }
+
+    /// <summary>Single-project view of <see cref="StartupProjects"/> for tests.</summary>
     public string? StartupProject
     {
-        get { Ui(); return _startupProject; }
-        set { Ui(); StartupHistory.Add(value); _startupProject = value; }
+        get => StartupProjects.Count > 0 ? StartupProjects[0] : null;
+        set => StartupProjects = value is null ? [] : [value];
     }
 
     /// <summary>Every assignment to <see cref="StartupProject"/>, in order.</summary>
@@ -159,9 +166,12 @@ public sealed class FakeDte : IDteFacade
     /// <summary>Build state per project; a project that is not listed counts as freshly built.</summary>
     public Dictionary<string, ProjectBuildInfo> BuildInfos { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    public int GetBuildInfoCalls { get; private set; }
+
     public ProjectBuildInfo GetBuildInfo(string uniqueName)
     {
         Ui();
+        GetBuildInfoCalls++;
         return BuildInfos.TryGetValue(uniqueName, out var info)
             ? info
             : new ProjectBuildInfo { UniqueName = uniqueName, NewestSourceUtc = null, OldestOutputUtc = DateTime.UtcNow };

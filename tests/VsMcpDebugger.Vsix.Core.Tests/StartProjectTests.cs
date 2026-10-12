@@ -72,6 +72,18 @@ public class StartProjectTests
         Assert.Equal(Fault, dte.StartupProject);
     }
 
+    /// <summary>Final review 3: a solution with several startup projects keeps all of them.</summary>
+    [Fact]
+    public async Task Multiple_startup_projects_are_restored_whole()
+    {
+        var (dte, service) = Create();
+        dte.StartupProjects = [Fault, Order];
+
+        await service.StartProjectAsync("OrderDemo", CancellationToken.None);
+
+        Assert.Equal([Fault, Order], dte.StartupProjects);
+    }
+
     [Fact]
     public async Task Unknown_project_is_not_found_and_lists_the_names()
     {

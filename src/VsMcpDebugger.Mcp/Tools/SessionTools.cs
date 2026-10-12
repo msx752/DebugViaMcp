@@ -52,6 +52,7 @@ public sealed class SessionTools(IConnectionManager connections)
     {
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
         var status = await bridge.GetStatusAsync(ctx, ct).ConfigureAwait(false);
+        connections.Session.Sync(status.Mode, status.Seq);
         return ToolResponse.Ok(new { mode = status.Mode, permissions = status.Permissions, snapshot = ToolResponse.Snapshot(status.Snapshot) });
     });
 }
