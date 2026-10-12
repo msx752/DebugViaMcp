@@ -73,6 +73,108 @@ public class ExecutionToolsTests
         Assert.Contains("OrderDemo", error.GetProperty("hint").GetString(), StringComparison.Ordinal);
     }
 
+    private static BuildWarning Stale(string? project = "OrderDemo") => new() { Code = "stale_build", Message = "OrderDemo — sources are newer than the built output.", Project = project };
+
+    [Fact]
+    public async Task Start_reports_stale_build_warnings_and_still_starts()
+    {
+        var bridge = new FakeDebugBridge { OnCheckBuild = (_, _) => [Stale()] };
+        var cm = new FakeConnectionManager(bridge, DebuggerMode.Design);
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        var json = Json(await tools.Start(null, CancellationToken.None));
+
+        var warning = json.GetProperty("warnings")[0];
+        Assert.Equal("stale_build", warning.GetProperty("code").GetString());
+        Assert.Equal("OrderDemo", warning.GetProperty("project").GetString());
+        Assert.Contains("Start", bridge.Calls);
+        Assert.True(bridge.Calls.IndexOf("CheckBuild:") < bridge.Calls.IndexOf("Start"));
+    }
+
+    [Fact]
+    public async Task Start_without_warnings_has_no_warnings_property()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design);
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        var json = Json(await tools.Start(null, CancellationToken.None));
+
+        Assert.False(json.TryGetProperty("warnings", out _));
+        Assert.Equal("running", json.GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task Start_with_a_project_checks_that_project()
+    {
+        var bridge = new FakeDebugBridge();
+        var tools = new ExecutionTools(new FakeConnectionManager(bridge, DebuggerMode.Design), TimeSpan.FromMilliseconds(50));
+
+        await tools.Start("OrderDemo", CancellationToken.None);
+
+        Assert.Contains("CheckBuild:OrderDemo", bridge.Calls);
+    }
+
+    [Fact]
+    public async Task Attach_by_name_checks_that_name()
+    {
+        var bridge = new FakeDebugBridge { OnCheckBuild = (_, _) => [Stale()] };
+        var tools = new ExecutionTools(new FakeConnectionManager(bridge, DebuggerMode.Design), TimeSpan.FromMilliseconds(50));
+
+        var json = Json(await tools.Attach(null, "OrderDemo", CancellationToken.None));
+
+        Assert.Contains("CheckBuild:OrderDemo", bridge.Calls);
+        Assert.Equal("stale_build", json.GetProperty("warnings")[0].GetProperty("code").GetString());
+        Assert.Equal("attached", json.GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task Attach_by_pid_has_no_name_to_check()
+    {
+        var bridge = new FakeDebugBridge();
+        var tools = new ExecutionTools(new FakeConnectionManager(bridge, DebuggerMode.Design), TimeSpan.FromMilliseconds(50));
+
+        await tools.Attach(400, null, CancellationToken.None);
+
+        Assert.DoesNotContain(bridge.Calls, c => c.StartsWith("CheckBuild", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Check_is_skipped_against_a_2_1_extension()
+    {
+        var bridge = new FakeDebugBridge { OnCheckBuild = (_, _) => [Stale()] };
+        var cm = new FakeConnectionManager(bridge, DebuggerMode.Design) { RemoteProtocolMinor = ProtocolInfo.MinorM3 };
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        var json = Json(await tools.Start(null, CancellationToken.None));
+
+        Assert.DoesNotContain(bridge.Calls, c => c.StartsWith("CheckBuild", StringComparison.Ordinal));
+        Assert.False(json.TryGetProperty("warnings", out _));
+    }
+
+    [Fact]
+    public async Task A_failing_check_does_not_fail_the_tool()
+    {
+        var bridge = new FakeDebugBridge { OnCheckBuild = (_, _) => throw new StreamJsonRpc.RemoteInvocationException("boom", (int)BridgeErrorCode.Internal, new BridgeErrorData()) };
+        var tools = new ExecutionTools(new FakeConnectionManager(bridge, DebuggerMode.Design), TimeSpan.FromMilliseconds(50));
+
+        var result = await tools.Start(null, CancellationToken.None);
+
+        Assert.NotEqual(true, result.IsError);
+        Assert.Contains("Start", bridge.Calls);
+    }
+
+    [Fact]
+    public async Task In_use_from_the_check_is_the_tools_result()
+    {
+        var bridge = new FakeDebugBridge { OnCheckBuild = (_, _) => throw new StreamJsonRpc.RemoteInvocationException("This Visual Studio is in use by codex.", (int)BridgeErrorCode.InUse, new BridgeErrorData()) };
+        var tools = new ExecutionTools(new FakeConnectionManager(bridge, DebuggerMode.Design), TimeSpan.FromMilliseconds(50));
+
+        var json = Json(await tools.Start(null, CancellationToken.None));
+
+        Assert.Equal("in_use", json.GetProperty("error").GetProperty("code").GetString());
+        Assert.DoesNotContain("Start", bridge.Calls);
+    }
+
     [Fact]
     public async Task Step_returns_snapshot_of_next_break()
     {

@@ -17,6 +17,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Connected to VS pid {Pid} ({VsVersion}, VSIX {VsixVersion})")]
     public static partial void Connected(ILogger logger, int pid, string vsVersion, string vsixVersion);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Stale-build check failed [{CallId}], continuing without warnings: {Reason}")]
+    public static partial void CheckBuildFailed(ILogger logger, string callId, string reason);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Tool {Tool} [{CallId}] finished in {DurationMs} ms: {Result}")]
     public static partial void ToolCompleted(ILogger logger, string tool, string callId, long durationMs, string result);
 }

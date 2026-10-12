@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using ModelContextProtocol.Protocol;
 using StreamJsonRpc;
@@ -23,6 +24,37 @@ internal static class ToolResponse
     {
         Content = [new TextContentBlock { Text = JsonSerializer.Serialize(payload, Options) }],
     };
+
+    /// <summary>Like <see cref="Ok"/>, with a <c>warnings</c> array when there is anything to warn about.</summary>
+    public static CallToolResult OkWithWarnings(object payload, IReadOnlyList<BuildWarning> warnings)
+    {
+        ArgumentNullException.ThrowIfNull(warnings);
+        if (warnings.Count == 0) return Ok(payload);
+        var node = JsonSerializer.SerializeToNode(payload, Options) as JsonObject ?? new JsonObject { ["result"] = JsonSerializer.SerializeToNode(payload, Options) };
+        node["warnings"] = JsonSerializer.SerializeToNode(warnings, Options);
+        return new CallToolResult { Content = [new TextContentBlock { Text = node.ToJsonString(Options) }] };
+    }
+
+    /// <summary>
+    /// Asks the extension about out-of-date builds in scope. Never blocks and never fails the tool, except that
+    /// <c>in_use</c> propagates: another agent holds the Visual Studio, so the tool must not run.
+    /// </summary>
+    public static async Task<IReadOnlyList<BuildWarning>> CheckBuildAsync(
+        IConnectionManager connections, IDebugBridge bridge, string? project, string? file, CallContext context, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(connections);
+        ArgumentNullException.ThrowIfNull(bridge);
+        if (connections.RemoteProtocolMinor < ProtocolInfo.MinorM31) return [];
+        try
+        {
+            return await bridge.CheckBuildFreshnessAsync(project, file, context, ct).ConfigureAwait(false);
+        }
+        catch (RemoteInvocationException e) when (BridgeErrors.Read(e).Code != BridgeErrorCode.InUse)
+        {
+            Log.CheckBuildFailed(connections.Logger, context.CallId, e.Message);
+            return [];
+        }
+    }
 
     public static CallToolResult Error(BridgeErrorCode code, string message, string? hint = null, string? reason = null) => new()
     {

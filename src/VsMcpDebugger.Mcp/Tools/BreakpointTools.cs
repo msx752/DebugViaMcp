@@ -52,6 +52,7 @@ public sealed class BreakpointTools(IConnectionManager connections)
             return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "conditionKind must be 'true' or 'changed'; hitKind must be 'none', 'equal', 'atLeast' or 'multiple'.");
 
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
+        var warnings = hasFileLine ? await ToolResponse.CheckBuildAsync(connections, bridge, null, file, ctx, ct).ConfigureAwait(false) : [];
         var result = await bridge.SetBreakpointAsync(new BreakpointSpec
         {
             File = hasFileLine ? file : null,
@@ -63,7 +64,7 @@ public sealed class BreakpointTools(IConnectionManager connections)
             HitCountKind = hitKindValue.Value,
             LogMessage = string.IsNullOrWhiteSpace(logMessage) ? null : logMessage,
         }, ctx, ct).ConfigureAwait(false);
-        return ToolResponse.Ok(result);
+        return ToolResponse.OkWithWarnings(result, warnings);
     });
 
     [McpServerTool(Name = "bp_enable", Idempotent = true),

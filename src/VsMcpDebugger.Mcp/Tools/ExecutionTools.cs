@@ -23,8 +23,9 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
         [Description("Project to start (name or unique name); omit for the solution's startup project.")] string? project = null,
         CancellationToken ct = default) =>
         string.IsNullOrWhiteSpace(project)
-            ? Resume("debug_start", DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", (b, ctx) => b.StartAsync(ctx, ct), ct)
-            : Resume("debug_start", DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", (b, ctx) => b.StartProjectAsync(project, ctx, ct), ct, ProtocolInfo.MinorM31);
+            ? Resume("debug_start", DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", (b, ctx) => b.StartAsync(ctx, ct), ct, check: (b, ctx) => ToolResponse.CheckBuildAsync(connections, b, null, null, ctx, ct))
+            : Resume("debug_start", DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", (b, ctx) => b.StartProjectAsync(project, ctx, ct), ct, ProtocolInfo.MinorM31,
+                check: (b, ctx) => ToolResponse.CheckBuildAsync(connections, b, project, null, ctx, ct));
 
     [McpServerTool(Name = "debug_continue"), Description("Resumes execution (F5) and waits up to 30 s for the next break. " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Continue(CancellationToken ct) =>
@@ -117,11 +118,13 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
             (pid, name) = (candidates[0].Pid, candidates[0].Name);
         }
 
+        var warnings = name is null ? [] : await ToolResponse.CheckBuildAsync(connections, bridge, name, null, ctx, ct).ConfigureAwait(false);
         await connections.Session.IssueAsync(() => bridge.AttachAsync(pid.Value, ctx, ct)).ConfigureAwait(false);
-        return ToolResponse.Ok(new { state = "attached", pid, process = name, hint = "Set breakpoints with bp_set, then debug_wait or debug_pause. debug_stop detaches." });
+        return ToolResponse.OkWithWarnings(new { state = "attached", pid, process = name, hint = "Set breakpoints with bp_set, then debug_wait or debug_pause. debug_stop detaches." }, warnings);
     });
 
-    private Task<CallToolResult> Resume(string tool, DebuggerMode required, string hint, Func<IDebugBridge, CallContext, Task<long>> command, CancellationToken ct, int requiredMinor = 0) =>
+    private Task<CallToolResult> Resume(string tool, DebuggerMode required, string hint, Func<IDebugBridge, CallContext, Task<long>> command, CancellationToken ct, int requiredMinor = 0,
+        Func<IDebugBridge, CallContext, Task<IReadOnlyList<BuildWarning>>>? check = null) =>
         ToolResponse.RunAsync(connections, tool, async ctx =>
         {
             var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
@@ -130,8 +133,9 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
                 return ToolResponse.WrongMode(required, session.Mode, hint);
             if (requiredMinor > 0 && ToolResponse.RequireMinor(connections, requiredMinor) is { } unsupported) return unsupported;
 
+            var warnings = check is null ? [] : await check(bridge, ctx).ConfigureAwait(false);
             var seq = await session.IssueAsync(() => command(bridge, ctx)).ConfigureAwait(false);
             var outcome = await session.WaitForBreakAfterAsync(seq, waitForBreak, ct).ConfigureAwait(false);
-            return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
+            return ToolResponse.OkWithWarnings(ToolResponse.FromOutcome(outcome), warnings);
         });
 }
