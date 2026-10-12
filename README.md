@@ -8,6 +8,8 @@ breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 ## What works today (M3)
 
 - Breakpoints: file/line or function, conditions, hit counts, tracepoints, enable/disable (`bp_enable`)
+- Several Visual Studios, one agent each: the right instance is chosen by folder, unrelated agents need your approval,
+  and a second agent gets `in_use` while the first holds a Visual Studio
 - Execution: start, continue, pause, step into/over/out, wait for break, run to line, attach to a running process
   (detach on stop)
 - Inspection: threads, call stack, frame selection (`frame_select`), the current exception, locals/arguments, drill-down by path, side-effect-free evaluation, `set_value`, and

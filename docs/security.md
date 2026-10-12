@@ -55,6 +55,20 @@ confirmation first.
 - `bp_enable(true)` on a breakpoint with a condition or tracepoint is Mutate for the same reason as `bp_set` with one.
 - `vs_build` is **Control**: it runs your project's build, including any custom MSBuild targets.
 
+### Several agents and several Visual Studios (0.4)
+
+- Approval and the one-agent-at-a-time lease live in the extension, inside each Visual Studio. The MCP server only
+  chooses an instance and reports.
+- The agent's working directory is **self-reported**. It prevents mistakes (an agent landing in the wrong Visual Studio);
+  it does not stop a hostile process of the same user, which is out of scope (see below).
+- An agent whose folder is not the solution's folder or below it needs a one-time approval from the owner, on its first
+  call. Allow once and Allow for session both approve that connection only; Deny and no answer refuse.
+- The lease is taken by the first state-changing command and freed by `vs_release`, a closed connection or
+  Disconnect AI. While it is held, other agents get `in_use` for reads too.
+- Approvals and leases die with the connection and with Disconnect AI; a reconnecting agent starts again.
+- Client names, folders and project names supplied by an agent are escaped and length-capped wherever the owner or
+  another agent sees them (consent questions, `in_use` messages).
+
 ### Consent
 With **Ask**, Visual Studio shows an info bar on the main window, for example:
 

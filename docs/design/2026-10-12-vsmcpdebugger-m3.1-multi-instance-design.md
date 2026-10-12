@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Approved by the human partner for planning (pending final read) |
+| **Status** | Implemented (feature/m3.1) |
 | **Date** | 2026-10-12 |
 | **Milestone** | M3.1 (multi-instance, doing the right thing in the right Visual Studio) |
 | **Parent specs** | [2026-10-11-vsmcpdebugger-design.md](2026-10-11-vsmcpdebugger-design.md) (§3.1 tools, §4 runtime model), [2026-10-11-vsmcpdebugger-m2-safety-design.md](2026-10-11-vsmcpdebugger-m2-safety-design.md) (tiers, consent, audit), [2026-10-11-vsmcpdebugger-m3-design.md](2026-10-11-vsmcpdebugger-m3-design.md) (tool set, protocol 2.1). Where this document is more specific, it wins. |

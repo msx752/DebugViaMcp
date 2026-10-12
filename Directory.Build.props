@@ -6,7 +6,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <!-- One version for the extension and the tool; keep in sync with source.extension.vsixmanifest Identity/@Version. -->
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Authors>VsMcpDebugger contributors</Authors>
     <Copyright>Copyright (c) VsMcpDebugger contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

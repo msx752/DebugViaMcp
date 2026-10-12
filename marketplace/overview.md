@@ -9,6 +9,7 @@ variables, and evaluate expressions — while you stay in control.
 ## What the agent can do
 
 - **Breakpoints** — file/line or function, conditions, hit counts, tracepoints, enable/disable
+- **Several Visual Studios** — one agent each: instance chosen by folder, owner approval for unrelated agents, `vs_release`
 - **Execution** — start, continue, pause, step into/over/out, wait for the next break, run to line, attach to a
   running process (detach on stop)
 - **Inspection** — threads, call stack, frame selection, the current exception, locals and arguments, drill into members, QuickWatch-style evaluation

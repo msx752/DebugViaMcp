@@ -3,6 +3,27 @@
 All notable changes to VsMcpDebugger. Versions follow [Semantic Versioning](https://semver.org/); the extension and
 the `vsmcpdebugger` tool are released together with the same version.
 
+## 0.4.0 — Several Visual Studios (preview)
+
+### Added
+- Several Visual Studios, one agent each. The MCP server picks the Visual Studio whose solution folder relates to the
+  folder the agent runs in (the agent in the repository root, the solution in `src\`, works too); `vs_select` still
+  overrides.
+- An agent whose folder is not the solution's must be approved once by the Visual Studio owner (info bar), per
+  connection.
+- One agent at a time per Visual Studio: the first state-changing command (breakpoint, build, start, attach, ...) takes
+  it, a second agent gets `in_use`. `vs_release`, a closed connection or Disconnect AI frees it. The status bar and
+  `vs_instances` show who holds it.
+- `debug_start(project)` starts the named project and leaves the solution's startup project as it was.
+- `debug_start`, `debug_attach` and `bp_set` return `warnings` when the build is older than the sources; Visual Studio
+  offers an optional **Rebuild** bar (hidden while debugging, gone once the project is up to date).
+
+### Changed
+- Wire protocol 2.2 (additive). A 2.1 extension keeps working with the 0.4 tool; the new tools then report
+  `unsupported`.
+- Break and mode events go only to the agent that holds the Visual Studio.
+- `vs_instances` lists availability (`free` / `in_use`), the holder and whether the folder matches.
+
 ## 0.3.0 — Complete tool set & IDE state (preview)
 
 ### Added
