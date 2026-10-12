@@ -465,6 +465,14 @@
     }
   },
   {
+    "Name": "vs_release",
+    "Description": "Call when you are finished with this Visual Studio so another agent can use it. Visual Studio is held by one agent from its first change (breakpoint, build, start, attach) until you call this, disconnect or the user chooses Disconnect AI.",
+    "Schema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
     "Name": "vs_select",
     "Description": "Chooses which Visual Studio instance to control.",
     "Schema": {

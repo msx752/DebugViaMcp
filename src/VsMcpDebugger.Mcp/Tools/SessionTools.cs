@@ -37,6 +37,16 @@ public sealed class SessionTools(IConnectionManager connections)
         return ToolResponse.Ok(new { pid, solution = h.SolutionPath, vsVersion = h.VsVersion, mode = h.Mode });
     });
 
+    [McpServerTool(Name = "vs_release"), Description("Call when you are finished with this Visual Studio so another agent can use it. Visual Studio is held by one agent from its first change (breakpoint, build, start, attach) until you call this, disconnect or the user chooses Disconnect AI.")]
+    public Task<CallToolResult> Release(CancellationToken ct) => ToolResponse.RunAsync(connections, "vs_release", async ctx =>
+    {
+        // Nothing to give up without a connection; never connect just to let go.
+        if (connections.TryGetBridge() is not { } bridge) return ToolResponse.Ok(new { released = true, note = "not connected" });
+        if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM31) is { } unsupported) return unsupported;
+        await bridge.ReleaseAsync(ctx, ct).ConfigureAwait(false);
+        return ToolResponse.Ok(new { released = true });
+    });
+
     [McpServerTool(Name = "debug_status", ReadOnly = true), Description("Returns the debugger mode (design, run, break), what the user allows (permissions), and, when stopped, where and why. " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Status(CancellationToken ct) => ToolResponse.RunAsync(connections, "debug_status", async ctx =>
     {

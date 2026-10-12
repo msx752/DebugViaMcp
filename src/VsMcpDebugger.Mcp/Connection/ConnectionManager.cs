@@ -19,6 +19,9 @@ public interface IConnectionManager
     IReadOnlyList<InstanceRecord> ListInstances();
     Task<HandshakeResponse> SelectAsync(int pid, CancellationToken ct);
 
+    /// <summary>The live bridge, or null when there is none. Never connects.</summary>
+    IDebugBridge? TryGetBridge();
+
     /// <summary>Returns the live bridge, auto-connecting when exactly one instance exists.</summary>
     Task<IDebugBridge> GetBridgeAsync(CancellationToken ct);
 }
@@ -41,6 +44,8 @@ public sealed class ConnectionManager(
     public int RemoteProtocolMinor => _connection?.Handshake.ProtocolMinor ?? 0;
 
     public IReadOnlyList<InstanceRecord> ListInstances() => listInstances();
+
+    public IDebugBridge? TryGetBridge() => _connection is { IsAlive: true } live ? live.Bridge : null;
 
     public async Task<HandshakeResponse> SelectAsync(int pid, CancellationToken ct)
     {

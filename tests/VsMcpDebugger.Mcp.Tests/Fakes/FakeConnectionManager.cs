@@ -29,6 +29,18 @@ public sealed class FakeConnectionManager : IConnectionManager
     public Task<HandshakeResponse> SelectAsync(int pid, CancellationToken ct) =>
         Bridge.HandshakeAsync(new HandshakeRequest { Token = Bridge.ExpectedToken }, ct);
 
-    public Task<IDebugBridge> GetBridgeAsync(CancellationToken ct) =>
-        FailWith is { } e ? Task.FromException<IDebugBridge>(e) : Task.FromResult<IDebugBridge>(Bridge);
+    /// <summary>False simulates "no live connection": TryGetBridge returns null.</summary>
+    public bool Connected { get; set; } = true;
+    public int GetBridgeCalls { get; private set; }
+
+    /// <summary>Serves this bridge (for example one behind a real pipe) instead of <see cref="Bridge"/>.</summary>
+    public IDebugBridge? Override { get; set; }
+
+    public IDebugBridge? TryGetBridge() => Connected ? Override ?? Bridge : null;
+
+    public Task<IDebugBridge> GetBridgeAsync(CancellationToken ct)
+    {
+        GetBridgeCalls++;
+        return FailWith is { } e ? Task.FromException<IDebugBridge>(e) : Task.FromResult(Override ?? Bridge);
+    }
 }
