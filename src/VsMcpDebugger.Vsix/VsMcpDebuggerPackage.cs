@@ -91,13 +91,28 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
                 VsVersion = dte.Version, VsixVersion = vsixVersion,
                 ProtocolMajor = ProtocolInfo.Major, ProtocolMinor = ProtocolInfo.Minor, StartedAt = DateTimeOffset.UtcNow,
             });
+            // Publish who holds this Visual Studio, so other agents' vs_instances shows it.
+            lease.Changed += (_, _) =>
+            {
+                var holder = lease.Holder;
+                try
+                {
+                    _discovery.UpdateLease(holder?.Client, holder?.Folder);
+                }
+#pragma warning disable CA1031 // Publishing the holder is advisory; a failed write must never fail the bridge call that changed the lease.
+                catch (Exception e)
+#pragma warning restore CA1031
+                {
+                    log.Warn($"Could not publish the lease holder: {e.Message}");
+                }
+            };
             // Keep the solution shown by vs_instances in sync with what is open (held in a field so COM keeps the subscription).
             _solutionEvents = dte.Events.SolutionEvents;
             _solutionEvents.Opened += () => { ThreadHelper.ThrowIfNotOnUIThread(); _discovery.UpdateSolution(service.SolutionPath); };
             _solutionEvents.AfterClosing += () => _discovery.UpdateSolution(null);
             if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commands)
                 VsMcpDebuggerCommands.Register(this, commands, security, Activity);
-            _indicator = StatusBarIndicator.TryCreate(access, JoinableTaskFactory, () => page.Applied.ShowStatusBarIndicator, Activity, log);
+            _indicator = StatusBarIndicator.TryCreate(access, lease, JoinableTaskFactory, () => page.Applied.ShowStatusBarIndicator, Activity, log);
             page.AnyApplied += (_, _) => { ThreadHelper.ThrowIfNotOnUIThread(); _indicator?.Refresh(); };
             log.Info($"VsMcpDebugger {vsixVersion} ready (pid {pid}, protocol {ProtocolInfo.Major}.{ProtocolInfo.Minor})");
         }

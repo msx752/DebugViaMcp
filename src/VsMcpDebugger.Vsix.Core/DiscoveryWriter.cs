@@ -53,6 +53,17 @@ public sealed class DiscoveryWriter(string directory, Action<string>? harden = n
         Write(record);
     }
 
+    /// <summary>Rewrites the record with the agent that holds this Visual Studio (both null when it is free).</summary>
+    public void UpdateLease(string? holder, string? folder)
+    {
+        InstanceRecord? record;
+        lock (_gate) record = _record;
+        if (record is null) return;
+        record.LeaseHolder = holder;
+        record.LeaseHolderFolder = folder;
+        Write(record);
+    }
+
     public void Delete()
     {
         lock (_gate)

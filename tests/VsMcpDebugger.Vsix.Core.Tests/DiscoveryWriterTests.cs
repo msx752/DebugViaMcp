@@ -53,6 +53,63 @@ public sealed class DiscoveryWriterTests : IDisposable
         Assert.Equal(["4242.json"], Directory.GetFiles(_dir).Select(Path.GetFileName));
     }
 
+    [Fact]
+    public void UpdateLease_writes_holder_and_folder_into_the_file()
+    {
+        var writer = new DiscoveryWriter(_dir);
+        var (_, path) = writer.Write(new InstanceRecord { Pid = 4242, PipeName = "vsmcpdebugger-x", Token = "secret" });
+
+        writer.UpdateLease("codex", @"D:\jobs");
+
+        var record = ProtocolJson.Deserialize<InstanceRecord>(File.ReadAllText(path))!;
+        Assert.Equal("codex", record.LeaseHolder);
+        Assert.Equal(@"D:\jobs", record.LeaseHolderFolder);
+    }
+
+    [Fact]
+    public void Clearing_the_lease_removes_both_fields()
+    {
+        var writer = new DiscoveryWriter(_dir);
+        var (_, path) = writer.Write(new InstanceRecord { Pid = 4242, PipeName = "vsmcpdebugger-x", Token = "secret" });
+        writer.UpdateLease("codex", @"D:\jobs");
+
+        writer.UpdateLease(null, null);
+
+        var json = File.ReadAllText(path);
+        Assert.DoesNotContain("leaseHolder", json, StringComparison.OrdinalIgnoreCase);
+        var record = ProtocolJson.Deserialize<InstanceRecord>(json)!;
+        Assert.Null(record.LeaseHolder);
+        Assert.Null(record.LeaseHolderFolder);
+    }
+
+    [Fact]
+    public void UpdateLease_keeps_every_other_field_and_the_token()
+    {
+        var hardenCount = 0;
+        var writer = new DiscoveryWriter(_dir, _ => hardenCount++);
+        var (_, path) = writer.Write(new InstanceRecord { Pid = 4242, PipeName = "vsmcpdebugger-x", Token = "secret", SolutionPath = @"C:\src\Shop.sln", VsVersion = "18.10" });
+
+        writer.UpdateLease("codex", null);
+
+        var record = ProtocolJson.Deserialize<InstanceRecord>(File.ReadAllText(path))!;
+        Assert.Equal("secret", record.Token);
+        Assert.Equal("vsmcpdebugger-x", record.PipeName);
+        Assert.Equal(@"C:\src\Shop.sln", record.SolutionPath);
+        Assert.Equal("18.10", record.VsVersion);
+        Assert.Equal(4242, record.Pid);
+        Assert.Equal(2, hardenCount);   // the rewrite goes through the same hardened temporary file
+    }
+
+    [Fact]
+    public void UpdateLease_before_write_does_nothing()
+    {
+        var writer = new DiscoveryWriter(_dir);
+
+        writer.UpdateLease("codex", null);
+
+        Assert.False(Directory.Exists(_dir) && Directory.GetFiles(_dir).Length > 0);
+    }
+
     /// <summary>Final review #4: the solution shown by vs_instances must follow what is open in Visual Studio.</summary>
     [Fact]
     public void UpdateSolution_rewrites_the_record_and_keeps_the_token()
