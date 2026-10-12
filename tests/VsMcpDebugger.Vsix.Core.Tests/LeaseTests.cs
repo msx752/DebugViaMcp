@@ -247,6 +247,23 @@ public class LeaseTests
         }
     }
 
+    /// <summary>Security review: a read that waited for the user's answer must not run if another agent took the lease meanwhile.</summary>
+    [Fact]
+    public async Task A_read_that_waited_for_the_user_is_refused_when_the_lease_was_taken_meanwhile()
+    {
+        using var s = new SecurityHarness();
+        s.Settings.Permissions.Read = PermissionLevel.Ask;
+        await s.HandshakeAsync("claude-code");
+        var b = await s.AddConnectionAsync("codex");
+
+        var waiting = b.GetStatusAsync(SecurityHarness.Ctx("c-000050"), CancellationToken.None);
+        await s.Prompt.WaitForPromptsAsync(1);
+        await SetBp(s.Handler);   // the first agent takes the lease while the question is open
+        s.Prompt.Answer(ConsentChoice.AllowOnce);
+
+        AssertInUse(await Assert.ThrowsAsync<LocalRpcException>(() => waiting));
+    }
+
     [Fact]
     public async Task Refusals_are_audited()
     {

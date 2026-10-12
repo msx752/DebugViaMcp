@@ -351,9 +351,14 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         if (security.Lease.Holder is { } holder && holder.ConnectionId != _connectionId) throw InUse(holder);
     }
 
-    /// <summary>The first state-changing command takes the lease; the take is atomic, so of two simultaneous agents exactly one wins.</summary>
+    /// <summary>
+    /// The last check before the call, after any question to the user: a read re-checks the holder (the lease may have been
+    /// taken while the question was open); the first state-changing command takes the lease, atomically, so of two
+    /// simultaneous agents exactly one wins.
+    /// </summary>
     private void AcquireLease(Operation operation)
     {
+        if (LeaseRules.For(operation) == LeaseNeed.Read) EnsureLeaseAvailable(operation);
         if (LeaseRules.For(operation) != LeaseNeed.Change) return;
         var attempt = security.Lease.TryAcquire(_connectionId, _client, _clientFolder);
         if (attempt.Outcome == LeaseOutcome.HeldByOther) throw InUse(attempt.Holder!);
