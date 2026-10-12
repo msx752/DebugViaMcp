@@ -130,6 +130,12 @@ public interface IDteFacade
     /// <summary>UniqueName of every project in the solution (solution folders flattened).</summary>
     IReadOnlyList<string> ProjectNames();
 
+    /// <summary>Source and output times of one project (unique name) for the stale-build check.</summary>
+    ProjectBuildInfo GetBuildInfo(string uniqueName);
+
+    /// <summary>Unique names of the projects that contain <paramref name="file"/> (absolute path); empty when none does.</summary>
+    IReadOnlyList<string> ProjectsContaining(string file);
+
     /// <summary>Unique name of the solution's startup project; null when none. Setting it changes the solution's setting.</summary>
     string? StartupProject { get; set; }
 

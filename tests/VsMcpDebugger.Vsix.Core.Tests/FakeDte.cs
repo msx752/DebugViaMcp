@@ -156,6 +156,27 @@ public sealed class FakeDte : IDteFacade
     /// <summary>Projects that can be started; null means all of them.</summary>
     public List<string>? LaunchableProjects { get; set; }
 
+    /// <summary>Build state per project; a project that is not listed counts as freshly built.</summary>
+    public Dictionary<string, ProjectBuildInfo> BuildInfos { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public ProjectBuildInfo GetBuildInfo(string uniqueName)
+    {
+        Ui();
+        return BuildInfos.TryGetValue(uniqueName, out var info)
+            ? info
+            : new ProjectBuildInfo { UniqueName = uniqueName, NewestSourceUtc = null, OldestOutputUtc = DateTime.UtcNow };
+    }
+
+    public Dictionary<string, List<string>> FileProjects { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<string> ProjectsContainingCalls { get; } = [];
+
+    public IReadOnlyList<string> ProjectsContaining(string file)
+    {
+        Ui();
+        ProjectsContainingCalls.Add(file);
+        return FileProjects.TryGetValue(file, out var projects) ? projects : [];
+    }
+
     public bool IsLaunchable(string uniqueName) { Ui(); return LaunchableProjects?.Contains(uniqueName) ?? true; }
     public void Break() => Calls.Add("Break");
     public void Stop() => Calls.Add("Stop");

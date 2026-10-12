@@ -46,6 +46,111 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         if (!string.IsNullOrEmpty(project.FullName)) names.Add(project.UniqueName);
     }
 
+    // Source times come from the files under the project's folder (known source extensions, bin/obj and similar skipped):
+    // one directory walk instead of a COM call per project item, which is slow on large projects. Output times come from
+    // the active configuration's Built and Symbols output groups, so the target-framework folder is respected.
+    public ProjectBuildInfo GetBuildInfo(string uniqueName)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var info = new ProjectBuildInfo { UniqueName = uniqueName };
+        var project = FindProject(uniqueName);
+        if (project is null) return info;
+
+        if (ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return project.FullName; }, out var projectFile) && !string.IsNullOrEmpty(projectFile))
+            info.NewestSourceUtc = NewestSource(projectFile);
+
+        DateTime? oldest = null;
+        var complete = false;
+        if (ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return project.ConfigurationManager?.ActiveConfiguration?.OutputGroups; }, out var groups) && groups is not null)
+        {
+            complete = true;
+            foreach (EnvDTE.OutputGroup group in groups)
+            {
+                if (!ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return (group.CanonicalName, group.FileURLs); }, out var read)) continue;
+                if (read.CanonicalName is not ("Built" or "Symbols")) continue;
+                if (read.FileURLs is not object[] urls) continue;
+                foreach (var url in urls.OfType<string>())
+                {
+                    var path = new Uri(url).LocalPath;
+                    if (!System.IO.File.Exists(path)) { complete = false; continue; }
+                    var time = System.IO.File.GetLastWriteTimeUtc(path);
+                    if (oldest is null || time < oldest) oldest = time;
+                }
+            }
+        }
+
+        // A missing output (or no output group at all) means the project was never built: leave OldestOutputUtc null.
+        info.OldestOutputUtc = complete ? oldest : null;
+        // Visual Studio's own up-to-date query is not reachable through DTE; file times are the signal (UpToDateByVisualStudio stays null).
+        return info;
+    }
+
+    private static readonly string[] SourceExtensions = [".cs", ".vb", ".fs", ".xaml", ".razor", ".cshtml", ".resx", ".csproj", ".vbproj", ".fsproj", ".props", ".targets"];
+    private static readonly string[] SkippedFolders = ["bin", "obj", ".vs", ".git", "node_modules", "packages"];
+
+    private static DateTime? NewestSource(string projectFile)
+    {
+        var root = System.IO.Path.GetDirectoryName(projectFile);
+        if (root is null || !System.IO.Directory.Exists(root)) return null;
+        DateTime? newest = null;
+        var pending = new Stack<string>();
+        pending.Push(root);
+        while (pending.Count > 0)
+        {
+            var directory = pending.Pop();
+            try
+            {
+                foreach (var sub in System.IO.Directory.EnumerateDirectories(directory))
+                {
+                    if (!SkippedFolders.Contains(System.IO.Path.GetFileName(sub), StringComparer.OrdinalIgnoreCase)) pending.Push(sub);
+                }
+
+                foreach (var file in System.IO.Directory.EnumerateFiles(directory))
+                {
+                    if (!SourceExtensions.Contains(System.IO.Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)) continue;
+                    var time = System.IO.File.GetLastWriteTimeUtc(file);
+                    if (newest is null || time > newest) newest = time;
+                }
+            }
+            catch (System.IO.IOException)
+            {
+                // A folder that vanishes or cannot be read while walking is skipped.
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        return newest;
+    }
+
+    // The project that contains a file is the one whose folder is the deepest ancestor of the file (SDK-style projects
+    // include everything below their folder), so nested projects win over a project at the repository root.
+    public IReadOnlyList<string> ProjectsContaining(string file)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        string? bestFolder = null;
+        var best = new List<string>();
+        foreach (var unique in ProjectNames())
+        {
+            var project = FindProject(unique);
+            if (project is null || !ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return project.FullName; }, out var projectFile) || string.IsNullOrEmpty(projectFile)) continue;
+            var folder = System.IO.Path.GetDirectoryName(projectFile);
+            if (folder is null || !FolderMatch.IsInsideOrEqual(file, folder)) continue;
+            if (bestFolder is null || folder.Length > bestFolder.Length)
+            {
+                bestFolder = folder;
+                best = [unique];
+            }
+            else if (string.Equals(folder, bestFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                best.Add(unique);
+            }
+        }
+
+        return best;
+    }
+
     public string? StartupProject
     {
         get

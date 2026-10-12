@@ -220,7 +220,8 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             Request.Of(project ?? "", ("project", project)), null, cancellationToken);
 
     public Task<BuildWarning[]> CheckBuildFreshnessAsync(string? project, string? file, CallContext context, CancellationToken cancellationToken) =>
-        throw Rpc(BridgeErrorCode.Unsupported, "Not implemented yet.", null);
+        Guard(Operation.BuildCheck, context, () => service.CheckBuildFreshnessAsync(project, file, cancellationToken),
+            Request.Of(project ?? file ?? "startup project", ("project", project), ("file", file)), null, cancellationToken);
 
     public Task ReleaseAsync(CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.Release, context, () => { ReleaseLease(); return Task.FromResult(true); }, null, null, cancellationToken);

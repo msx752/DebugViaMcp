@@ -417,6 +417,46 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return new BuildResult { State = BuildState.Done, Succeeded = failed == 0, FailedProjects = failed, DurationMs = started.ElapsedMilliseconds };
     }
 
+    /// <summary>
+    /// Stale builds in scope: <paramref name="project"/>, else every project containing <paramref name="file"/>, else the
+    /// startup project. Never fails for an unknown project or file (nothing to warn about) and never reveals paths or values.
+    /// </summary>
+    public Task<BuildWarning[]> CheckBuildFreshnessAsync(string? project, string? file, CancellationToken ct) => ui.RunAsync(() =>
+    {
+        IReadOnlyList<string> scope;
+        if (!string.IsNullOrWhiteSpace(project))
+        {
+            var match = dte.ProjectNames().FirstOrDefault(n => IsProjectNamed(n, project!));
+            scope = match is null ? [] : [match];
+        }
+        else if (!string.IsNullOrWhiteSpace(file))
+        {
+            // Only files inside the solution are looked up: this must not become an oracle for other paths.
+            var absolute = PathUtil.ToAbsolute(SolutionDir, file!);
+            scope = PathUtil.IsUnder(SolutionDir, absolute) ? dte.ProjectsContaining(absolute) : [];
+        }
+        else
+        {
+            scope = dte.StartupProject is { } startup ? [startup] : [];
+        }
+
+        return scope.Where(unique => StaleBuildChecker.IsStale(dte.GetBuildInfo(unique))).Select(StaleWarning).ToArray();
+    }, ct);
+
+    private static BuildWarning StaleWarning(string unique)
+    {
+        var name = Path.GetFileNameWithoutExtension(unique);
+        return new BuildWarning
+        {
+            Code = BuildWarningCodes.StaleBuild, Project = name,
+            Message = $"{name} — sources are newer than the built output; the program may not match the code. Build or rebuild before trusting breakpoints.",
+        };
+    }
+
+    private static bool IsProjectNamed(string unique, string name) =>
+        string.Equals(unique, name, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Path.GetFileNameWithoutExtension(unique), name, StringComparison.OrdinalIgnoreCase);
+
     private string ResolveProject(string project)
     {
         var names = dte.ProjectNames();
