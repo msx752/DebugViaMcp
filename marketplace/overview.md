@@ -6,6 +6,8 @@ variables, and evaluate expressions — while you stay in control.
 
 > Preview: the tool set is growing; feedback is welcome on the repository.
 
+![How VsMcpDebugger works](https://raw.githubusercontent.com/msx752/VsMcpDebugger/main/marketplace/images/how-it-works.png)
+
 ## What the agent can do
 
 - **Breakpoints** — file/line or function, conditions, hit counts, tracepoints, enable/disable
@@ -26,6 +28,8 @@ variables, and evaluate expressions — while you stay in control.
   **View → Output → VsMcpDebugger Activity**.
 - **Disconnect AI** — **Extensions → VsMcpDebugger → Disconnect AI** (Ctrl+Alt+Shift+F12) cuts the agent off at once.
 - **Local only** — a per-user named pipe; no network, no telemetry.
+
+![Several Visual Studios, one agent each](https://raw.githubusercontent.com/msx752/VsMcpDebugger/main/marketplace/images/several-visual-studios.png)
 
 ## Get started
 
