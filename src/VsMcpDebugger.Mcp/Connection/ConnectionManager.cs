@@ -116,7 +116,7 @@ public sealed class ConnectionManager(
         if (instances.Count == 0)
             throw new McpBridgeException(BridgeErrorCode.NotConnected,
                 "No Visual Studio instance with VsMcpDebugger is running.",
-                "Open Visual Studio with the VsMcpDebugger extension installed, or run `vsmcpdebugger doctor`.");
+                "Open Visual Studio with the VsMcpDebugger extension installed and a solution loaded (see the troubleshooting section of the README).");
         if (instances.Count == 1) return instances[0];
 
         var related = instances.Where(r => FolderMatch.Relates(WorkingDirectory, r.SolutionPath)).ToList();

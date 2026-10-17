@@ -36,6 +36,18 @@ breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 Once published, steps 1–2 become "install VsMcpDebugger from the Visual Studio Marketplace" and step 3 drops
 `--add-source`. Release notes: [CHANGELOG.md](CHANGELOG.md).
 
+## Troubleshooting
+
+| Symptom | What to check |
+|---|---|
+| The agent says no Visual Studio instance is running | Visual Studio must be open with the VsMcpDebugger extension installed (Extensions → Manage Extensions → Installed). Open a solution; the Output pane "VsMcpDebugger" shows `ready` when it started. |
+| `vsmcpdebugger` is not found | The .NET tool folder must be on your PATH (`%USERPROFILE%\.dotnet\tools`). Open a new terminal after installing. |
+| `dotnet tool install` fails to find the package | It is a prerelease: add `--prerelease`. It needs the .NET 10 SDK (`dotnet --list-sdks`). |
+| `ai_disabled` | Someone chose Extensions → VsMcpDebugger → Disconnect AI. Choose Reconnect AI, then retry. |
+| `version_mismatch` or `unsupported` | The extension and the tool are different releases. Update both to the same version. |
+| `in_use` | Another agent holds that Visual Studio; ask it to call `vs_release`, or use another instance (`vs_instances`). |
+| Something else | Call the `diag` tool for the server log, and look at View → Output → VsMcpDebugger and VsMcpDebugger Activity. |
+
 ## Build from source
 
     powershell -File build.ps1

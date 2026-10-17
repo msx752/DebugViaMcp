@@ -46,7 +46,7 @@ public sealed class BridgeConnection : IAsyncDisposable
             await stream.DisposeAsync().ConfigureAwait(false);
             throw new McpBridgeException(BridgeErrorCode.NotConnected,
                 $"Could not connect to Visual Studio (pid {instance.Pid}).",
-                "Make sure that Visual Studio instance is still running, or run `vsmcpdebugger doctor`.", e);
+                "Make sure that Visual Studio instance is still running (see the troubleshooting section of the README).", e);
         }
 
         if (!PipeServerIdentity.IsServedBy(stream, instance.Pid))
