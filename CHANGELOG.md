@@ -25,6 +25,18 @@ the `vsmcpdebugger` tool are released together with the same version.
 - `debug_start`, `debug_attach` and `bp_set` return `warnings` when the build is older than the sources; Visual Studio
   offers an optional **Rebuild** bar (hidden while debugging, gone once the project is up to date).
 
+### Fixed
+- The out-of-date check no longer compares `deps.json` / `runtimeconfig.json` (incremental builds do not rewrite them) with the
+  sources: only the assembly and the symbols count. Found in a real Visual Studio run.
+- A refused connection approval or a disconnected AI ends the call instead of being asked twice; a read that waited for an
+  answer is refused if another agent took the Visual Studio meanwhile.
+- `debug_status` brings the agent's session state in step with Visual Studio after a period in which another agent held it.
+- `debug_start(project)` keeps a "Multiple startup projects" setting intact.
+- The Visual Studio taskbar button flashes when a consent question appears while Visual Studio is in the background; the status
+  bar shows plain text when Visual Studio 2026 hides its custom status bar panel.
+- A timed-out `eval` explains the 5-second limit and what to do instead.
+- **Set Up AI Agent** never tries to update a running tool (it would fail halfway); it names the running agent sessions.
+
 ### Changed
 - Wire protocol 2.2 (additive). A 2.1 extension keeps working with the 0.4 tool; the new tools then report
   `unsupported`.

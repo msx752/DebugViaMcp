@@ -66,6 +66,10 @@ confirmation first.
 - The lease is taken by the first state-changing command and freed by `vs_release`, a closed connection or
   Disconnect AI. While it is held, other agents get `in_use` for reads too.
 - Approvals and leases die with the connection and with Disconnect AI; a reconnecting agent starts again.
+- The client name is **self-reported** by the MCP client (for example `claude-code`); any client can choose any name. It is
+  shown to you, never used to decide anything. Authentication is the per-user token and the per-user pipe.
+- A consent question that appears while Visual Studio is in the background makes its taskbar button flash. No answer within
+  the timeout means deny.
 - Client names, folders and project names supplied by an agent are escaped and length-capped wherever the owner or
   another agent sees them (consent questions, `in_use` messages).
 
