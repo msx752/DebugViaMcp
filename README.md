@@ -33,6 +33,9 @@ breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
        dotnet tool install -g VsMcpDebugger --prerelease --add-source artifacts
        claude mcp add vsmcpdebugger -- vsmcpdebugger serve
 
+Installed only the extension? **Extensions → VsMcpDebugger → Copy MCP Setup Command** copies the two commands of
+step 3 to the clipboard.
+
 Once published, steps 1–2 become "install VsMcpDebugger from the Visual Studio Marketplace" and step 3 drops
 `--add-source`. Release notes: [CHANGELOG.md](CHANGELOG.md).
 

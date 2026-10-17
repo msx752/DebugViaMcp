@@ -15,6 +15,9 @@
       <Group guid="guidVsMcpDebuggerCmdSet" id="ExtensionsMenuGroup" priority="0x0600">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_EXTENSIONS" />
       </Group>
+      <Group guid="guidVsMcpDebuggerCmdSet" id="SetupGroup" priority="0x0050">
+        <Parent guid="guidVsMcpDebuggerCmdSet" id="VsMcpDebuggerMenu" />
+      </Group>
       <Group guid="guidVsMcpDebuggerCmdSet" id="AccessGroup" priority="0x0100">
         <Parent guid="guidVsMcpDebuggerCmdSet" id="VsMcpDebuggerMenu" />
       </Group>
@@ -23,6 +26,12 @@
       </Group>
     </Groups>
     <Buttons>
+      <Button guid="guidVsMcpDebuggerCmdSet" id="CopyMcpSetup" priority="0x0100" type="Button">
+        <Parent guid="guidVsMcpDebuggerCmdSet" id="SetupGroup" />
+        <Strings>
+          <ButtonText>Copy MCP Setup Command</ButtonText>
+        </Strings>
+      </Button>
       <Button guid="guidVsMcpDebuggerCmdSet" id="DisconnectAi" priority="0x0100" type="Button">
         <Parent guid="guidVsMcpDebuggerCmdSet" id="AccessGroup" />
         <CommandFlag>DynamicVisibility</CommandFlag>
@@ -68,6 +77,8 @@
       <IDSymbol name="VsMcpDebuggerMenu" value="0x1001" />
       <IDSymbol name="AccessGroup" value="0x1002" />
       <IDSymbol name="ViewGroup" value="0x1003" />
+      <IDSymbol name="SetupGroup" value="0x1004" />
+      <IDSymbol name="CopyMcpSetup" value="0x0105" />
       <IDSymbol name="DisconnectAi" value="0x0100" />
       <IDSymbol name="ReconnectAi" value="0x0101" />
       <IDSymbol name="ShowActivity" value="0x0102" />

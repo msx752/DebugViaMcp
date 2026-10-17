@@ -14,6 +14,8 @@ the `vsmcpdebugger` tool are released together with the same version.
 - One agent at a time per Visual Studio: the first state-changing command (breakpoint, build, start, attach, ...) takes
   it, a second agent gets `in_use`. `vs_release`, a closed connection or Disconnect AI frees it. The status bar and
   `vs_instances` show who holds it.
+- **Extensions → VsMcpDebugger → Copy MCP Setup Command**: puts the two setup commands (install the tool, register it with
+  Claude Code) on the clipboard, for people who installed only the extension from the Marketplace.
 - `debug_start(project)` starts the named project and leaves the solution's startup project as it was.
 - `debug_start`, `debug_attach` and `bp_set` return `warnings` when the build is older than the sources; Visual Studio
   offers an optional **Rebuild** bar (hidden while debugging, gone once the project is up to date).

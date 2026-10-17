@@ -42,7 +42,8 @@ The extension alone does nothing visible: it opens a local connection that an AI
 ## Get started
 
 1. Install this extension (Visual Studio 2022 17.14+ or Visual Studio 2026), then restart Visual Studio.
-2. Install the MCP server (needs the .NET 10 SDK) and register it with Claude Code:
+2. Install the MCP server (needs the .NET 10 SDK) and register it with Claude Code. In Visual Studio,
+   **Extensions → VsMcpDebugger → Copy MCP Setup Command** puts these two lines on the clipboard:
 
        dotnet tool install -g VsMcpDebugger --prerelease
        claude mcp add vsmcpdebugger -- vsmcpdebugger serve
