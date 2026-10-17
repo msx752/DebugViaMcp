@@ -6,3 +6,6 @@ TestResults/
 *.received.*
 artifacts/
 .superpowers/
+
+# graphify knowledge graph (generated; rebuild with /graphify)
+graphify-out/
