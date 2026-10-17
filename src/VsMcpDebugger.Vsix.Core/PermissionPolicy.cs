@@ -44,6 +44,7 @@ public interface IBridgeSettings
     PermissionSet Permissions { get; }
     TimeSpan ConsentTimeout { get; }
     LogVerbosity LogLevel { get; }
+    int LogRetentionDays { get; }
 }
 
 /// <summary>The single tier table (spec §3.1). New operations get their tier here.</summary>

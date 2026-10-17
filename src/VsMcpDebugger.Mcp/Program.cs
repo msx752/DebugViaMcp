@@ -30,6 +30,8 @@ builder.Services.AddSingleton<IConnectionManager>(sp =>
         {
             var connection = await BridgeConnection.ConnectAsync(record, session, logger, ct, clientName: identity.Name).ConfigureAwait(false);
             levels.Apply(connection.Handshake.LogLevel);
+            // The MCP server's own log files follow the same retention as the extension's (Tools > Options > VsMcpDebugger > Logging).
+            if (connection.Handshake.LogRetentionDays > 0) LogRetention.Prune(DiscoveryPaths.LogsDirectory, "mcp-", connection.Handshake.LogRetentionDays, DateTimeOffset.UtcNow);
             return connection;
         },
         sp.GetRequiredService<SessionState>(),

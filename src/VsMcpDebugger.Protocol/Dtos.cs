@@ -35,6 +35,9 @@ public sealed class HandshakeResponse
     public long Seq { get; set; }
     public PermissionSet Permissions { get; set; } = new();
     public LogVerbosity LogLevel { get; set; } = LogVerbosity.Information;
+
+    /// <summary>Protocol 2.2. Log retention in days from Visual Studio's Options; 0 when the extension did not say.</summary>
+    public int LogRetentionDays { get; set; }
 }
 
 public sealed class SourceLocation

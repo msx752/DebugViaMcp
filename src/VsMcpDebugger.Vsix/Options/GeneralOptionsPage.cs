@@ -57,7 +57,7 @@ public sealed class GeneralOptionsPage : DialogPage
     [Category("Logging"), DisplayName("Log level"), Description("Applies to the extension and to the vsmcpdebugger MCP server (sent when it connects).")]
     public LogVerbosity LogLevel { get; set; } = LogVerbosity.Information;
 
-    [Category("Logging"), DisplayName("Log retention (days)"), Description("Log and audit files older than this are deleted (1–90).")]
+    [Category("Logging"), DisplayName("Log retention (days)"), Description("Log and audit files of the extension and of the vsmcpdebugger MCP server older than this are deleted (1–90). Default 7.")]
     public int LogRetentionDays
     {
         get => _logRetentionDays;

@@ -21,6 +21,7 @@ internal sealed class OptionsBridgeSettings(GeneralOptionsPage page) : IBridgeSe
 
     public TimeSpan ConsentTimeout => page.Applied.ConsentTimeout;
     public LogVerbosity LogLevel => page.Applied.LogLevel;
+    public int LogRetentionDays => page.Applied.LogRetentionDays;
 }
 
 /// <summary>Immutable copy of the applied Options values.</summary>

@@ -132,6 +132,18 @@ public class BridgeConnectionHandlerTests
 
         Assert.Equal(PermissionLevel.Deny, r.Permissions.Mutate);
         Assert.Equal(LogVerbosity.Debug, r.LogLevel);
+        Assert.Equal(7, r.LogRetentionDays);
+    }
+
+    [Fact]
+    public async Task Handshake_reports_the_log_retention_from_the_options()
+    {
+        using var s = new SecurityHarness();
+        s.Settings.LogRetentionDays = 3;
+
+        var r = await s.HandshakeAsync();
+
+        Assert.Equal(3, r.LogRetentionDays);
     }
 
     [Fact]

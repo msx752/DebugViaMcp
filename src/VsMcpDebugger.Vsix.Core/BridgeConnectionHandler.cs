@@ -70,6 +70,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
         response.Permissions = security.Settings.Permissions;
         response.LogLevel = security.Settings.LogLevel;
+        response.LogRetentionDays = security.Settings.LogRetentionDays;
 
         var first = false;
         lock (_attachGate)

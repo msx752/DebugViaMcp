@@ -19,6 +19,8 @@ the `vsmcpdebugger` tool are released together with the same version.
   updates the tool and registers it (`claude mcp add --scope user`). It never runs anything without your confirmation.
 - **Extensions → VsMcpDebugger → Copy MCP Setup Command**: puts the two setup commands (install the tool, register it with
   Claude Code) on the clipboard, for people who installed only the extension from the Marketplace.
+- The **Log retention (days)** option now also applies to the MCP server's own log files (`mcp-*.log`), not only to the
+  extension's logs and the audit trail.
 - `debug_start(project)` starts the named project and leaves the solution's startup project as it was.
 - `debug_start`, `debug_attach` and `bp_set` return `warnings` when the build is older than the sources; Visual Studio
   offers an optional **Rebuild** bar (hidden while debugging, gone once the project is up to date).

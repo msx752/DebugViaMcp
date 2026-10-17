@@ -1,8 +1,9 @@
 using System;
 using System.IO;
 
-namespace VsMcpDebugger.Vsix.Core;
+namespace VsMcpDebugger.Protocol;
 
+/// <summary>Shared by the extension and the MCP server: both delete their own old log files by the same Options setting.</summary>
 public static class LogRetention
 {
     /// <summary>Deletes <c>{prefix}*.log</c> files not written for more than <paramref name="days"/> days. Never throws for I/O problems.</summary>
