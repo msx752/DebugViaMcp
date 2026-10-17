@@ -30,7 +30,7 @@ breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 2. Install the extension: double-click `artifacts/VsMcpDebugger.vsix` (Visual Studio 2022 17.14+ or 2026).
 3. Install the MCP server and register it with Claude Code:
 
-       dotnet tool install -g VsMcpDebugger --add-source artifacts
+       dotnet tool install -g VsMcpDebugger --prerelease --add-source artifacts
        claude mcp add vsmcpdebugger -- vsmcpdebugger serve
 
 Once published, steps 1–2 become "install VsMcpDebugger from the Visual Studio Marketplace" and step 3 drops

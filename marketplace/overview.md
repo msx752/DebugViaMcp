@@ -32,7 +32,7 @@ variables, and evaluate expressions — while you stay in control.
 1. Install this extension (Visual Studio 2022 17.14+ or Visual Studio 2026).
 2. Install the MCP server and register it with Claude Code:
 
-       dotnet tool install -g VsMcpDebugger
+       dotnet tool install -g VsMcpDebugger --prerelease
        claude mcp add vsmcpdebugger -- vsmcpdebugger serve
 
 3. Open your solution and ask, for example: *"Break in OrderService.Submit when total > 1000 and show me the order."*
