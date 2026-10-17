@@ -15,6 +15,10 @@ public sealed class SetupState
     public string? ToolVersion { get; set; }
     public bool? ClaudeFound { get; set; }
     public bool? ClaudeRegistered { get; set; }
+
+    /// <summary>Number of running vsmcpdebugger processes (agent sessions use one each); they lock the installed files.</summary>
+    public int ToolProcessesRunning { get; set; }
+
     public string ExtensionVersion { get; set; } = "";
 }
 
@@ -72,7 +76,16 @@ public static class McpSetupPlan
         else
         {
             lines.Add($"MISSING  MCP server tool {state.ToolVersion} is not the release of this extension ({state.ExtensionVersion}).");
-            if (sdkOk) steps.Add(Step(SetupStepKind.UpdateTool, "Update the MCP server tool", "dotnet", "tool update -g VsMcpDebugger --prerelease"));
+            if (state.ToolProcessesRunning > 0)
+            {
+                // A running tool locks its files, so the update would fail halfway. Closing somebody's agent session is not ours to do.
+                lines.Add($"MISSING  {state.ToolProcessesRunning.ToString(CultureInfo.InvariantCulture)} vsmcpdebugger process(es) are running (an agent such as Claude Code uses one per session). " +
+                    "Close those agent sessions, then run Set Up AI Agent again; the old version keeps running until then.");
+            }
+            else if (sdkOk)
+            {
+                steps.Add(Step(SetupStepKind.UpdateTool, "Update the MCP server tool", "dotnet", "tool update -g VsMcpDebugger --prerelease"));
+            }
         }
 
         if (state.ClaudeFound is false)

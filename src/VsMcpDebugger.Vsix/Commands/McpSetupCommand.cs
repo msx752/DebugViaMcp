@@ -84,7 +84,7 @@ internal static class McpSetupCommand
         var after = McpSetupPlan.Create(await DetectAsync(extensionVersion).ConfigureAwait(false));
         await jtf.SwitchToMainThreadAsync();
         Show(package, (failure is null ? "" : failure + "\n\n") + "Status now:\n" + Summary(after) +
-            (after.IsComplete ? "\n\nDone. Open a new terminal if one was already open (so the tool is on its PATH), then start your agent in the folder of your solution." : ""));
+            (after.IsComplete ? "\n\nDone. Open a new terminal if one was already open (so the tool is on its PATH), restart agent sessions that were already running (they keep the old version until then), then start your agent in the folder of your solution." : ""));
     }
 
     private static async Task<SetupState> DetectAsync(string extensionVersion)
@@ -93,6 +93,8 @@ internal static class McpSetupCommand
 
         var sdks = await ProcessRunner.RunAsync("dotnet", "--list-sdks", QuickProbe).ConfigureAwait(false);
         if (sdks.Started && !sdks.TimedOut && sdks.ExitCode == 0) state.DotnetSdkMajor = McpSetupPlan.ParseSdkMajor(sdks.Output) ?? 0;
+
+        state.ToolProcessesRunning = CountToolProcesses();
 
         var tools = await ProcessRunner.RunAsync("dotnet", "tool list -g", QuickProbe).ConfigureAwait(false);
         if (tools.Started && !tools.TimedOut && tools.ExitCode == 0) state.ToolVersion = McpSetupPlan.ParseToolVersion(tools.Output);
@@ -109,6 +111,24 @@ internal static class McpSetupCommand
         }
 
         return state;
+    }
+
+    private static int CountToolProcesses()
+    {
+        try
+        {
+            var running = Process.GetProcessesByName("vsmcpdebugger");
+            foreach (var p in running) p.Dispose();
+            return running.Length;
+        }
+        catch (InvalidOperationException)
+        {
+            return 0;
+        }
+        catch (Win32Exception)
+        {
+            return 0;
+        }
     }
 
     private static string Summary(SetupPlan plan) => string.Join("\n", plan.Lines);

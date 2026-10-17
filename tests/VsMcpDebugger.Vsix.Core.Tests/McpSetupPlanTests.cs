@@ -35,6 +35,34 @@ public class McpSetupPlanTests
         Assert.Equal([SetupStepKind.UpdateTool], plan.Steps.Select(s => s.Kind));
     }
 
+    [Fact]
+    public void A_running_tool_is_never_updated_and_the_user_is_told_to_close_the_agents()
+    {
+        var state = State(tool: "0.2.0");
+        state.ToolProcessesRunning = 2;
+
+        var plan = McpSetupPlan.Create(state);
+
+        Assert.DoesNotContain(plan.Steps, s => s.Kind == SetupStepKind.UpdateTool);
+        Assert.False(plan.IsComplete);
+        var line = Assert.Single(plan.Lines, l => l.Contains("running", StringComparison.Ordinal));
+        Assert.StartsWith("MISSING", line, StringComparison.Ordinal);
+        Assert.Contains("2", line, StringComparison.Ordinal);
+        Assert.Contains("close", line, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Running_processes_do_not_matter_when_the_tool_is_current_or_missing()
+    {
+        var current = State(tool: "0.4.0");
+        current.ToolProcessesRunning = 1;
+        Assert.True(McpSetupPlan.Create(current).IsComplete);
+
+        var missing = State(tool: null, registered: false);
+        missing.ToolProcessesRunning = 1;
+        Assert.Contains(McpSetupPlan.Create(missing).Steps, s => s.Kind == SetupStepKind.InstallTool);
+    }
+
     [Theory]
     [InlineData("0.4.0")]
     [InlineData("0.4.0-preview.1")]
