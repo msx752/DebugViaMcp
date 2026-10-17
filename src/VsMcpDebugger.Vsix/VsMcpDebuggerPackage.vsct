@@ -26,6 +26,12 @@
       </Group>
     </Groups>
     <Buttons>
+      <Button guid="guidVsMcpDebuggerCmdSet" id="SetupAgent" priority="0x0090" type="Button">
+        <Parent guid="guidVsMcpDebuggerCmdSet" id="SetupGroup" />
+        <Strings>
+          <ButtonText>Set Up AI Agent…</ButtonText>
+        </Strings>
+      </Button>
       <Button guid="guidVsMcpDebuggerCmdSet" id="CopyMcpSetup" priority="0x0100" type="Button">
         <Parent guid="guidVsMcpDebuggerCmdSet" id="SetupGroup" />
         <Strings>
@@ -79,6 +85,7 @@
       <IDSymbol name="ViewGroup" value="0x1003" />
       <IDSymbol name="SetupGroup" value="0x1004" />
       <IDSymbol name="CopyMcpSetup" value="0x0105" />
+      <IDSymbol name="SetupAgent" value="0x0106" />
       <IDSymbol name="DisconnectAi" value="0x0100" />
       <IDSymbol name="ReconnectAi" value="0x0101" />
       <IDSymbol name="ShowActivity" value="0x0102" />

@@ -14,6 +14,9 @@ the `vsmcpdebugger` tool are released together with the same version.
 - One agent at a time per Visual Studio: the first state-changing command (breakpoint, build, start, attach, ...) takes
   it, a second agent gets `in_use`. `vs_release`, a closed connection or Disconnect AI frees it. The status bar and
   `vs_instances` show who holds it.
+- **Extensions → VsMcpDebugger → Set Up AI Agent…**: checks the .NET SDK, the `vsmcpdebugger` tool (and that its version
+  matches the extension) and the Claude Code registration, lists what is missing and, after you confirm, installs or
+  updates the tool and registers it (`claude mcp add --scope user`). It never runs anything without your confirmation.
 - **Extensions → VsMcpDebugger → Copy MCP Setup Command**: puts the two setup commands (install the tool, register it with
   Claude Code) on the clipboard, for people who installed only the extension from the Marketplace.
 - `debug_start(project)` starts the named project and leaves the solution's startup project as it was.

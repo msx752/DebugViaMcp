@@ -33,8 +33,9 @@ breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
        dotnet tool install -g VsMcpDebugger --prerelease --add-source artifacts
        claude mcp add vsmcpdebugger -- vsmcpdebugger serve
 
-Installed only the extension? **Extensions → VsMcpDebugger → Copy MCP Setup Command** copies the two commands of
-step 3 to the clipboard.
+Installed only the extension? **Extensions → VsMcpDebugger → Set Up AI Agent…** checks the .NET SDK, the MCP server
+tool and the Claude Code registration, lists what is missing and runs the fixing commands after you agree.
+**Copy MCP Setup Command** just copies the two commands of step 3 to the clipboard.
 
 Once published, steps 1–2 become "install VsMcpDebugger from the Visual Studio Marketplace" and step 3 drops
 `--add-source`. Release notes: [CHANGELOG.md](CHANGELOG.md).

@@ -112,7 +112,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
             _solutionEvents.Opened += () => { ThreadHelper.ThrowIfNotOnUIThread(); _discovery.UpdateSolution(service.SolutionPath); };
             _solutionEvents.AfterClosing += () => _discovery.UpdateSolution(null);
             if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commands)
-                VsMcpDebuggerCommands.Register(this, commands, security, Activity);
+                VsMcpDebuggerCommands.Register(this, commands, security, Activity, log);
             _indicator = StatusBarIndicator.TryCreate(access, lease, JoinableTaskFactory, () => page.Applied.ShowStatusBarIndicator, Activity, log);
             page.AnyApplied += (_, _) => { ThreadHelper.ThrowIfNotOnUIThread(); _indicator?.Refresh(); };
             log.Info($"VsMcpDebugger {vsixVersion} ready (pid {pid}, protocol {ProtocolInfo.Major}.{ProtocolInfo.Minor})");
