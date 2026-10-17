@@ -86,8 +86,14 @@ public sealed class InspectionTools(IConnectionManager connections)
         var r = await bridge.EvaluateAsync(expression, allowSideEffects, ctx, ct).ConfigureAwait(false);
         return r.IsValid
             ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated }, frame = ToolResponse.Frame(connections.Session.Frame) })
-            : ToolResponse.Error(BridgeErrorCode.EvalFailed, r.Value, "Check the expression against the frame's variables (vars).");
+            : ToolResponse.Error(BridgeErrorCode.EvalFailed, r.Value, EvalFailureHint(r.Value));
     }, ct);
+
+    /// <summary>Visual Studio stops an evaluation after about five seconds; say so, because retrying the same expression cannot help.</summary>
+    internal static string EvalFailureHint(string? message) =>
+        message is not null && message.Contains("timed out", StringComparison.OrdinalIgnoreCase)
+            ? "Visual Studio stops an evaluation after about 5 s (a slow query or a call that waits for another thread). Evaluate a smaller expression, for example Take(1000), or read a field or property instead."
+            : "Check the expression against the frame's variables (vars).";
 
     [McpServerTool(Name = "set_value", Destructive = true),
      Description("Assigns a value to a variable, field, property or element in the current frame, e.g. expression='total', value='0'. " + ConsentNote + " " + UntrustedNote)]

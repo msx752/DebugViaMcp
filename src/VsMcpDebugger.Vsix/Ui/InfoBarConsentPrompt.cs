@@ -38,6 +38,7 @@ internal sealed class InfoBarConsentPrompt(IAsyncServiceProvider services, Joina
         var events = new Events(System.Diagnostics.Stopwatch.StartNew());
         element.Advise(events, out var cookie);
         host.AddInfoBar(element);
+        WindowFlash.FlashVisualStudio();   // a question in a background Visual Studio is easy to miss, and no answer means deny
         try
         {
             using (ct.Register(() => events.Cancel(ct)))

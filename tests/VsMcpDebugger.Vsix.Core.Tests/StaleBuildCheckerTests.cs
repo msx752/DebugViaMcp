@@ -10,6 +10,40 @@ public class StaleBuildCheckerTests
     private static ProjectBuildInfo Info(DateTime? source = null, DateTime? output = null, bool? upToDate = null) =>
         new() { UniqueName = "App.csproj", NewestSourceUtc = source, OldestOutputUtc = output, UpToDateByVisualStudio = upToDate };
 
+    /// <summary>
+    /// Found in the real Visual Studio run: deps.json and runtimeconfig.json are not rewritten by an incremental build, so
+    /// counting every file of the Built output group made a freshly built project look stale.
+    /// </summary>
+    [Fact]
+    public void Only_the_assembly_and_the_symbols_count_as_build_products()
+    {
+        var files = StaleBuildChecker.ProductFiles(
+            [@"C:\bin\App.dll", @"C:\bin\App.exe", @"C:\bin\App.deps.json", @"C:\bin\App.runtimeconfig.json"],
+            [@"C:\bin\App.pdb"]);
+
+        Assert.Equal([@"C:\bin\App.dll", @"C:\bin\App.pdb"], files);
+    }
+
+    [Fact]
+    public void A_framework_exe_is_the_assembly_when_there_is_no_dll()
+    {
+        var files = StaleBuildChecker.ProductFiles([@"C:\bin\App.exe", @"C:\bin\App.exe.config"], [@"C:\bin\App.pdb"]);
+
+        Assert.Equal([@"C:\bin\App.exe", @"C:\bin\App.pdb"], files);
+    }
+
+    [Fact]
+    public void Extensions_are_compared_without_regard_to_case_and_other_files_are_ignored()
+    {
+        var files = StaleBuildChecker.ProductFiles([@"C:\bin\APP.DLL", @"C:\bin\readme.txt"], [@"C:\bin\APP.PDB", @"C:\bin\x.json"]);
+
+        Assert.Equal([@"C:\bin\APP.DLL", @"C:\bin\APP.PDB"], files);
+    }
+
+    [Fact]
+    public void No_assembly_among_the_outputs_gives_no_products() =>
+        Assert.Empty(StaleBuildChecker.ProductFiles([@"C:\bin\App.deps.json"], []));
+
     [Fact]
     public void Fresh_output_is_not_stale() =>
         Assert.False(StaleBuildChecker.IsStale(Info(source: Noon, output: Noon.AddMinutes(1))));

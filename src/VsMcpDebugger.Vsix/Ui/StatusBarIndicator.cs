@@ -23,6 +23,8 @@ internal sealed class StatusBarIndicator
     private readonly InstanceLease _lease;
     private readonly Func<bool> _enabled;
     private readonly TextBlock _text;
+    private bool _textOnly;
+    private bool _textSet;
 
     private StatusBarIndicator(AiAccessSwitch access, InstanceLease lease, JoinableTaskFactory jtf, Func<bool> enabled, ActivityPane activity)
     {
@@ -49,13 +51,17 @@ internal sealed class StatusBarIndicator
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         var panel = FindStatusBarPanel(Application.Current?.MainWindow);
+        var indicator = new StatusBarIndicator(access, lease, jtf, enabled, activity);
         if (panel is null)
         {
-            log.Warn("Status bar indicator unavailable: the status bar panel was not found.");
-            return null;
+            // Newer Visual Studio builds lay the status bar out differently. Fall back to the standard status bar text:
+            // it is shown when something changes (a client connects or disconnects, the lease moves) but is not clickable.
+            log.Warn("Status bar panel not found (Visual Studio changed its layout); showing the status as plain status bar text instead.");
+            indicator._textOnly = true;
+            indicator.Refresh();
+            return indicator;
         }
 
-        var indicator = new StatusBarIndicator(access, lease, jtf, enabled, activity);
         DockPanel.SetDock(indicator._text, Dock.Right);
         panel.Children.Insert(0, indicator._text);
         indicator.Refresh();
@@ -70,6 +76,14 @@ internal sealed class StatusBarIndicator
             : !_access.Enabled ? "VsMcpDebugger: AI disconnected"
             : clients.Count > 0 ? $"VsMcpDebugger: {string.Join(", ", clients.Distinct())} connected" + (_lease.Holder is { } holder ? $" — in use by {holder.Client}" : "")
             : null;
+        if (_textOnly)
+        {
+            if (Package.GetGlobalService(typeof(Microsoft.VisualStudio.Shell.Interop.SVsStatusbar)) is Microsoft.VisualStudio.Shell.Interop.IVsStatusbar bar && (text is not null || _textSet))
+                bar.SetText(text ?? "");
+            _textSet = text is not null;
+            return;
+        }
+
         _text.Text = text ?? "";
         _text.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
     }

@@ -60,28 +60,28 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         if (ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return project.FullName; }, out var projectFile) && !string.IsNullOrEmpty(projectFile))
             info.NewestSourceUtc = NewestSource(projectFile);
 
-        DateTime? oldest = null;
-        var complete = false;
+        var built = new List<string>();
+        var symbols = new List<string>();
+        var haveGroups = false;
         if (ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return project.ConfigurationManager?.ActiveConfiguration?.OutputGroups; }, out var groups) && groups is not null)
         {
-            complete = true;
+            haveGroups = true;
             foreach (EnvDTE.OutputGroup group in groups)
             {
                 if (!ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return (group.CanonicalName, group.FileURLs); }, out var read)) continue;
-                if (read.CanonicalName is not ("Built" or "Symbols")) continue;
                 if (read.FileURLs is not object[] urls) continue;
-                foreach (var url in urls.OfType<string>())
-                {
-                    var path = new Uri(url).LocalPath;
-                    if (!System.IO.File.Exists(path)) { complete = false; continue; }
-                    var time = System.IO.File.GetLastWriteTimeUtc(path);
-                    if (oldest is null || time < oldest) oldest = time;
-                }
+                var paths = urls.OfType<string>().Select(url => new Uri(url).LocalPath);
+                if (read.CanonicalName == "Built") built.AddRange(paths);
+                else if (read.CanonicalName == "Symbols") symbols.AddRange(paths);
             }
         }
 
-        // A missing output (or no output group at all) means the project was never built: leave OldestOutputUtc null.
-        info.OldestOutputUtc = complete ? oldest : null;
+        // Only the assembly and the symbols say whether the build is current (see StaleBuildChecker.ProductFiles).
+        // A missing product (or none at all) means the project was never built: leave OldestOutputUtc null.
+        var products = haveGroups ? StaleBuildChecker.ProductFiles(built, symbols) : [];
+        info.OldestOutputUtc = products.Count > 0 && products.All(System.IO.File.Exists)
+            ? products.Min(System.IO.File.GetLastWriteTimeUtc)
+            : (DateTime?)null;
         // Visual Studio's own up-to-date query is not reachable through DTE; file times are the signal (UpToDateByVisualStudio stays null).
         return info;
     }

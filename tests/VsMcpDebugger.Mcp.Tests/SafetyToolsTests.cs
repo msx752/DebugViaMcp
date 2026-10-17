@@ -27,6 +27,31 @@ public class SafetyToolsTests
     }
 
     [Fact]
+    public async Task A_timed_out_evaluation_tells_the_agent_about_the_time_limit_and_what_to_do()
+    {
+        var bridge = new FakeDebugBridge { OnEvaluate = _ => new EvaluateResult { IsValid = false, Value = "Evaluation timed out" } };
+        var cm = new FakeConnectionManager(bridge);
+
+        var error = Json(await new InspectionTools(cm).Eval("Enumerable.Range(1, 1000000000).Sum()", false, CancellationToken.None)).GetProperty("error");
+
+        Assert.Equal("eval_failed", error.GetProperty("code").GetString());
+        var hint = error.GetProperty("hint").GetString();
+        Assert.Contains("5 s", hint, StringComparison.Ordinal);
+        Assert.Contains("smaller", hint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Other_failed_evaluations_keep_the_expression_hint()
+    {
+        var bridge = new FakeDebugBridge { OnEvaluate = _ => new EvaluateResult { IsValid = false, Value = "error CS0103: The name 'x' does not exist" } };
+        var cm = new FakeConnectionManager(bridge);
+
+        var error = Json(await new InspectionTools(cm).Eval("x", false, CancellationToken.None)).GetProperty("error");
+
+        Assert.Contains("vars", error.GetProperty("hint").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Set_value_requires_break_mode()
     {
         var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Run);
