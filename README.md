@@ -65,6 +65,15 @@ Once published, steps 1–2 become "install VsMcpDebugger from the Visual Studio
 Requires the .NET 10 SDK and Visual Studio 2022 17.14+ or 2026. The VSIX builds with Visual Studio's MSBuild and the
 `Microsoft.VSSDK.BuildTools` package.
 
+## Reinstall the extension while developing
+
+Visual Studio treats a VSIX with the same version as "already installed". Close Visual Studio, then:
+
+    powershell -File scriptseinstall-vsix.ps1 -Build
+
+It builds the VSIX, removes the installed extension and installs the new build (paths are relative to the repository; it never
+starts or closes Visual Studio and refuses to run while it is open). `-UninstallOnly` just removes it.
+
 ## Try it with Claude Code
 
 See [docs/testing/m2-manual-e2e.md](docs/testing/m2-manual-e2e.md).
