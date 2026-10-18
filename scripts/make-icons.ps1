@@ -1,8 +1,8 @@
-# Renders src/VsMcpDebugger.Vsix/Resources/icon.svg (the source of truth) to the PNGs the VSIX manifest and the NuGet
+# Renders src/DebugViaMcp.Vsix/Resources/icon.svg (the source of truth) to the PNGs the VSIX manifest and the NuGet
 # package need: icon.png (128 px) and preview.png (200 px). Uses headless Microsoft Edge or Chrome.
 # Run again after editing icon.svg.
 $ErrorActionPreference = 'Stop'
-$resources = Resolve-Path (Join-Path $PSScriptRoot '..\src\VsMcpDebugger.Vsix\Resources')
+$resources = Resolve-Path (Join-Path $PSScriptRoot '..\src\DebugViaMcp.Vsix\Resources')
 $svg = Join-Path $resources 'icon.svg'
 
 $browser = @(
@@ -12,7 +12,7 @@ $browser = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $browser) { throw 'Microsoft Edge or Google Chrome is required to render the icon.' }
 
-$temp = Join-Path ([IO.Path]::GetTempPath()) ('vsmcpdebugger-icons-' + [Guid]::NewGuid().ToString('N'))
+$temp = Join-Path ([IO.Path]::GetTempPath()) ('debugviamcp-icons-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $temp | Out-Null
 try {
     $markup = Get-Content $svg -Raw

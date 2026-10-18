@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Debugging via MCP icon. Source of truth: the PNGs next to it are rendered from this file by scripts/make-icons.ps1.
+       Everything is symmetric about x = 64 and y = 64: the right brace is the left brace mirrored. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#68217A"/>
+      <stop offset="1" stop-color="#3C145A"/>
+    </linearGradient>
+    <path id="brace" d="M 46 28 C 37 28 35 32 35 40 L 35 53 C 35 59 32 64 26 64 C 32 64 35 69 35 75 L 35 88 C 35 96 37 100 46 100"
+          fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </defs>
+  <rect x="0" y="0" width="128" height="128" rx="24" ry="24" fill="url(#bg)"/>
+  <use href="#brace"/>
+  <use href="#brace" transform="translate(128 0) scale(-1 1)"/>
+  <circle cx="64" cy="64" r="12" fill="#E51400"/>
+</svg>

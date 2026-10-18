@@ -70,9 +70,9 @@ Add-Text $g 'Your AI agent debugs in Visual Studio - you stay in control' 0 36 1
 Add-Text $g 'Breakpoints, stepping, call stacks, variables and evaluation over the Model Context Protocol' 0 88 1280 16 $grey 'Segoe UI' 'Center'
 
 Add-Box $g 40 190 220 130 $light $purple 'AI agent' 'Claude Code and other MCP clients' $dark
-Add-Box $g 340 190 230 130 $light $purple 'vsmcpdebugger' 'MCP server (dotnet tool), stdio' $dark
+Add-Box $g 340 190 230 130 $light $purple 'debugviamcp' 'MCP server (dotnet tool), stdio' $dark
 Add-Box $g 650 190 250 130 $light $purple 'Local named pipe' 'per user, token + process check' $dark
-Add-Box $g 980 190 260 130 $dark $dark 'VsMcpDebugger' 'extension inside Visual Studio' ([Drawing.Color]::White) ([Drawing.Color]::White)
+Add-Box $g 980 190 260 130 $dark $dark 'Debugging via MCP' 'extension inside Visual Studio' ([Drawing.Color]::White) ([Drawing.Color]::White)
 Add-Arrow $g 262 255 336 255 $purple
 Add-Arrow $g 572 255 646 255 $purple
 Add-Arrow $g 902 255 976 255 $purple

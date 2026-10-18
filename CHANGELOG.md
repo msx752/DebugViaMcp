@@ -1,7 +1,7 @@
 # Changelog
 
-All notable changes to VsMcpDebugger. Versions follow [Semantic Versioning](https://semver.org/); the extension and
-the `vsmcpdebugger` tool are released together with the same version.
+All notable changes to Debugging via MCP. Versions follow [Semantic Versioning](https://semver.org/); the extension and
+the `debugviamcp` tool are released together with the same version.
 
 ## 0.4.0 — Several Visual Studios (preview)
 
@@ -14,10 +14,10 @@ the `vsmcpdebugger` tool are released together with the same version.
 - One agent at a time per Visual Studio: the first state-changing command (breakpoint, build, start, attach, ...) takes
   it, a second agent gets `in_use`. `vs_release`, a closed connection or Disconnect AI frees it. The status bar and
   `vs_instances` show who holds it.
-- **Extensions → VsMcpDebugger → Set Up AI Agent…**: checks the .NET SDK, the `vsmcpdebugger` tool (and that its version
+- **Extensions → Debugging via MCP → Set Up AI Agent…**: checks the .NET SDK, the `debugviamcp` tool (and that its version
   matches the extension) and the Claude Code registration, lists what is missing and, after you confirm, installs or
   updates the tool and registers it (`claude mcp add --scope user`). It never runs anything without your confirmation.
-- **Extensions → VsMcpDebugger → Copy MCP Setup Command**: puts the two setup commands (install the tool, register it with
+- **Extensions → Debugging via MCP → Copy MCP Setup Command**: puts the two setup commands (install the tool, register it with
   Claude Code) on the clipboard, for people who installed only the extension from the Marketplace.
 - The **Log retention (days)** option now also applies to the MCP server's own log files (`mcp-*.log`), not only to the
   extension's logs and the audit trail.
@@ -38,8 +38,10 @@ the `vsmcpdebugger` tool are released together with the same version.
 - **Set Up AI Agent** never tries to update a running tool (it would fail halfway); it names the running agent sessions.
 
 ### Changed
+- The product is now called **Debugging via MCP**. The NuGet tool package is `DebugViaMcp` (command `debugviamcp`), the extension
+  shows as "Debugging via MCP", and the data folder is `%LOCALAPPDATA%\DebugViaMcp`.
 - The settings moved to Visual Studio's settings experience: **Tools → Options → All Settings → Debugging → Debugging via
-  MCP**. The setup commands stay in **Extensions → VsMcpDebugger** (**Set Up AI Agent…**, **Copy MCP Setup Command**).
+  MCP**. The setup commands stay in **Extensions → Debugging via MCP** (**Set Up AI Agent…**, **Copy MCP Setup Command**).
 - Settings apply as soon as they change. A stored **Mutate = Allow** counts only after you confirm it in a dialog (also at
   startup); until then Visual Studio keeps asking, so a value written to the settings file never silently lets the agent
   change program state.
@@ -80,20 +82,20 @@ the `vsmcpdebugger` tool are released together with the same version.
 
 ### Added
 - `set_value` and `eval` with `allowSideEffects`: change program state from the agent.
-- Permission tiers (Read / Control / Mutate) in **Tools → Options → VsMcpDebugger**, enforced inside Visual Studio.
+- Permission tiers (Read / Control / Mutate) in **Tools → Options → Debugging via MCP**, enforced inside Visual Studio.
 - Consent info bar for Mutate operations — **Allow once / Allow for session / Deny**; no answer within the timeout
   (default 60 s) means deny. Breakpoint conditions and tracepoints count as Mutate because they run on every hit.
-- Audit log (`%LOCALAPPDATA%\VsMcpDebugger\logs\audit-*.log`) and the **VsMcpDebugger Activity** Output pane.
+- Audit log (`%LOCALAPPDATA%\DebugViaMcp\logs\audit-*.log`) and the **Debugging via MCP Activity** Output pane.
 - `callId` on every call, shown in both the MCP server and Visual Studio logs.
-- **Extensions → VsMcpDebugger** menu: Disconnect AI (Ctrl+Alt+Shift+F12), Reconnect AI, Show Activity, Open Logs
+- **Extensions → Debugging via MCP** menu: Disconnect AI (Ctrl+Alt+Shift+F12), Reconnect AI, Show Activity, Open Logs
   Folder, Options. Status bar indicator showing the connected client.
 - `debug_status` reports the active permissions; snapshot arguments are returned under `data`.
-- The MCP log level follows the Visual Studio setting (`VSMCPDEBUGGER_LOG_LEVEL` still overrides it).
+- The MCP log level follows the Visual Studio setting (`DEBUGVIAMCP_LOG_LEVEL` still overrides it).
 
 ### Changed
 - Wire protocol 2.0 (every request carries a call context; errors carry a hint and a reason). The extension and the
   tool must both be 0.2.0.
-- The dotnet tool package is now called `VsMcpDebugger`.
+- The dotnet tool package is now called `DebugViaMcp`.
 
 ### Security
 - Consent text is shown in full with invisible and misleading characters escaped; mutate texts are limited to
@@ -105,4 +107,4 @@ the `vsmcpdebugger` tool are released together with the same version.
 
 - Breakpoints (file/line, function, conditions, hit counts, tracepoints), start/continue/pause/step/wait,
   call stack, variables with drill-down, side-effect-free evaluation.
-- Per-user named pipe with token handshake; logs in `%LOCALAPPDATA%\VsMcpDebugger\logs`.
+- Per-user named pipe with token handshake; logs in `%LOCALAPPDATA%\DebugViaMcp\logs`.

@@ -1,18 +1,18 @@
 #:package ModelContextProtocol
 #:property PublishAot=false
-// M2 end-to-end driver: talks to the real vsmcpdebugger MCP server over stdio, like Claude Code, against a running
-// Visual Studio with the VsMcpDebugger extension and samples/OrderDemo open (OrderDemo = startup project).
+// M2 end-to-end driver: talks to the real debugviamcp MCP server over stdio, like Claude Code, against a running
+// Visual Studio with the Debugging via MCP extension and samples/OrderDemo open (OrderDemo = startup project).
 // Consent info bars are answered by scripts/e2e/click-infobar.ps1 (UI Automation).
-// Usage: dotnet run scripts/e2e/m2-e2e.cs -- <path-to-VsMcpDebugger.Mcp.dll>
+// Usage: dotnet run scripts/e2e/m2-e2e.cs -- <path-to-DebugViaMcp.Mcp.dll>
 using System.Diagnostics;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
-var server = args.Length > 0 ? args[0] : Path.GetFullPath("src/VsMcpDebugger.Mcp/bin/Debug/net10.0/VsMcpDebugger.Mcp.dll");
+var server = args.Length > 0 ? args[0] : Path.GetFullPath("src/DebugViaMcp.Mcp/bin/Debug/net10.0/DebugViaMcp.Mcp.dll");
 var clicker = Path.GetFullPath("scripts/e2e/click-infobar.ps1");
 await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
 {
-    Name = "vsmcpdebugger",
+    Name = "debugviamcp",
     Command = "dotnet",
     Arguments = [server, "serve"],
 }));
@@ -35,7 +35,7 @@ async Task<string> Call(string tool, Dictionary<string, object?>? arguments = nu
     return text;
 }
 
-// Runs an Extensions → VsMcpDebugger command in the running Visual Studio through its automation object.
+// Runs an Extensions → Debugging via MCP command in the running Visual Studio through its automation object.
 async Task VsCommand(string name)
 {
     var script = "$dte = [Runtime.InteropServices.Marshal]::GetActiveObject('VisualStudio.DTE.18.0'); $dte.ExecuteCommand('" + name + "')";
@@ -56,9 +56,9 @@ await Call("eval", new() { ["expression"] = "order.Touch()", ["allowSideEffects"
 await Call("eval", new() { ["expression"] = "order.Touch()", ["allowSideEffects"] = true }); // 2, no prompt
 await Call("set_value", new() { ["expression"] = "GetType().Name", ["value"] = "\"x\"" });    // invalid_argument, no prompt
 await Call("set_value", new() { ["expression"] = "total", ["value"] = "1" });                 // no click: denied / timeout after 60 s
-await VsCommand("VsMcpDebugger.DisconnectAI");                                           // same as Ctrl+Alt+Shift+F12
+await VsCommand("DebugViaMcp.DisconnectAI");                                           // same as Ctrl+Alt+Shift+F12
 await Call("debug_status");                                                                   // ai_disabled
-await VsCommand("VsMcpDebugger.ReconnectAI");
+await VsCommand("DebugViaMcp.ReconnectAI");
 await Call("debug_status");                                                                   // reconnects: break
 await Call("debug_continue");                                                                 // Console: "Order 7 accepted: 0"
 await Call("debug_stop");

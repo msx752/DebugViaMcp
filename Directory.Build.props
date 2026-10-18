@@ -9,8 +9,8 @@
     <!-- First public release is a preview: the tool is a NuGet prerelease (0.4.0-preview.1); the VSIX carries <Preview>true</Preview>. Drop VersionSuffix for the stable release. -->
     <VersionPrefix>0.4.0</VersionPrefix>
     <VersionSuffix>preview.1</VersionSuffix>
-    <Authors>VsMcpDebugger contributors</Authors>
-    <Copyright>Copyright (c) VsMcpDebugger contributors</Copyright>
+    <Authors>Debugging via MCP contributors</Authors>
+    <Copyright>Copyright (c) Debugging via MCP contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>

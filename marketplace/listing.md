@@ -6,7 +6,7 @@ description, tags, icon (`Resources/icon.png`), preview image (`Resources/previe
 
 ## Name
 
-VsMcpDebugger
+Debugging via MCP
 
 ## Short description (the one-line summary under the name; the manifest says the same)
 
@@ -52,7 +52,7 @@ offers an optional Rebuild. This is a preview: feedback is welcome on GitHub.
 ## Questions and answers (seed the Q&A tab)
 
 **Does it work with other agents?**
-Any MCP client can use the `vsmcpdebugger` server. It is tested with Claude Code.
+Any MCP client can use the `debugviamcp` server. It is tested with Claude Code.
 
 **Can the agent change my program without asking?**
 Not by default. Reading and debugging control are allowed; anything that changes program state (`set_value`,
@@ -63,15 +63,15 @@ to Allow, Ask or Deny in Tools → Options → Debugging → Debugging via MCP. 
 No. The extension and the tool talk over a per-user local named pipe. There is no telemetry.
 
 **How do I cut an agent off?**
-Extensions → VsMcpDebugger → Disconnect AI (Ctrl+Alt+Shift+F12). It denies pending questions and closes every
+Extensions → Debugging via MCP → Disconnect AI (Ctrl+Alt+Shift+F12). It denies pending questions and closes every
 connection at once; Reconnect AI re-enables it.
 
 **Which Visual Studio versions?**
 Visual Studio 2022 17.14 and later, including Visual Studio 2026.
 
 **Where is the MCP server?**
-It is a .NET tool: `dotnet tool install -g VsMcpDebugger --prerelease`, then
-`claude mcp add vsmcpdebugger -- vsmcpdebugger serve`.
+It is a .NET tool: `dotnet tool install -g DebugViaMcp --prerelease`, then
+`claude mcp add debugviamcp -- debugviamcp serve`.
 
 **Two Visual Studios are open. Which one does the agent use?**
 The one whose solution folder matches the folder the agent runs in. If that is ambiguous, the agent is asked to pick
@@ -79,6 +79,6 @@ with `vs_select`.
 
 ## Support and links
 
-- Repository and issues: https://github.com/msx752/VsMcpDebugger
+- Repository and issues: https://github.com/msx752/DebugViaMcp
 - Security model: `docs/security.md` in the repository
 - Changelog: `CHANGELOG.md`

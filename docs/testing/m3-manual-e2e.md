@@ -2,11 +2,11 @@
 
 Same setup as [m2-manual-e2e.md](m2-manual-e2e.md) (build, install the 0.3.0 VSIX with the real profile
 environment, open `samples/OrderDemo/OrderDemo.csproj`, OrderDemo = startup project). The Output pane shows
-`VsMcpDebugger 0.3.0 ready (…, protocol 2.1)`.
+`Debugging via MCP 0.3.0 ready (…, protocol 2.1)`.
 
 ## Automated driver
 
-    dotnet run scripts/e2e/m3-e2e.cs -- <repo>\src\VsMcpDebugger.Mcp\bin\Debug\net10.0\VsMcpDebugger.Mcp.dll
+    dotnet run scripts/e2e/m3-e2e.cs -- <repo>\src\DebugViaMcp.Mcp\bin\Debug\net10.0\DebugViaMcp.Mcp.dll
 
 It builds and starts `samples/FaultDemo` for the attach and exception steps and answers info bars with
 `scripts/e2e/click-infobar.ps1`.
@@ -17,7 +17,7 @@ It builds and starts `samples/FaultDemo` for the attach and exception steps and 
 |---|---|---|
 | 1 | `debug_attach` to FaultDemo | info bar: "… attach the debugger to FaultDemo (pid N) — Visual Studio will be able to read and change that process's memory" |
 | 2 | `bp_enable` true on a conditional breakpoint | info bar: "… enable the breakpoint at … when … — this runs in your program on every hit" |
-| 3 | `output_read` pane "VsMcpDebugger Activity" | `denied` / `policy` |
+| 3 | `output_read` pane "Debugging via MCP Activity" | `denied` / `policy` |
 | 4 | Tools → Import and Export Settings: import a file with Mutate = Deny | the next `set_value` is denied by settings without restarting; Activity shows "Imported settings: Mutate: Ask → Deny" |
 | 5 | A `set_value` whose expression is 500 characters long | the info bar wraps or truncates visibly; Allow/Deny buttons stay reachable |
 | 6 | Click another frame in the Call Stack window while a `set_value` question is open, then Allow | `wrong_mode` "program state changed", nothing assigned |
@@ -26,7 +26,7 @@ It builds and starts `samples/FaultDemo` for the attach and exception steps and 
 
 ### Run 2026-10-13 — Visual Studio Community 2026 (18.0), automated driver
 
-Extension log: `VsMcpDebugger 0.3.0 ready (pid 61796, protocol 2.1)`. VS had the whole `VsMcpDebugger.slnx` open
+Extension log: `Debugging via MCP 0.3.0 ready (pid 61796, protocol 2.1)`. VS had the whole `DebugViaMcp.slnx` open
 (OrderDemo = startup project); the driver builds only `OrderDemo` and runs a private copy of the MCP server, because
 `vs_build` of the whole solution also builds the MCP project and a running server locks its own output files.
 
@@ -34,9 +34,9 @@ Extension log: `VsMcpDebugger 0.3.0 ready (pid 61796, protocol 2.1)`. VS had the
 |---|---|
 | `vs_build project=OrderDemo` | `state: done`, `succeeded: true` (0.5 s, up to date) |
 | `errors_list` | totals 0 / 0 / 0 |
-| `output_read` (no pane) | 11 panes, none of the VsMcpDebugger ones; panes without a text document listed without `lines` |
+| `output_read` (no pane) | 11 panes, none of the Debugging via MCP ones; panes without a text document listed without `lines` |
 | `output_read pane=build` | the 3 build lines |
-| `output_read pane="VsMcpDebugger Activity"` | `denied` / `policy` |
+| `output_read pane="Debugging via MCP Activity"` | `denied` / `policy` |
 | `bp_set` line 23, `debug_start` | break in `Calculate`, `epoch: 1` |
 | `threads`, `stack` | 7 threads with locations (native threads without one are still listed); 3 frames |
 | `frame_select 1`, `vars args`, `eval order.Id` | `Submit`; each answer carries `frame: {index: 1, threadId}`; `1` |

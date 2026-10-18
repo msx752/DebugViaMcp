@@ -1,0 +1,6 @@
+// Registers the settings shown in Visual Studio's Settings experience (Tools > Options > All Settings).
+// CacheTag must change whenever registration.json changes.
+[$RootKey$\SettingsManifests\{3a7c1e52-8d4b-4f6e-9a21-6b0c2d9e4f13}]
+@="Debugging via MCP"
+"ManifestPath"="$PackageFolder$\registration.json"
+"CacheTag"=qword:0000000000000004

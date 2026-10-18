@@ -1,4 +1,4 @@
-# VsMcpDebugger
+# Debugging via MCP
 
 Let AI coding agents drive the Visual Studio debugger over the Model Context Protocol (MCP):
 breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
@@ -18,45 +18,45 @@ breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 - Diagnostics: `diag` returns the MCP server's recent log lines
 - Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → Debugging → Debugging via MCP**; Mutate operations ask in a
   Visual Studio info bar (Allow once / Allow for session / Deny, no answer = deny); every state change is audited
-  (`audit-*.log`, Output → **VsMcpDebugger Activity**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
-  VsMcpDebugger). See [docs/security.md](docs/security.md).
-- Logs: `%LOCALAPPDATA%\VsMcpDebugger\logs` and the **VsMcpDebugger** Output pane in Visual Studio; every call has a
+  (`audit-*.log`, Output → **Debugging via MCP Activity**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
+  Debugging via MCP). See [docs/security.md](docs/security.md).
+- Logs: `%LOCALAPPDATA%\DebugViaMcp\logs` and the **Debugging via MCP** Output pane in Visual Studio; every call has a
   `callId` that appears in both the MCP server and Visual Studio logs
 
 ## Install (local build)
 
-1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/VsMcpDebugger.vsix` and
-   `artifacts/VsMcpDebugger.<version>.nupkg` (nothing is published).
-2. Install the extension: double-click `artifacts/VsMcpDebugger.vsix` (Visual Studio 2022 17.14+ or 2026).
+1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp.vsix` and
+   `artifacts/DebugViaMcp.<version>.nupkg` (nothing is published).
+2. Install the extension: double-click `artifacts/DebugViaMcp.vsix` (Visual Studio 2022 17.14+ or 2026).
 3. Install the MCP server and register it with Claude Code:
 
-       dotnet tool install -g VsMcpDebugger --prerelease --add-source artifacts
-       claude mcp add vsmcpdebugger -- vsmcpdebugger serve
+       dotnet tool install -g DebugViaMcp --prerelease --add-source artifacts
+       claude mcp add debugviamcp -- debugviamcp serve
 
-Installed only the extension? **Extensions → VsMcpDebugger → Set Up AI Agent…** checks the .NET SDK, the MCP server
+Installed only the extension? **Extensions → Debugging via MCP → Set Up AI Agent…** checks the .NET SDK, the MCP server
 tool and the Claude Code registration, lists what is missing and runs the fixing commands after you agree.
 **Copy MCP Setup Command** just copies the two commands of step 3 to the clipboard.
 
-Once published, steps 1–2 become "install VsMcpDebugger from the Visual Studio Marketplace" and step 3 drops
+Once published, steps 1–2 become "install Debugging via MCP from the Visual Studio Marketplace" and step 3 drops
 `--add-source`. Release notes: [CHANGELOG.md](CHANGELOG.md).
 
 ## Troubleshooting
 
 | Symptom | What to check |
 |---|---|
-| The agent says no Visual Studio instance is running | Visual Studio must be open with the VsMcpDebugger extension installed (Extensions → Manage Extensions → Installed). Open a solution; the Output pane "VsMcpDebugger" shows `ready` when it started. |
-| `vsmcpdebugger` is not found | The .NET tool folder must be on your PATH (`%USERPROFILE%\.dotnet\tools`). Open a new terminal after installing. |
+| The agent says no Visual Studio instance is running | Visual Studio must be open with the Debugging via MCP extension installed (Extensions → Manage Extensions → Installed). Open a solution; the Output pane "Debugging via MCP" shows `ready` when it started. |
+| `debugviamcp` is not found | The .NET tool folder must be on your PATH (`%USERPROFILE%\.dotnet\tools`). Open a new terminal after installing. |
 | `dotnet tool install` fails to find the package | It is a prerelease: add `--prerelease`. It needs the .NET 10 SDK (`dotnet --list-sdks`). |
-| `ai_disabled` | Someone chose Extensions → VsMcpDebugger → Disconnect AI. Choose Reconnect AI, then retry. |
+| `ai_disabled` | Someone chose Extensions → Debugging via MCP → Disconnect AI. Choose Reconnect AI, then retry. |
 | `version_mismatch` or `unsupported` | The extension and the tool are different releases. Update both to the same version. |
 | `in_use` | Another agent holds that Visual Studio; ask it to call `vs_release`, or use another instance (`vs_instances`). |
-| A consent question ended as `denied` / `timeout` | Visual Studio asks in an info bar at the top of its main window and waits 60 s (Tools → Options → VsMcpDebugger → Consent timeout); no answer means deny. When Visual Studio is in the background its taskbar button flashes. Bring it forward, then ask the agent to retry. |
+| A consent question ended as `denied` / `timeout` | Visual Studio asks in an info bar at the top of its main window and waits 60 s (Tools → Options → Debugging via MCP → Consent timeout); no answer means deny. When Visual Studio is in the background its taskbar button flashes. Bring it forward, then ask the agent to retry. |
 | `eval` says a type or namespace does not exist | The expression evaluator only sees assemblies the program has already loaded. Use the type in the code before the breakpoint (for example call `JsonSerializer.Serialize` once), or evaluate something else. |
 | `eval` says `Evaluation timed out` | Visual Studio stops an evaluation after about 5 s. Evaluate a smaller expression (`Take(1000)`), or read a field or property. Code that waits for another thread (`Task.Result`, a lock held by a paused thread) cannot finish while the program is stopped. |
 | `dotnet tool update` fails with "Access denied" | Running agent sessions use the installed tool and lock its files. Close those sessions (the **Set Up AI Agent** command names how many are running), update, then restart the agents. |
 | An out-of-date warning (or Rebuild bar) after editing files outside Visual Studio | Visual Studio notices external edits late, sometimes only when its window is activated. Build in Visual Studio (or call `vs_build`) before debugging; the warning is a hint, it never blocks. |
 | Visual Studio says the extension is already installed | Same version number: uninstall it first (Extensions → Manage Extensions), restart Visual Studio, then double-click the VSIX again. |
-| Something else | Call the `diag` tool for the server log, and look at View → Output → VsMcpDebugger and VsMcpDebugger Activity. |
+| Something else | Call the `diag` tool for the server log, and look at View → Output → Debugging via MCP and Debugging via MCP Activity. |
 
 ## Build from source
 
@@ -80,7 +80,7 @@ See [docs/testing/m2-manual-e2e.md](docs/testing/m2-manual-e2e.md).
 
 ## Design
 
-See [docs/design/2026-10-11-vsmcpdebugger-design.md](docs/design/2026-10-11-vsmcpdebugger-design.md).
+See [docs/design/2026-10-11-debugviamcp-design.md](docs/design/2026-10-11-debugviamcp-design.md).
 
 ## License
 

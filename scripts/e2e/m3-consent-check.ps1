@@ -2,7 +2,7 @@
 # Opens one set_value question with scripts/e2e/m3-consent-check.cs, then changes the debugger state through Visual
 # Studio's own automation interface (DTE), exactly what the user would do with the mouse, and answers "Allow once".
 # Test helper only; never used by the product.
-# Usage: powershell -File scripts/e2e/m3-consent-check.ps1 -Scenario frame|ip -Mcp <path-to-VsMcpDebugger.Mcp.dll>
+# Usage: powershell -File scripts/e2e/m3-consent-check.ps1 -Scenario frame|ip -Mcp <path-to-DebugViaMcp.Mcp.dll>
 param([Parameter(Mandatory)][ValidateSet('frame', 'ip')][string]$Scenario, [Parameter(Mandatory)][string]$Mcp)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -39,5 +39,5 @@ Start-Sleep 1
 "clicked : Allow once"
 $driver.WaitForExit(60000) | Out-Null
 Get-Content $log | Select-String 'RESULT' | ForEach-Object { $_.Line }
-Get-Content (Get-ChildItem "$env:LOCALAPPDATA\VsMcpDebugger\logs\audit-*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName -Tail 6 |
+Get-Content (Get-ChildItem "$env:LOCALAPPDATA\DebugViaMcp\logs\audit-*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName -Tail 6 |
     Where-Object { $_ -match '"operation":"set_value"' } | Select-Object -Last 1 | ForEach-Object { $_ -replace '.*("decision":"[^"]*","outcome":"[^"]*").*', 'audit  : $1' }

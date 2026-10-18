@@ -1,4 +1,4 @@
-# Clicks a VsMcpDebugger consent info-bar button ("Allow once", "Allow for session", "Deny") in the running
+# Clicks a Debugging via MCP consent info-bar button ("Allow once", "Allow for session", "Deny") in the running
 # Visual Studio via UI Automation. Test helper for scripts/e2e/m2-e2e.cs; never used by the product.
 # Waits 1.5 s after the button appears: the extension ignores Allow clicks during the first second.
 param([Parameter(Mandatory)][string]$Button, [int]$TimeoutSec = 20)

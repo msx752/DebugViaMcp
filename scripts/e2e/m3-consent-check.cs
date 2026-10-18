@@ -2,7 +2,7 @@
 #:property PublishAot=false
 // Manual consent checks (docs/testing/m3-manual-e2e.md rows 5-6 and the instruction-pointer check).
 // Stops OrderDemo in Calculate and opens ONE set_value question; the person at the keyboard acts in Visual Studio.
-// Usage: dotnet run scripts/e2e/m3-consent-check.cs -- <path-to-VsMcpDebugger.Mcp.dll> <long|frame|ip>
+// Usage: dotnet run scripts/e2e/m3-consent-check.cs -- <path-to-DebugViaMcp.Mcp.dll> <long|frame|ip>
 using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -11,13 +11,13 @@ var built = args[0];
 var scenario = args[1];
 
 // Run a private copy: the server must not lock its own output files.
-var copy = Path.Combine(Path.GetTempPath(), "vsmcpdebugger-check-" + Environment.ProcessId);
+var copy = Path.Combine(Path.GetTempPath(), "debugviamcp-check-" + Environment.ProcessId);
 Directory.CreateDirectory(copy);
 foreach (var f in Directory.GetFiles(Path.GetDirectoryName(built)!)) File.Copy(f, Path.Combine(copy, Path.GetFileName(f)), overwrite: true);
 
 await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
 {
-    Name = "vsmcpdebugger",
+    Name = "debugviamcp",
     Command = "dotnet",
     Arguments = [Path.Combine(copy, Path.GetFileName(built)), "serve"],
 }));

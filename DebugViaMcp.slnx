@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/FaultDemo/FaultDemo.csproj" />
+    <Project Path="samples/OrderDemo/OrderDemo.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/DebugViaMcp.Mcp/DebugViaMcp.Mcp.csproj" />
+    <Project Path="src/DebugViaMcp.Protocol/DebugViaMcp.Protocol.csproj" />
+    <Project Path="src/DebugViaMcp.Vsix.Core/DebugViaMcp.Vsix.Core.csproj" />
+    <Project Path="src/DebugViaMcp.Vsix/DebugViaMcp.Vsix.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DebugViaMcp.ArchitectureTests/DebugViaMcp.ArchitectureTests.csproj" />
+    <Project Path="tests/DebugViaMcp.Mcp.Tests/DebugViaMcp.Mcp.Tests.csproj" />
+    <Project Path="tests/DebugViaMcp.Protocol.Tests/DebugViaMcp.Protocol.Tests.csproj" />
+    <Project Path="tests/DebugViaMcp.Vsix.Core.Tests/DebugViaMcp.Vsix.Core.Tests.csproj" />
+  </Folder>
+</Solution>

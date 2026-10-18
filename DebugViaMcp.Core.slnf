@@ -1,0 +1,14 @@
+{
+  "solution": {
+    "path": "DebugViaMcp.slnx",
+    "projects": [
+      "src/DebugViaMcp.Protocol/DebugViaMcp.Protocol.csproj",
+      "src/DebugViaMcp.Mcp/DebugViaMcp.Mcp.csproj",
+      "src/DebugViaMcp.Vsix.Core/DebugViaMcp.Vsix.Core.csproj",
+      "tests/DebugViaMcp.Protocol.Tests/DebugViaMcp.Protocol.Tests.csproj",
+      "tests/DebugViaMcp.Mcp.Tests/DebugViaMcp.Mcp.Tests.csproj",
+      "tests/DebugViaMcp.Vsix.Core.Tests/DebugViaMcp.Vsix.Core.Tests.csproj",
+      "tests/DebugViaMcp.ArchitectureTests/DebugViaMcp.ArchitectureTests.csproj"
+    ]
+  }
+}

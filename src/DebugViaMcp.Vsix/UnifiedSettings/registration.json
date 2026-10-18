@@ -1,0 +1,77 @@
+{
+  "properties": {
+    "debugging.mcp.read": {
+      "type": "string",
+      "title": "Read",
+      "description": "Status, threads, call stack, variables, side-effect-free evaluation, the current exception, the Output window and the Error List.",
+      "default": "Allow",
+      "enum": [ "Allow", "Ask", "Deny" ],
+      "enumItemLabels": [ "Allow", "Ask", "Deny" ],
+      "order": 10
+    },
+    "debugging.mcp.control": {
+      "type": "string",
+      "title": "Control",
+      "description": "Breakpoints without conditions (set, remove, enable/disable), start, stop, continue, pause, step, run to, and Visual Studio builds.",
+      "default": "Allow",
+      "enum": [ "Allow", "Ask", "Deny" ],
+      "enumItemLabels": [ "Allow", "Ask", "Deny" ],
+      "order": 20
+    },
+    "debugging.mcp.mutate": {
+      "type": "string",
+      "title": "Mutate",
+      "description": "set_value, evaluation with side effects, breakpoint conditions or tracepoints (they run in your program on every hit), and attaching the debugger to a running process. Ask shows an info bar for each request. Allow lets the agent change program state without asking; Visual Studio asks you to confirm it, and keeps asking until you do.",
+      "default": "Ask",
+      "enum": [ "Allow", "Ask", "Deny" ],
+      "enumItemLabels": [ "Allow", "Ask", "Deny" ],
+      "order": 30
+    },
+    "debugging.mcp.consentTimeoutSeconds": {
+      "type": "integer",
+      "title": "Consent timeout (seconds)",
+      "description": "No answer within this time denies the request (15–300).",
+      "default": 60,
+      "minimum": 15,
+      "maximum": 300,
+      "order": 40
+    },
+    "debugging.mcp.acceptConnectionsOnStartup": {
+      "type": "boolean",
+      "title": "Accept AI connections when Visual Studio starts",
+      "description": "Off: every session starts as if Disconnect AI was chosen.",
+      "default": true,
+      "order": 50
+    },
+    "debugging.mcp.showStatusBarIndicator": {
+      "type": "boolean",
+      "title": "Show status bar indicator",
+      "description": "Shows which AI client is connected.",
+      "default": true,
+      "order": 60
+    },
+    "debugging.mcp.logLevel": {
+      "type": "string",
+      "title": "Log level",
+      "description": "Applies to the extension and to the debugviamcp MCP server (sent when it connects). Open the logs with Extensions → Debugging via MCP → Open Logs Folder.",
+      "default": "Information",
+      "enum": [ "Error", "Warning", "Information", "Debug" ],
+      "enumItemLabels": [ "Error", "Warning", "Information", "Debug" ],
+      "order": 70
+    },
+    "debugging.mcp.logRetentionDays": {
+      "type": "integer",
+      "title": "Log retention (days)",
+      "description": "Log and audit files of the extension and of the debugviamcp MCP server older than this are deleted (1–90).",
+      "default": 7,
+      "minimum": 1,
+      "maximum": 90,
+      "order": 80
+    }
+  },
+  "categories": {
+    "debugging.mcp": {
+      "title": "Debugging via MCP"
+    }
+  }
+}

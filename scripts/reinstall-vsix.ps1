@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Removes the installed VsMcpDebugger extension and installs the VSIX built from this repository.
+  Removes the installed Debugging via MCP extension and installs the VSIX built from this repository.
 
 .DESCRIPTION
   For development: Visual Studio treats a VSIX with the same version number as "already installed", so the old build has to
@@ -31,9 +31,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$project = Join-Path $root 'src\VsMcpDebugger.Vsix\VsMcpDebugger.Vsix.csproj'
-$manifestPath = Join-Path $root 'src\VsMcpDebugger.Vsix\source.extension.vsixmanifest'
-if (-not $VsixPath) { $VsixPath = Join-Path $root "src\VsMcpDebugger.Vsix\bin\$Configuration\net48\VsMcpDebugger.Vsix.vsix" }
+$project = Join-Path $root 'src\DebugViaMcp.Vsix\DebugViaMcp.Vsix.csproj'
+$manifestPath = Join-Path $root 'src\DebugViaMcp.Vsix\source.extension.vsixmanifest'
+if (-not $VsixPath) { $VsixPath = Join-Path $root "src\DebugViaMcp.Vsix\bin\$Configuration\net48\DebugViaMcp.Vsix.vsix" }
 
 if (Get-Process devenv -ErrorAction SilentlyContinue) {
     throw 'Visual Studio is running. Close it first (this script never closes it), then run it again.'
@@ -87,5 +87,5 @@ $installRun = Start-Process -FilePath $installer -ArgumentList @('/quiet', "/ins
 if ($installRun.ExitCode -ne 0) { throw "VSIXInstaller failed with exit code $($installRun.ExitCode)." }
 
 Write-Host ''
-Write-Host 'Installed. Start Visual Studio, open a solution and look for this line in View > Output > VsMcpDebugger:' -ForegroundColor Green
-Write-Host "  VsMcpDebugger $($identity.Version) ready (..., protocol 2.2)"
+Write-Host 'Installed. Start Visual Studio, open a solution and look for this line in View > Output > Debugging via MCP:' -ForegroundColor Green
+Write-Host "  Debugging via MCP $($identity.Version) ready (..., protocol 2.2)"

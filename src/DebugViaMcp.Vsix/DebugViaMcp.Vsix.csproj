@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>DebugViaMcp.Vsix</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Lets Microsoft.VSSDK.BuildTools wire the VSIX targets into an SDK-style project. -->
+    <VSSDKBuildToolsAutoSetup>true</VSSDKBuildToolsAutoSetup>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <UseCodebase>true</UseCodebase>
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <IncludeDebugSymbolsInVSIXContainer>true</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInLocalVSIXDeployment>true</IncludeDebugSymbolsInLocalVSIXDeployment>
+    <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
+    <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
+    <CreateVsixContainer>true</CreateVsixContainer>
+    <DeployExtension>true</DeployExtension>
+    <StartAction>Program</StartAction>
+    <StartProgram>$(DevEnvDir)devenv.exe</StartProgram>
+    <StartArguments>/rootsuffix Exp</StartArguments>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- WPF, for the status bar indicator. -->
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+    <!-- MenuCommandService (base of OleMenuCommandService) lives here. -->
+    <Reference Include="System.Design" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DebugViaMcp.Protocol\DebugViaMcp.Protocol.csproj" />
+    <ProjectReference Include="..\DebugViaMcp.Vsix.Core\DebugViaMcp.Vsix.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="source.extension.vsixmanifest" SubType="Designer" />
+    <VSCTCompile Include="DebugViaMcpPackage.vsct" ResourceName="Menus.ctmenu" />
+    <Content Include="..\..\LICENSE" Link="LICENSE" IncludeInVSIX="true" />
+    <Content Include="..\..\CHANGELOG.md" Link="CHANGELOG.md" IncludeInVSIX="true" />
+    <Content Include="UnifiedSettings\registration.json" IncludeInVSIX="true" />
+    <Content Include="UnifiedSettings\Settings.pkgdef" IncludeInVSIX="true" />
+    <Content Include="Resources\icon.png" IncludeInVSIX="true" />
+    <Content Include="Resources\preview.png" IncludeInVSIX="true" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Visual Studio ships these; bundling our own copies would risk version conflicts in devenv.exe. -->
+    <SuppressFromVsix Include="System.Text.Encodings.Web.dll" />
+  </ItemGroup>
+</Project>

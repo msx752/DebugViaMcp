@@ -1,6 +1,6 @@
 # Security
 
-VsMcpDebugger lets an AI agent drive the Visual Studio debugger. This page explains what can go wrong and which
+Debugging via MCP lets an AI agent drive the Visual Studio debugger. This page explains what can go wrong and which
 controls stand in the way.
 
 ## Threat model
@@ -47,12 +47,12 @@ confirmation first.
 - `output_read` and `errors_list` are **Read** tier. They expose text that build tools, analyzers and your program
   wrote. If your build output can contain secrets, set Read to Ask or Deny. Their content is returned as untrusted
   data, never as instructions.
-- The extension's own Output panes (**VsMcpDebugger** and **VsMcpDebugger Activity**) are never readable through the
+- The extension's own Output panes (**Debugging via MCP** and **Debugging via MCP Activity**) are never readable through the
   bridge, so the agent cannot read the audit trail or be fed by it. The check is by pane GUID.
 - `debug_attach` is **Mutate**: attaching lets Visual Studio read and change the target process's memory. Only
   processes running as your own user (compared by token SID) are offered, and the consent question names the
   process and pid. `debug_stop` detaches; it does not end the process.
-- Visual Studio itself (`devenv`) and the `vsmcpdebugger` server are never offered as attach targets: another
+- Visual Studio itself (`devenv`) and the `debugviamcp` server are never offered as attach targets: another
   Visual Studio instance holds its own pipe token and your sources.
 - `bp_enable(true)` on a breakpoint with a condition or tracepoint is Mutate for the same reason as `bp_set` with one.
 - `vs_build` is **Control**: it runs your project's build, including any custom MSBuild targets.
@@ -93,14 +93,14 @@ With **Ask**, Visual Studio shows an info bar on the main window, for example:
 
 ### Visibility and audit
 - Every Control and Mutate call — and every Read call you were asked about — is written to
-  `%LOCALAPPDATA%\VsMcpDebugger\logs\audit-yyyyMMdd.log` (JSON lines) with its `callId`, client, parameters,
+  `%LOCALAPPDATA%\DebugViaMcp\logs\audit-yyyyMMdd.log` (JSON lines) with its `callId`, client, parameters,
   decision and outcome. The same `callId` appears in the MCP server's log.
-- Each entry also appears in **View → Output → VsMcpDebugger Activity**.
+- Each entry also appears in **View → Output → Debugging via MCP Activity**.
 - Values read from your program are never written to any log.
 - The status bar shows which client is connected; click it to open the Activity pane.
 
 ### Disconnect AI
-**Extensions → VsMcpDebugger → Disconnect AI** (Ctrl+Alt+Shift+F12) immediately:
+**Extensions → Debugging via MCP → Disconnect AI** (Ctrl+Alt+Shift+F12) immediately:
 - denies every pending consent question,
 - refuses every further call on existing connections and closes them,
 - refuses new connections until **Reconnect AI** or until Visual Studio restarts.

@@ -1,18 +1,18 @@
 #:package ModelContextProtocol
 #:property PublishAot=false
-// M3 end-to-end driver: talks to the real vsmcpdebugger MCP server over stdio, like Claude Code, against a running
-// Visual Studio with the VsMcpDebugger 0.3 extension and samples/OrderDemo open (OrderDemo = startup project).
+// M3 end-to-end driver: talks to the real debugviamcp MCP server over stdio, like Claude Code, against a running
+// Visual Studio with the Debugging via MCP 0.3 extension and samples/OrderDemo open (OrderDemo = startup project).
 // Consent info bars are answered by scripts/e2e/click-infobar.ps1 (UI Automation).
-// Usage: dotnet run scripts/e2e/m3-e2e.cs -- <path-to-VsMcpDebugger.Mcp.dll>
+// Usage: dotnet run scripts/e2e/m3-e2e.cs -- <path-to-DebugViaMcp.Mcp.dll>
 using System.Diagnostics;
 using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
-var built = args.Length > 0 ? args[0] : Path.GetFullPath("src/VsMcpDebugger.Mcp/bin/Debug/net10.0/VsMcpDebugger.Mcp.dll");
+var built = args.Length > 0 ? args[0] : Path.GetFullPath("src/DebugViaMcp.Mcp/bin/Debug/net10.0/DebugViaMcp.Mcp.dll");
 
 // Run a private copy: vs_build may build this very project, and a running server locks its own output files.
-var copy = Path.Combine(Path.GetTempPath(), "vsmcpdebugger-e2e-" + Environment.ProcessId);
+var copy = Path.Combine(Path.GetTempPath(), "debugviamcp-e2e-" + Environment.ProcessId);
 Directory.CreateDirectory(copy);
 foreach (var f in Directory.GetFiles(Path.GetDirectoryName(built)!)) File.Copy(f, Path.Combine(copy, Path.GetFileName(f)), overwrite: true);
 var server = Path.Combine(copy, Path.GetFileName(built));
@@ -20,7 +20,7 @@ var clicker = Path.GetFullPath("scripts/e2e/click-infobar.ps1");
 var faultDemo = Path.GetFullPath("samples/FaultDemo/bin/Debug/net10.0/FaultDemo.exe");
 await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
 {
-    Name = "vsmcpdebugger",
+    Name = "debugviamcp",
     Command = "dotnet",
     Arguments = [server, "serve"],
 }));
@@ -53,9 +53,9 @@ await Call("vs_instances");
 await Call("debug_status");
 await Call("vs_build", new() { ["project"] = "OrderDemo" });                                    // VS may have the whole .slnx open: build only the sample
 await Call("errors_list", new() { ["severity"] = "error,warning,message" });
-await Call("output_read");                                                                   // pane list: no VsMcpDebugger panes
+await Call("output_read");                                                                   // pane list: no Debugging via MCP panes
 await Call("output_read", new() { ["pane"] = "build", ["tail"] = 20 });
-await Call("output_read", new() { ["pane"] = "VsMcpDebugger Activity" });                    // denied / policy
+await Call("output_read", new() { ["pane"] = "Debugging via MCP Activity" });                    // denied / policy
 
 // Frames, threads, run to
 await Call("bp_remove", new() { ["all"] = true });
