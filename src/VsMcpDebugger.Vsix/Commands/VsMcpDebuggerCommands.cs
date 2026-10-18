@@ -33,27 +33,8 @@ internal static class VsMcpDebuggerCommands
         });
         var version = typeof(VsMcpDebuggerCommands).Assembly.GetName().Version.ToString(3);
         Add(commands, SetupAgent, (_, _) => McpSetupCommand.Run(package, log, version));
-        Add(commands, CopyMcpSetup, (_, _) => CopySetupCommands(package));
+        Add(commands, CopyMcpSetup, (_, _) => McpSetupCommand.CopyCommands(package));
         Add(commands, OpenOptions, (_, _) => package.ShowOptionPage(typeof(GeneralOptionsPage)));
-    }
-
-    private static void CopySetupCommands(AsyncPackage package)
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        var copied = false;
-        try
-        {
-            System.Windows.Clipboard.SetText(McpSetup.Commands);
-            copied = true;
-        }
-        catch (System.Runtime.InteropServices.ExternalException)
-        {
-            // Another program holds the clipboard; the message below shows the commands instead.
-        }
-
-        VsShellUtilities.ShowMessageBox(package, copied ? McpSetup.Explanation : McpSetup.ClipboardFailed, McpSetup.Title,
-            Microsoft.VisualStudio.Shell.Interop.OLEMSGICON.OLEMSGICON_INFO, Microsoft.VisualStudio.Shell.Interop.OLEMSGBUTTON.OLEMSGBUTTON_OK,
-            Microsoft.VisualStudio.Shell.Interop.OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
     }
 
     private static void Add(OleMenuCommandService commands, int id, EventHandler invoke, Action<OleMenuCommand>? query = null)

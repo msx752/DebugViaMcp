@@ -30,6 +30,7 @@
     <Reference Include="System.Xaml" />
     <!-- MenuCommandService (base of OleMenuCommandService) lives here. -->
     <Reference Include="System.Design" />
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VsMcpDebugger.Protocol\VsMcpDebugger.Protocol.csproj" />

@@ -24,7 +24,7 @@ Out of scope: malicious processes running as the same user. They can already con
 
 ### Permission tiers
 Every request belongs to a tier. Each tier is set to **Allow**, **Ask** or **Deny** in
-**Tools → Options → VsMcpDebugger → General**, and Visual Studio enforces it — no tool call can change it.
+**Tools → Options → Debugging → Debugging via MCP**, and Visual Studio enforces it — no tool call can change it.
 
 | Tier | Operations | Default |
 |---|---|---|

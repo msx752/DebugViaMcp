@@ -24,8 +24,8 @@ namespace VsMcpDebugger.Vsix;
 [Guid(PackageGuid)]
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideAutoLoad(UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
-[ProvideOptionPage(typeof(GeneralOptionsPage), "VsMcpDebugger", "General", 0, 0, true)]
-[ProvideProfile(typeof(GeneralOptionsPage), "VsMcpDebugger", "General", 0, 0, isToolsOptionPage: true)]
+[ProvideOptionPage(typeof(GeneralOptionsPage), "Debugging", "Debugging via MCP", 0, 0, true)]
+[ProvideProfile(typeof(GeneralOptionsPage), "Debugging", "Debugging via MCP", 0, 0, isToolsOptionPage: true)]
 [ProvideMenuResource("Menus.ctmenu", 1)]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Fields are released in Dispose(bool), which VS invokes through Package.Close.")]
 public sealed class VsMcpDebuggerPackage : AsyncPackage
@@ -37,6 +37,25 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
     private DebuggerEventPump? _pump;
     private SolutionEvents? _solutionEvents;
     private StatusBarIndicator? _indicator;
+
+    /// <summary>The running package, for UI that Visual Studio creates itself (the Options page).</summary>
+    internal static VsMcpDebuggerPackage? Instance { get; private set; }
+
+    private ILog? _log;
+
+    /// <summary>Same as Extensions → VsMcpDebugger → Set Up AI Agent.</summary>
+    internal void RunMcpSetup()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        if (_log is { } log) McpSetupCommand.Run(this, log, typeof(VsMcpDebuggerPackage).Assembly.GetName().Version.ToString(3));
+    }
+
+    /// <summary>Same as Extensions → VsMcpDebugger → Copy MCP Setup Command.</summary>
+    internal void CopyMcpSetupCommands()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        McpSetupCommand.CopyCommands(this);
+    }
 
     internal BridgeSecurity? Security { get; private set; }
     internal ActivityPane? Activity { get; private set; }
@@ -52,6 +71,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
         outputWindow.CreatePane(ref paneGuid, "VsMcpDebugger", 1, 1);
         outputWindow.GetPane(ref paneGuid, out var pane);
 
+        Instance = this;
         var page = (GeneralOptionsPage)GetDialogPage(typeof(GeneralOptionsPage));
         var activityGuid = ActivityPane.PaneGuid;
         outputWindow.CreatePane(ref activityGuid, "VsMcpDebugger Activity", 1, 1);
@@ -61,6 +81,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
         int pid;
         using (var self = System.Diagnostics.Process.GetCurrentProcess()) pid = self.Id;
         var log = new LevelFilterLog(new CompositeLog(new OutputPaneLog(pane), new FileLog(DiscoveryPaths.LogsDirectory, pid)), () => page.Applied.LogLevel);
+        _log = log;
         LogRetention.Prune(DiscoveryPaths.LogsDirectory, "vsix-", page.Applied.LogRetentionDays, DateTimeOffset.UtcNow);
         var vsixVersion = typeof(VsMcpDebuggerPackage).Assembly.GetName().Version.ToString(3);
 

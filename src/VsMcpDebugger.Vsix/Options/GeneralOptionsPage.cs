@@ -8,7 +8,7 @@ using VsMcpDebugger.Protocol;
 
 namespace VsMcpDebugger.Vsix.Options;
 
-/// <summary>Tools → Options → VsMcpDebugger → General. Values are read on every bridge call; no restart needed.</summary>
+/// <summary>Tools → Options → Debugging → Debugging via MCP. Values are read on every bridge call; no restart needed.</summary>
 [Guid("6c2f4d81-3e9a-4b57-a0d2-8f1e7c3b5a96")]
 public sealed class GeneralOptionsPage : DialogPage
 {
@@ -68,6 +68,18 @@ public sealed class GeneralOptionsPage : DialogPage
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822", Justification = "The options property grid only shows instance properties.")]
     public string LogFolder => DiscoveryPaths.LogsDirectory;
+
+    private OptionsPageControl? _control;
+
+    /// <summary>The page body: the AI agent setup section above the settings grid.</summary>
+    protected override System.Windows.Forms.IWin32Window Window
+    {
+        get
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            return _control ??= new OptionsPageControl(this);
+        }
+    }
 
     private AppliedSettings Snapshot() => new(
         new PermissionSet { Read = Read, Control = Control, Mutate = Mutate },

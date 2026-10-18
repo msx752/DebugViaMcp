@@ -21,7 +21,7 @@ variables, and evaluate expressions — while you stay in control.
 ## You stay in control
 
 - **Permission tiers** — Read, Control and Mutate, each Allow / Ask / Deny, in
-  **Tools → Options → VsMcpDebugger**. Visual Studio enforces them; the agent cannot change them.
+  **Tools → Options → Debugging → Debugging via MCP**. Visual Studio enforces them; the agent cannot change them.
 - **Consent info bar** — before anything changes your program, Visual Studio asks:
   *Allow once*, *Allow for session* or *Deny*. No answer means deny.
 - **Audit trail** — every state change is logged with a call id and shown in

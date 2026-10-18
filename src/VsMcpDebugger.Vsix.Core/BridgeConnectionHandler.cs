@@ -443,7 +443,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
     private static LocalRpcException PolicyDenied(PermissionTier tier) =>
         Rpc(BridgeErrorCode.Denied, $"Blocked by VsMcpDebugger settings in Visual Studio ({Capitalized(tier)} = Deny).",
-            "Ask the user whether to change Tools → Options → VsMcpDebugger → Permissions.", DeniedReasons.Policy);
+            "Ask the user whether to change Tools → Options → Debugging → Debugging via MCP (Permissions).", DeniedReasons.Policy);
 
     private void ThrowIfDenied(ConsentOutcome outcome, PermissionTier tier)
     {

@@ -16,7 +16,7 @@ breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
   evaluation with side effects (`eval` with `allowSideEffects`)
 - IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`)
 - Diagnostics: `diag` returns the MCP server's recent log lines
-- Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → VsMcpDebugger**; Mutate operations ask in a
+- Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → Debugging → Debugging via MCP**; Mutate operations ask in a
   Visual Studio info bar (Allow once / Allow for session / Deny, no answer = deny); every state change is audited
   (`audit-*.log`, Output → **VsMcpDebugger Activity**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
   VsMcpDebugger). See [docs/security.md](docs/security.md).

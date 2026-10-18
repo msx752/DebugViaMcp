@@ -250,7 +250,7 @@ public sealed class EvaluateResult
     public bool Truncated { get; set; }
 }
 
-/// <summary>What the user allows per tier (Tools → Options → VsMcpDebugger). Informational for the client; the VSIX enforces it.</summary>
+/// <summary>What the user allows per tier (Tools → Options → Debugging → Debugging via MCP). Informational for the client; the VSIX enforces it.</summary>
 public sealed class PermissionSet
 {
     public PermissionLevel Read { get; set; } = PermissionLevel.Allow;

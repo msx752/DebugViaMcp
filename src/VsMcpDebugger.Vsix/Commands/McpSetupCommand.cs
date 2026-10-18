@@ -26,6 +26,25 @@ internal static class McpSetupCommand
 
     private static int _running;
 
+    public static void CopyCommands(AsyncPackage package)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var copied = false;
+        try
+        {
+            System.Windows.Clipboard.SetText(McpSetup.Commands);
+            copied = true;
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            // Another program holds the clipboard; the message below shows the commands instead.
+        }
+
+        VsShellUtilities.ShowMessageBox(package, copied ? McpSetup.Explanation : McpSetup.ClipboardFailed, McpSetup.Title,
+            Microsoft.VisualStudio.Shell.Interop.OLEMSGICON.OLEMSGICON_INFO, Microsoft.VisualStudio.Shell.Interop.OLEMSGBUTTON.OLEMSGBUTTON_OK,
+            Microsoft.VisualStudio.Shell.Interop.OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+    }
+
     public static void Run(AsyncPackage package, ILog log, string extensionVersion)
     {
         ThreadHelper.ThrowIfNotOnUIThread();

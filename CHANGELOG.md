@@ -38,6 +38,8 @@ the `vsmcpdebugger` tool are released together with the same version.
 - **Set Up AI Agent** never tries to update a running tool (it would fail halfway); it names the running agent sessions.
 
 ### Changed
+- The settings page moved to **Tools → Options → Debugging → Debugging via MCP** and now starts with an "AI agent setup"
+  section (**Set Up AI Agent…** and **Copy setup commands** buttons).
 - Wire protocol 2.2 (additive). A 2.1 extension keeps working with the 0.4 tool; the new tools then report
   `unsupported`.
 - Break and mode events go only to the agent that holds the Visual Studio.
