@@ -27,6 +27,7 @@ public sealed class McpServerDeployer
     private const string LauncherText =
         "@echo off\r\n" +
         "setlocal\r\n" +
+        "set NoDefaultCurrentDirectoryInExePath=1\r\n" +   // the agent starts in a repository folder: a dotnet.exe/.cmd planted there must not win
         "set /p DEBUGVIAMCP_BUILD=<\"%~dp0bin\\current.txt\"\r\n" +
         "dotnet \"%~dp0bin\\%DEBUGVIAMCP_BUILD%\\" + MainAssembly + "\" %*\r\n";
 

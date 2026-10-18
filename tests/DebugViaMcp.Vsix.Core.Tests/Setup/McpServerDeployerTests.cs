@@ -41,6 +41,7 @@ public sealed class McpServerDeployerTests : IDisposable
         var text = File.ReadAllText(launcher);
         Assert.Contains("DebugViaMcp.Mcp.dll", text, StringComparison.Ordinal);
         Assert.Contains("%*", text, StringComparison.Ordinal);
+        Assert.Contains("NoDefaultCurrentDirectoryInExePath=1", text, StringComparison.Ordinal);   // no dotnet from the agent's folder
     }
 
     [Fact]
