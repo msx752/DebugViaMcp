@@ -39,6 +39,17 @@ if (Get-Process devenv -ErrorAction SilentlyContinue) {
     throw 'Visual Studio is running. Close it first (this script never closes it), then run it again.'
 }
 
+# Visual Studio installs per-user extensions into the real user profile. If this shell runs with a redirected profile
+# (USERPROFILE / LOCALAPPDATA pointing somewhere else, as some tools do), VSIXInstaller would install into that other
+# place and Visual Studio would never see the extension. Point the installer at the real profile.
+$realHome = [Environment]::GetFolderPath('UserProfile')
+if ($env:USERPROFILE -ne $realHome) {
+    Write-Host "Profile environment is redirected ($env:USERPROFILE); installing into the real profile $realHome." -ForegroundColor Yellow
+    $env:USERPROFILE = $realHome
+    $env:LOCALAPPDATA = Join-Path $realHome 'AppData\Local'
+    $env:APPDATA = Join-Path $realHome 'AppData\Roaming'
+}
+
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 if (-not (Test-Path $vswhere)) { throw 'vswhere.exe not found: is Visual Studio installed?' }
 $install = & $vswhere -latest -prerelease -products * -property installationPath | Select-Object -First 1
