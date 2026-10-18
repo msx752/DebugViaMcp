@@ -15,7 +15,7 @@ using DebugViaMcp.Vsix.Core.Support;
 namespace DebugViaMcp.Vsix.Core.Bridge;
 
 /// <summary>Implements the bridge operations on top of <see cref="IDteFacade"/>. Handshake lives in BridgeConnectionHandler.</summary>
-public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IBuildPrompt? buildPrompt = null)
+public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IBuildPrompt? buildPrompt = null, Func<bool>? vsBuildsOnRun = null)
 {
     /// <summary>How long a project's build state is reused: reading it walks the project folder on the UI thread.</summary>
     public const int BuildInfoCacheSeconds = 5;
@@ -479,10 +479,15 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             scope = dte.StartupProjects.ToArray();
         }
 
+        // Visual Studio builds an out-of-date project itself when debugging starts (Options > Projects and Solutions > Build and
+        // Run > On Run, when projects are out of date = Always build), so while nothing runs there is nothing to warn about or offer.
+        // A running program keeps its old binary, and with "Never build" / "Prompt to build" Visual Studio would not build alone.
+        var vsBuildsOnStart = vsBuildsOnRun?.Invoke() == true && dte.Mode == DebuggerMode.Design;
+
         var stale = new List<BuildWarning>();
         foreach (var unique in scope)
         {
-            var isStale = StaleBuildChecker.IsStale(BuildInfoOf(unique));
+            var isStale = !vsBuildsOnStart && StaleBuildChecker.IsStale(BuildInfoOf(unique));
             _notifier?.Observe(unique, isStale);
             if (isStale) stale.Add(StaleWarning(unique));
         }

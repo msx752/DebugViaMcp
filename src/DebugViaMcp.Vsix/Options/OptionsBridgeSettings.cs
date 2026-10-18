@@ -27,9 +27,9 @@ internal sealed class OptionsBridgeSettings(McpSettings settings) : IBridgeSetti
 }
 
 /// <summary>Immutable copy of the applied Options values.</summary>
-internal sealed class AppliedSettings(PermissionSet permissions, TimeSpan consentTimeout, bool acceptConnectionsOnStartup, bool showStatusBarIndicator, LogVerbosity logLevel, int logRetentionDays, int maxWaitSeconds, int maxBuildSeconds)
+internal sealed class AppliedSettings(PermissionSet permissions, TimeSpan consentTimeout, bool acceptConnectionsOnStartup, bool showStatusBarIndicator, LogVerbosity logLevel, int logRetentionDays, int maxWaitSeconds, int maxBuildSeconds, bool vsBuildsOnRun)
 {
-    public static readonly AppliedSettings Defaults = new(new PermissionSet(), TimeSpan.FromSeconds(60), true, true, LogVerbosity.Information, 7, 120, 600);
+    public static readonly AppliedSettings Defaults = new(new PermissionSet(), TimeSpan.FromSeconds(60), true, true, LogVerbosity.Information, 7, 120, 600, false);
 
     public PermissionSet Permissions { get; } = permissions;
     public TimeSpan ConsentTimeout { get; } = consentTimeout;
@@ -39,4 +39,7 @@ internal sealed class AppliedSettings(PermissionSet permissions, TimeSpan consen
     public int LogRetentionDays { get; } = logRetentionDays;
     public int MaxWaitSeconds { get; } = maxWaitSeconds;
     public int MaxBuildSeconds { get; } = maxBuildSeconds;
+
+    /// <summary>True when Visual Studio builds an out-of-date project itself as debugging starts (its On Run option is "Always build"); false when it is not, or not known.</summary>
+    public bool VsBuildsOnRun { get; } = vsBuildsOnRun;
 }

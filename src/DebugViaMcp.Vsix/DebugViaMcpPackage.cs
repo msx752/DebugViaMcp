@@ -87,7 +87,7 @@ public sealed class DebugViaMcpPackage : AsyncPackage
         {
             var seq = new EventSeq();
             var buildPrompt = new InfoBarBuildPrompt(this, JoinableTaskFactory);
-            var service = new DebugBridgeService(new DteFacade(dte, errorList), new JtfUiThread(JoinableTaskFactory), seq, log, vsixVersion, buildPrompt: buildPrompt);
+            var service = new DebugBridgeService(new DteFacade(dte, errorList), new JtfUiThread(JoinableTaskFactory), seq, log, vsixVersion, buildPrompt: buildPrompt, vsBuildsOnRun: () => mcpSettings.Applied.VsBuildsOnRun);
             buildPrompt.OnDismissed = service.BuildBarDismissed;
             var lease = new InstanceLease();
             var broadcaster = new EventBroadcaster(log, lease);

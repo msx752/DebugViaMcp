@@ -32,6 +32,61 @@ public class BuildFreshnessTests
         Assert.Equal("OrderDemo", warning.Project);
     }
 
+    private static DebugBridgeService ServiceFor(FakeDte dte, bool vsBuildsOnRun, FakeBuildPromptSink? prompt = null) =>
+        new(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0", buildPrompt: prompt, vsBuildsOnRun: () => vsBuildsOnRun);
+
+    [Fact]
+    public async Task No_warning_while_visual_studio_builds_on_run_and_nothing_is_running()
+    {
+        var dte = new FakeDte { Mode = DebuggerMode.Design };
+        MarkStale(dte, Order);
+
+        Assert.Empty(await ServiceFor(dte, vsBuildsOnRun: true).CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(DebuggerMode.Run)]
+    [InlineData(DebuggerMode.Break)]
+    public async Task A_running_program_keeps_its_old_binary_so_the_warning_stays(DebuggerMode mode)
+    {
+        var dte = new FakeDte { Mode = mode };
+        MarkStale(dte, Order);
+
+        var warnings = await ServiceFor(dte, vsBuildsOnRun: true).CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
+
+        Assert.Single(warnings);
+    }
+
+    [Fact]
+    public async Task Warns_when_visual_studio_does_not_build_on_run_itself()
+    {
+        var dte = new FakeDte { Mode = DebuggerMode.Design };
+        MarkStale(dte, Order);
+
+        var warnings = await ServiceFor(dte, vsBuildsOnRun: false).CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
+
+        Assert.Single(warnings);
+    }
+
+    [Fact]
+    public async Task No_build_bar_while_visual_studio_builds_on_run()
+    {
+        var dte = new FakeDte { Mode = DebuggerMode.Design };
+        MarkStale(dte, Order);
+        var prompt = new FakeBuildPromptSink();
+
+        await ServiceFor(dte, vsBuildsOnRun: true, prompt).CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
+
+        Assert.Empty(prompt.Shown);
+    }
+
+    private sealed class FakeBuildPromptSink : IBuildPrompt
+    {
+        public List<string> Shown { get; } = [];
+        public void Show(string project, string text, Action build) => Shown.Add(project);
+        public void Hide(string project) { }
+    }
+
     /// <summary>Final review 4: repeated checks must not re-read the project every time.</summary>
     [Fact]
     public async Task Checks_within_a_few_seconds_read_the_project_once_and_a_build_refreshes_it()

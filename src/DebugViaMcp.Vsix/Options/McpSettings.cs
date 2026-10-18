@@ -25,7 +25,10 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
     private const string StatusBar = Prefix + "showStatusBarIndicator", LogLevel = Prefix + "logLevel", LogRetention = Prefix + "logRetentionDays";
     private const string MaxWait = Prefix + "maxWaitSeconds", MaxBuild = Prefix + "maxBuildSeconds";
 
-    private static readonly string[] Monikers = [Read, Control, Mutate, ConsentTimeout, AcceptOnStartup, StatusBar, LogLevel, LogRetention, MaxWait, MaxBuild];
+    /// <summary>Visual Studio's own option (Projects and Solutions > Build and Run > On Run, when projects are out of date): alwaysBuild, neverBuild or promptToBuild.</summary>
+    private const string OnRunWhenOutOfDate = "projectsAndSolutions.buildAndRun.onRunWhenOutOfDate";
+
+    private static readonly string[] Monikers = [Read, Control, Mutate, ConsentTimeout, AcceptOnStartup, StatusBar, LogLevel, LogRetention, MaxWait, MaxBuild, OnRunWhenOutOfDate];
 
     private readonly object _gate = new();
     private readonly Dictionary<string, string> _raw = new();
@@ -218,7 +221,8 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
         Enum(LogLevel, LogVerbosity.Information),
         Int(LogRetention, 7, 1, 90),
         Int(MaxWait, 120, 5, 600),
-        Int(MaxBuild, 600, 30, 1800));
+        Int(MaxBuild, 600, 30, 1800),
+        _raw.TryGetValue(OnRunWhenOutOfDate, out var onRun) && string.Equals(onRun, "alwaysBuild", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>String settings come back JSON-encoded ("Deny" with its quotes).</summary>
     private static string Unquote(string? data) =>
