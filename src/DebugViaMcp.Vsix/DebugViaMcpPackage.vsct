@@ -32,12 +32,6 @@
           <ButtonText>Set Up AI Agent…</ButtonText>
         </Strings>
       </Button>
-      <Button guid="guidDebugViaMcpCmdSet" id="CopyMcpSetup" priority="0x0100" type="Button">
-        <Parent guid="guidDebugViaMcpCmdSet" id="SetupGroup" />
-        <Strings>
-          <ButtonText>Copy MCP Setup Command</ButtonText>
-        </Strings>
-      </Button>
       <Button guid="guidDebugViaMcpCmdSet" id="DisconnectAi" priority="0x0100" type="Button">
         <Parent guid="guidDebugViaMcpCmdSet" id="AccessGroup" />
         <CommandFlag>DynamicVisibility</CommandFlag>
@@ -84,7 +78,6 @@
       <IDSymbol name="AccessGroup" value="0x1002" />
       <IDSymbol name="ViewGroup" value="0x1003" />
       <IDSymbol name="SetupGroup" value="0x1004" />
-      <IDSymbol name="CopyMcpSetup" value="0x0105" />
       <IDSymbol name="SetupAgent" value="0x0106" />
       <IDSymbol name="DisconnectAi" value="0x0100" />
       <IDSymbol name="ReconnectAi" value="0x0101" />

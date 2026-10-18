@@ -18,10 +18,9 @@ the `debugviamcp` tool are released together with the same version.
   `%LOCALAPPDATA%\DebugViaMcp\bin\<build>` and writes a launcher, `%LOCALAPPDATA%\DebugViaMcp\debugviamcp.cmd`, whose path
   never changes. There is no separate tool to install (the server needs the .NET 10 runtime), updates do not touch a
   server an agent is still running, and uninstalling the extension is never blocked by a running agent.
-- **Extensions → Debugging via MCP → Set Up AI Agent…**: checks the .NET runtime, the installed server and the Claude Code
-  registration, lists what is missing and, after you confirm, registers the launcher (`claude mcp add --scope user`;
-  an older registration is replaced). It never runs anything without your confirmation.
-- **Extensions → Debugging via MCP → Copy MCP Setup Command**: puts the registration command on the clipboard.
+- **Extensions → Debugging via MCP → Set Up AI Agent…** opens a window: it checks the .NET runtime and the installed
+  server, lists AI clients (Claude Code, Codex, Cursor, another MCP client) and, for the one you pick, shows the command or
+  configuration to copy. It runs nothing and changes no client's settings. The separate *Copy MCP Setup Command* is gone.
 - Visual Studio only: Visual Studio Code is not supported, and the documentation says so.
 - `scripts\reinstall-vsix.ps1` stops a stuck VSIXInstaller after `-InstallerTimeoutSeconds` (default 180) instead of
   hanging, and refuses to start while another VSIXInstaller runs.
@@ -53,7 +52,7 @@ the `debugviamcp` tool are released together with the same version.
 - The product is now called **Debugging via MCP**. The NuGet tool package is `DebugViaMcp` (command `debugviamcp`), the extension
   shows as "Debugging via MCP", and the data folder is `%LOCALAPPDATA%\DebugViaMcp`.
 - The settings moved to Visual Studio's settings experience: **Tools → Options → All Settings → Debugging → Debugging via
-  MCP**. The setup commands stay in **Extensions → Debugging via MCP** (**Set Up AI Agent…**, **Copy MCP Setup Command**).
+  MCP**. The setup window stays in **Extensions → Debugging via MCP** (**Set Up AI Agent…**).
 - Settings apply as soon as they change. A stored **Mutate = Allow** counts only after you confirm it in a dialog (also at
   startup); until then Visual Studio keeps asking, so a value written to the settings file never silently lets the agent
   change program state.

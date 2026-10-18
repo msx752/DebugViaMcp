@@ -7,58 +7,26 @@ public class McpSetupPlanTests
 {
     private const string Launcher = @"C:\Users\me\AppData\Local\DebugViaMcp\debugviamcp.cmd";
 
-    private static SetupState State(int? runtime = 10, bool deployed = true, bool? claudeFound = true, ClaudeRegistration registration = ClaudeRegistration.Current) =>
-        new() { DotnetRuntimeMajor = runtime, ServerDeployed = deployed, LauncherPath = Launcher, ClaudeFound = claudeFound, Registration = registration };
+    private static SetupState State(int? runtime = 10, bool deployed = true) =>
+        new() { DotnetRuntimeMajor = runtime, ServerDeployed = deployed, LauncherPath = Launcher };
 
     [Fact]
-    public void Everything_in_place_needs_no_steps()
+    public void Everything_in_place_is_complete()
     {
         var plan = McpSetupPlan.Create(State());
 
-        Assert.Empty(plan.Steps);
         Assert.True(plan.IsComplete);
         Assert.All(plan.Lines, l => Assert.StartsWith("OK", l, StringComparison.Ordinal));
+        Assert.Contains(plan.Lines, l => l.Contains(Launcher, StringComparison.Ordinal));
     }
 
     [Fact]
-    public void An_unregistered_server_is_registered_with_the_launcher()
+    public void A_server_that_could_not_be_installed_is_reported()
     {
-        var plan = McpSetupPlan.Create(State(registration: ClaudeRegistration.None));
+        var plan = McpSetupPlan.Create(State(deployed: false));
 
-        var step = Assert.Single(plan.Steps);
-        Assert.Equal(SetupStepKind.RegisterClaude, step.Kind);
-        Assert.Equal("claude mcp add --scope user debugviamcp -- \"" + Launcher + "\" serve", step.Display);
-        Assert.False(plan.IsComplete);
-    }
-
-    [Fact]
-    public void An_older_registration_is_removed_and_registered_again()
-    {
-        var plan = McpSetupPlan.Create(State(registration: ClaudeRegistration.Other));
-
-        Assert.Equal([SetupStepKind.RemoveOldRegistration, SetupStepKind.RegisterClaude], plan.Steps.Select(s => s.Kind));
-        Assert.False(plan.IsComplete);
-    }
-
-    [Theory]
-    [InlineData(ClaudeRegistration.None)]
-    [InlineData(ClaudeRegistration.Other)]
-    public void Nothing_is_registered_while_the_server_is_not_installed(ClaudeRegistration registration)
-    {
-        var plan = McpSetupPlan.Create(State(deployed: false, registration: registration));
-
-        Assert.Empty(plan.Steps);
         Assert.False(plan.IsComplete);
         Assert.Contains(plan.Lines, l => l.StartsWith("MISSING", StringComparison.Ordinal) && l.Contains("could not install", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void Without_claude_code_nothing_is_registered_and_the_command_for_other_clients_is_shown()
-    {
-        var plan = McpSetupPlan.Create(State(claudeFound: false, registration: ClaudeRegistration.Unknown));
-
-        Assert.Empty(plan.Steps);
-        Assert.Contains(plan.Lines, l => l.Contains("Claude Code was not found", StringComparison.Ordinal) && l.Contains(Launcher + "\" serve", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -71,22 +39,12 @@ public class McpSetupPlanTests
     }
 
     [Fact]
-    public void Unknown_answers_never_trigger_steps()
+    public void An_unknown_runtime_is_not_complete()
     {
-        var plan = McpSetupPlan.Create(State(runtime: null, claudeFound: null, registration: ClaudeRegistration.Unknown));
+        var plan = McpSetupPlan.Create(State(runtime: null));
 
-        Assert.Empty(plan.Steps);
         Assert.False(plan.IsComplete);
-    }
-
-    [Fact]
-    public void The_commands_are_fixed_strings_without_any_user_input()
-    {
-        var all = McpSetupPlan.Create(State(registration: ClaudeRegistration.Other)).Steps;
-
-        Assert.Contains(all, s => s.Display == "claude mcp remove --scope user debugviamcp");
-        Assert.Contains(all, s => s.Display == "claude mcp add --scope user debugviamcp -- \"" + Launcher + "\" serve");
-        Assert.All(all, s => Assert.Equal("cmd.exe", s.FileName));
+        Assert.Contains(plan.Lines, l => l.StartsWith("UNKNOWN", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -96,14 +54,4 @@ public class McpSetupPlanTests
     [InlineData("", null)]
     public void The_runtime_major_is_the_highest_netcore_runtime_listed(string output, int? expected) =>
         Assert.Equal(expected, McpSetupPlan.ParseRuntimeMajor(output));
-
-    [Theory]
-    [InlineData("Checking MCP server health...\r\n\r\ndebugviamcp: \"C:\\Users\\me\\AppData\\Local\\DebugViaMcp\\debugviamcp.cmd\" serve - Connected\r\nother: x - Connected", ClaudeRegistration.Current)]
-    [InlineData("debugviamcp: c:\\users\\me\\appdata\\local\\debugviamcp\\debugviamcp.cmd serve - Connected", ClaudeRegistration.Current)]
-    [InlineData("debugviamcp: debugviamcp serve - Connected", ClaudeRegistration.Other)]
-    [InlineData("No MCP servers configured.", ClaudeRegistration.None)]
-    [InlineData("my-debugviamcp-fork: x", ClaudeRegistration.None)]
-    [InlineData("", ClaudeRegistration.None)]
-    public void Registration_is_read_from_claude_mcp_list(string output, ClaudeRegistration expected) =>
-        Assert.Equal(expected, McpSetupPlan.ParseRegistration(output, Launcher));
 }

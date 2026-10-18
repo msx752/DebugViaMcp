@@ -15,7 +15,7 @@ namespace DebugViaMcp.Vsix.Commands;
 internal static class DebugViaMcpCommands
 {
     public static readonly Guid CommandSet = new("9e2b6c41-7a5d-4f83-b1e9-0c4d8a27f356");
-    private const int DisconnectAi = 0x0100, ReconnectAi = 0x0101, ShowActivity = 0x0102, OpenLogsFolder = 0x0103, OpenOptions = 0x0104, CopyMcpSetup = 0x0105, SetupAgent = 0x0106;
+    private const int DisconnectAi = 0x0100, ReconnectAi = 0x0101, ShowActivity = 0x0102, OpenLogsFolder = 0x0103, OpenOptions = 0x0104, SetupAgent = 0x0106;
 
     public static void Register(AsyncPackage package, OleMenuCommandService commands, BridgeSecurity security, ActivityPane activity, ILog log)
     {
@@ -33,7 +33,6 @@ internal static class DebugViaMcpCommands
             Process.Start(new ProcessStartInfo("explorer.exe", "\"" + DiscoveryPaths.LogsDirectory + "\"") { UseShellExecute = true })?.Dispose();
         });
         Add(commands, SetupAgent, (_, _) => McpSetupCommand.Run(package, log));
-        Add(commands, CopyMcpSetup, (_, _) => McpSetupCommand.CopyCommands(package));
         Add(commands, OpenOptions, (_, _) =>
         {
             ThreadHelper.ThrowIfNotOnUIThread();

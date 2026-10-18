@@ -31,13 +31,14 @@ It works with **Visual Studio only** (2022 17.14+ and 2026); Visual Studio Code 
    `artifacts/DebugViaMcp.<version>.nupkg` (nothing is published).
 2. Install the extension: double-click `artifacts/DebugViaMcp.vsix` (Visual Studio 2022 17.14+ or 2026).
 3. Start Visual Studio once. The extension carries the MCP server and copies it to `%LOCALAPPDATA%\DebugViaMcp\bin`
-   (nothing to install separately; it needs the .NET 10 runtime). Then register it with Claude Code:
+   (nothing to install separately; it needs the .NET 10 runtime). Then tell your AI client about it:
+   **Extensions → Debugging via MCP → Set Up AI Agent…** checks the .NET runtime and the installed server, and shows a
+   list of clients (Claude Code, Codex, Cursor, another MCP client). Pick yours and copy the command or configuration
+   shown under it. For example, for Claude Code:
 
        claude mcp add --scope user debugviamcp -- "%LOCALAPPDATA%\DebugViaMcp\debugviamcp.cmd" serve
 
-   **Extensions → Debugging via MCP → Set Up AI Agent…** does this for you: it checks the .NET runtime, the installed
-   server and the Claude Code registration, lists what is missing and runs the fixing commands after you agree.
-   **Copy MCP Setup Command** just copies the registration command to the clipboard.
+   The window only shows text; it never changes any client's settings.
 
 The launcher path never changes when the extension is updated, so the registration stays valid. Updating the extension
 installs the new server next to the old one; an old copy that a running agent still uses is removed on a later start.
