@@ -127,7 +127,7 @@ public class BuildFreshnessTests
         var warning = Assert.Single(await ServiceFor(dte).CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None));
 
         Assert.StartsWith("OrderDemo", warning.Message, StringComparison.Ordinal);
-        Assert.Contains("Build or rebuild", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("Build the project", warning.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("\\", warning.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("C:", warning.Message, StringComparison.Ordinal);
     }

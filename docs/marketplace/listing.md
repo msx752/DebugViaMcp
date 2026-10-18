@@ -47,7 +47,7 @@ overview with raw GitHub URLs once the repository is public).
 runs in; an agent from an unrelated folder needs your approval; a second agent gets `in_use` while the first holds a
 Visual Studio (`vs_release` frees it). `debug_start(project)` starts a named project and leaves your startup project
 alone. `debug_start`, `debug_attach` and `bp_set` warn when the build is older than the sources, and Visual Studio
-offers an optional Rebuild. This is a preview: feedback is welcome on GitHub.
+offers an optional Build. This is a preview: feedback is welcome on GitHub.
 
 ## Questions and answers (seed the Q&A tab)
 

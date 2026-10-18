@@ -11,18 +11,18 @@ public class StaleBuildNotifierTests
     private const string Order = @"samples\OrderDemo\OrderDemo.csproj";
     private const string Fault = @"samples\FaultDemo\FaultDemo.csproj";
 
-    private sealed class FakeRebuildPrompt : IRebuildPrompt
+    private sealed class FakeBuildPrompt : IBuildPrompt
     {
         public List<string> Shown { get; } = [];
         public List<string> Hidden { get; } = [];
-        public Dictionary<string, Action> Rebuilds { get; } = [];
+        public Dictionary<string, Action> Actions { get; } = [];
         public Dictionary<string, string> Texts { get; } = [];
 
-        public void Show(string project, string text, Action rebuild)
+        public void Show(string project, string text, Action build)
         {
             Shown.Add(project);
             Texts[project] = text;
-            Rebuilds[project] = rebuild;
+            Actions[project] = build;
         }
 
         public void Hide(string project) => Hidden.Add(project);
@@ -32,7 +32,7 @@ public class StaleBuildNotifierTests
     {
         public Rig() => Notifier = new StaleBuildNotifier(Prompt, () => Mode, project => Rebuilt.Add(project));
 
-        public FakeRebuildPrompt Prompt { get; } = new();
+        public FakeBuildPrompt Prompt { get; } = new();
         public DebuggerMode Mode { get; set; } = DebuggerMode.Design;
         public List<string> Rebuilt { get; } = [];
         public StaleBuildNotifier Notifier { get; }
@@ -47,7 +47,7 @@ public class StaleBuildNotifierTests
 
         Assert.Equal([Order], r.Prompt.Shown);
         Assert.Contains("OrderDemo", r.Prompt.Texts[Order], StringComparison.Ordinal);
-        Assert.Contains("Rebuild?", r.Prompt.Texts[Order], StringComparison.Ordinal);
+        Assert.Contains("Build it now?", r.Prompt.Texts[Order], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -175,23 +175,23 @@ public class StaleBuildNotifierTests
     }
 
     [Fact]
-    public void Pressing_Rebuild_invokes_the_rebuild_action_with_the_project_and_closes_the_bar()
+    public void Pressing_Build_invokes_the_build_action_with_the_project_and_closes_the_bar()
     {
         var r = new Rig();
         r.Notifier.Observe(Order, true);
 
-        r.Prompt.Rebuilds[Order]();
+        r.Prompt.Actions[Order]();
 
         Assert.Equal([Order], r.Rebuilt);
         Assert.Equal([Order], r.Prompt.Hidden);
     }
 
     [Fact]
-    public void A_project_that_is_still_stale_after_a_rebuild_gets_its_bar_back()
+    public void A_project_that_is_still_stale_after_a_build_gets_its_bar_back()
     {
         var r = new Rig();
         r.Notifier.Observe(Order, true);
-        r.Prompt.Rebuilds[Order]();
+        r.Prompt.Actions[Order]();
 
         r.Notifier.Observe(Order, true);
 
@@ -201,10 +201,10 @@ public class StaleBuildNotifierTests
     [Fact]
     public async Task Checking_freshness_feeds_the_notifier()
     {
-        var prompt = new FakeRebuildPrompt();
+        var prompt = new FakeBuildPrompt();
         var dte = new FakeDte { Mode = DebuggerMode.Design };
         dte.BuildInfos[Order] = new ProjectBuildInfo { UniqueName = Order, NewestSourceUtc = DateTime.UtcNow, OldestOutputUtc = DateTime.UtcNow.AddHours(-1) };
-        var service = new DebugBridgeService(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0", rebuildPrompt: prompt);
+        var service = new DebugBridgeService(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0", buildPrompt: prompt);
         var now = DateTime.UtcNow;
         service.BuildInfoClock = () => now;
 
@@ -212,7 +212,7 @@ public class StaleBuildNotifierTests
         await service.CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
 
         Assert.Equal([Order], prompt.Shown);
-        Assert.DoesNotContain(dte.Calls, c => c.StartsWith("Rebuild", StringComparison.Ordinal));
+        Assert.DoesNotContain(dte.Calls, c => c.StartsWith("StartBuild", StringComparison.Ordinal));
 
         dte.BuildInfos[Order] = new ProjectBuildInfo { UniqueName = Order, NewestSourceUtc = DateTime.UtcNow.AddHours(-2), OldestOutputUtc = DateTime.UtcNow };
         now = now.AddSeconds(DebugBridgeService.BuildInfoCacheSeconds + 1);
@@ -224,10 +224,10 @@ public class StaleBuildNotifierTests
     [Fact]
     public async Task A_finished_build_hides_the_bars_of_projects_that_are_up_to_date_now()
     {
-        var prompt = new FakeRebuildPrompt();
+        var prompt = new FakeBuildPrompt();
         var dte = new FakeDte { Mode = DebuggerMode.Design };
         dte.BuildInfos[Order] = new ProjectBuildInfo { UniqueName = Order, NewestSourceUtc = DateTime.UtcNow, OldestOutputUtc = DateTime.UtcNow.AddHours(-1) };
-        var service = new DebugBridgeService(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0", rebuildPrompt: prompt);
+        var service = new DebugBridgeService(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0", buildPrompt: prompt);
         await service.CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
 
         dte.BuildInfos[Order] = new ProjectBuildInfo { UniqueName = Order, NewestSourceUtc = DateTime.UtcNow.AddHours(-2), OldestOutputUtc = DateTime.UtcNow };
@@ -237,19 +237,19 @@ public class StaleBuildNotifierTests
     }
 
     [Fact]
-    public async Task Rebuild_click_does_not_need_the_lease()
+    public async Task Build_click_does_not_need_the_lease()
     {
         using var s = new SecurityHarness();
-        var prompt = new FakeRebuildPrompt();
-        var service = new DebugBridgeService(s.Dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0", rebuildPrompt: prompt);
+        var prompt = new FakeBuildPrompt();
+        var service = new DebugBridgeService(s.Dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0", buildPrompt: prompt);
         s.Dte.Mode = DebuggerMode.Design;
         s.Dte.BuildInfos[Order] = new ProjectBuildInfo { UniqueName = Order, NewestSourceUtc = DateTime.UtcNow, OldestOutputUtc = DateTime.UtcNow.AddHours(-1) };
         await service.CheckBuildFreshnessAsync("OrderDemo", null, CancellationToken.None);
         await s.HandshakeAsync("claude-code");
         await s.Handler.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, SecurityHarness.Ctx(), CancellationToken.None);   // an agent holds the lease
 
-        prompt.Rebuilds[Order]();   // the owner's click goes straight to Visual Studio, not through the handler
+        prompt.Actions[Order]();   // the owner's click goes straight to Visual Studio, not through the handler
 
-        Assert.Contains("RebuildProject:" + Order, s.Dte.Calls);
+        Assert.Contains("StartBuild:" + Order, s.Dte.Calls);
     }
 }

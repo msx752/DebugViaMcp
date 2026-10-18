@@ -23,7 +23,7 @@ the `debugviamcp` tool are released together with the same version.
   extension's logs and the audit trail.
 - `debug_start(project)` starts the named project and leaves the solution's startup project as it was.
 - `debug_start`, `debug_attach` and `bp_set` return `warnings` when the build is older than the sources; Visual Studio
-  offers an optional **Rebuild** bar (hidden while debugging, gone once the project is up to date).
+  offers an optional **Build** bar (hidden while debugging, gone once the project is up to date).
 
 ### Fixed
 - The out-of-date check no longer compares `deps.json` / `runtimeconfig.json` (incremental builds do not rewrite them) with the
@@ -38,6 +38,8 @@ the `debugviamcp` tool are released together with the same version.
 - **Set Up AI Agent** never tries to update a running tool (it would fail halfway); it names the running agent sessions.
 
 ### Changed
+- The out-of-date bar says "Debugging via MCP: … is out of date: the built program does not match the sources. Build it now?" and its
+  button runs a normal incremental **Build** of that project (it used to clean and rebuild, which a stale output does not need).
 - The product is now called **Debugging via MCP**. The NuGet tool package is `DebugViaMcp` (command `debugviamcp`), the extension
   shows as "Debugging via MCP", and the data folder is `%LOCALAPPDATA%\DebugViaMcp`.
 - The settings moved to Visual Studio's settings experience: **Tools → Options → All Settings → Debugging → Debugging via

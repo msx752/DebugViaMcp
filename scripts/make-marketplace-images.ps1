@@ -111,7 +111,7 @@ Add-Arrow $g 200 402 530 300 $red
 Add-Text $g 'in_use: another agent holds this Visual Studio' 330 318 260 13 $red 'Segoe UI Semibold'
 
 Add-Box $g 930 190 300 130 ([Drawing.Color]::White) $purple 'You approve' 'an agent from an unrelated folder asks first - once per connection' $dark
-Add-Box $g 930 400 300 130 ([Drawing.Color]::White) $purple 'Stale build?' 'the agent is told, and Visual Studio offers an optional Rebuild' $dark
+Add-Box $g 930 400 300 130 ([Drawing.Color]::White) $purple 'Stale build?' 'the agent is told, and Visual Studio offers an optional Build' $dark
 Add-Text $g 'vs_release, closing the terminal or Disconnect AI frees a Visual Studio at once.' 0 640 1280 15 $grey 'Segoe UI' 'Center'
 $c.Bitmap.Save((Join-Path $outDir 'several-visual-studios.png'), [Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $c.Bitmap.Dispose()

@@ -143,9 +143,6 @@ public interface IDteFacade
     /// <summary>True when <paramref name="uniqueName"/> is a project Visual Studio can start (an executable or web project, not a library).</summary>
     bool IsLaunchable(string uniqueName);
 
-    /// <summary>Cleans and builds one project (unique name) without waiting. Used by the owner's click on the Rebuild bar.</summary>
-    void RebuildProject(string uniqueName);
-
     /// <summary>Starts a build of the solution (null) or one project, active configuration, without waiting.</summary>
     void StartBuild(string? projectUniqueName);
     IReadOnlyList<VariableInfo> Variables(VariableScope scope, int maxItems);

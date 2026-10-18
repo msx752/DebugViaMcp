@@ -15,7 +15,7 @@ using DebugViaMcp.Vsix.Core.Support;
 namespace DebugViaMcp.Vsix.Core.Bridge;
 
 /// <summary>Implements the bridge operations on top of <see cref="IDteFacade"/>. Handshake lives in BridgeConnectionHandler.</summary>
-public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IRebuildPrompt? rebuildPrompt = null)
+public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IBuildPrompt? buildPrompt = null)
 {
     /// <summary>How long a project's build state is reused: reading it walks the project folder on the UI thread.</summary>
     public const int BuildInfoCacheSeconds = 5;
@@ -33,7 +33,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return info;
     }
 
-    private readonly StaleBuildNotifier? _notifier = rebuildPrompt is null ? null : new StaleBuildNotifier(rebuildPrompt, () => dte.Mode, dte.RebuildProject);
+    private readonly StaleBuildNotifier? _notifier = buildPrompt is null ? null : new StaleBuildNotifier(buildPrompt, () => dte.Mode, dte.StartBuild);
 
     /// <summary>Enforced here, not trusted from the client: deep offsets would enumerate members on the UI thread.</summary>
     public const int MaxVariableOffset = 100_000;
@@ -159,11 +159,11 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         _notifier?.OnSessionEnded();
     }
 
-    /// <summary>Called by the event pump when a debug session starts (UI thread): Rebuild bars step aside.</summary>
+    /// <summary>Called by the event pump when a debug session starts (UI thread): Build bars step aside.</summary>
     public void OnSessionStarted() => _notifier?.OnSessionStarted();
 
-    /// <summary>Called when the owner closes a Rebuild bar.</summary>
-    public void RebuildBarDismissed(string project) => _notifier?.Dismissed(project);
+    /// <summary>Called when the owner closes a Build bar.</summary>
+    public void BuildBarDismissed(string project) => _notifier?.Dismissed(project);
 
     /// <summary>Called by the event pump when a build finishes (UI thread): bars of projects that are up to date now go away.</summary>
     public void OnBuildFinished()
@@ -496,7 +496,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return new BuildWarning
         {
             Code = BuildWarningCodes.StaleBuild, Project = name,
-            Message = $"{name} — sources are newer than the built output; the program may not match the code. Build or rebuild before trusting breakpoints.",
+            Message = $"{name} — sources are newer than the built output; the program may not match the code. Build the project before trusting breakpoints.",
         };
     }
 

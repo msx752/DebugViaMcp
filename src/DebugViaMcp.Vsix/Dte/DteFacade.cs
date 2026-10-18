@@ -209,17 +209,6 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         return string.Equals(project.UniqueName, uniqueName, StringComparison.OrdinalIgnoreCase) ? project : null;
     }
 
-    // Rebuild = clean + build of that one project through the solution build manager, like Build > Rebuild.
-    public void RebuildProject(string uniqueName)
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        var solution = (IVsSolution)Package.GetGlobalService(typeof(SVsSolution));
-        var buildManager = (IVsSolutionBuildManager)Package.GetGlobalService(typeof(SVsSolutionBuildManager));
-        ErrorHandler.ThrowOnFailure(solution.GetProjectOfUniqueName(uniqueName, out var hierarchy));
-        const uint rebuild = (uint)(VSSOLNBUILDUPDATEFLAGS.SBF_OPERATION_CLEAN | VSSOLNBUILDUPDATEFLAGS.SBF_OPERATION_BUILD);
-        ErrorHandler.ThrowOnFailure(buildManager.StartSimpleUpdateProjectConfiguration(hierarchy, null, null, rebuild, 0, 0));
-    }
-
     public void StartBuild(string? projectUniqueName)
     {
         ThreadHelper.ThrowIfNotOnUIThread();

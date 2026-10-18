@@ -15,7 +15,7 @@ well; 1280×720 or larger.
 | 4 | **Agent and debugger together** | Split view: the agent terminal on one side (a `debug_start` / `bp_set` exchange), Visual Studio stopped at the breakpoint on the other. |
 
 Optional extras: the status bar with "Debugging via MCP: claude-code connected — in use by …" (0.4), and the "is out of
-date. Rebuild?" info bar.
+date: … Build it now?" info bar.
 
 Name them `01-consent.png`, `02-options.png`, `03-activity.png`, `04-agent-and-debugger.png`, put them in
 `docs/marketplace/images/`, and tell me — I will add them to the overview and the listing.

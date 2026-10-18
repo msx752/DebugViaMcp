@@ -6,18 +6,18 @@ using DebugViaMcp.Protocol;
 
 namespace DebugViaMcp.Vsix.Core.Builds;
 
-/// <summary>The optional "Rebuild?" bar of one project. Implementations marshal to the UI thread themselves.</summary>
-public interface IRebuildPrompt
+/// <summary>The optional "Build?" bar of one project. Implementations marshal to the UI thread themselves.</summary>
+public interface IBuildPrompt
 {
-    void Show(string project, string text, Action rebuild);
+    void Show(string project, string text, Action build);
     void Hide(string project);
 }
 
 /// <summary>
-/// Decides when the Rebuild bars are up: one per stale project, none while a debug session runs, none again after the
-/// owner dismissed it until the project has been fresh in between. The bar is only an offer; nothing rebuilds by itself.
+/// Decides when the Build bars are up: one per stale project, none while a debug session runs, none again after the
+/// owner dismissed it until the project has been fresh in between. The bar is only an offer; nothing builds by itself.
 /// </summary>
-public sealed class StaleBuildNotifier(IRebuildPrompt prompt, Func<DebuggerMode> mode, Action<string> rebuild)
+public sealed class StaleBuildNotifier(IBuildPrompt prompt, Func<DebuggerMode> mode, Action<string> build)
 {
     private readonly object _gate = new();
     private readonly HashSet<string> _shown = [];
@@ -92,7 +92,7 @@ public sealed class StaleBuildNotifier(IRebuildPrompt prompt, Func<DebuggerMode>
     private void Show(string project)
     {
         var name = Path.GetFileNameWithoutExtension(project);
-        prompt.Show(project, $"{name} is out of date. Rebuild?", () =>
+        prompt.Show(project, $"{name} is out of date: the built program does not match the sources. Build it now?", () =>
         {
             lock (_gate)
             {
@@ -101,7 +101,7 @@ public sealed class StaleBuildNotifier(IRebuildPrompt prompt, Func<DebuggerMode>
             }
 
             prompt.Hide(project);
-            rebuild(project);
+            build(project);
         });
     }
 }
