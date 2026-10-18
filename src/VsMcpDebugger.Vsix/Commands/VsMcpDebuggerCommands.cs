@@ -34,7 +34,11 @@ internal static class VsMcpDebuggerCommands
         var version = typeof(VsMcpDebuggerCommands).Assembly.GetName().Version.ToString(3);
         Add(commands, SetupAgent, (_, _) => McpSetupCommand.Run(package, log, version));
         Add(commands, CopyMcpSetup, (_, _) => McpSetupCommand.CopyCommands(package));
-        Add(commands, OpenOptions, (_, _) => package.ShowOptionPage(typeof(GeneralOptionsPage)));
+        Add(commands, OpenOptions, (_, _) =>
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            ((EnvDTE.DTE)Package.GetGlobalService(typeof(EnvDTE.DTE))).ExecuteCommand("Tools.Options");
+        });
     }
 
     private static void Add(OleMenuCommandService commands, int id, EventHandler invoke, Action<OleMenuCommand>? query = null)

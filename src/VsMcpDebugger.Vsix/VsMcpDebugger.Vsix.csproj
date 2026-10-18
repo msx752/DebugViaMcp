@@ -41,6 +41,8 @@
     <VSCTCompile Include="VsMcpDebuggerPackage.vsct" ResourceName="Menus.ctmenu" />
     <Content Include="..\..\LICENSE" Link="LICENSE" IncludeInVSIX="true" />
     <Content Include="..\..\CHANGELOG.md" Link="CHANGELOG.md" IncludeInVSIX="true" />
+    <Content Include="UnifiedSettings\registration.json" IncludeInVSIX="true" />
+    <Content Include="UnifiedSettings\Settings.pkgdef" IncludeInVSIX="true" />
     <Content Include="Resources\icon.png" IncludeInVSIX="true" />
     <Content Include="Resources\preview.png" IncludeInVSIX="true" />
   </ItemGroup>

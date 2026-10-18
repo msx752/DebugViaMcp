@@ -24,38 +24,18 @@ namespace VsMcpDebugger.Vsix;
 [Guid(PackageGuid)]
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideAutoLoad(UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
-[ProvideOptionPage(typeof(GeneralOptionsPage), "Debugging", "Debugging via MCP", 0, 0, true)]
-[ProvideProfile(typeof(GeneralOptionsPage), "Debugging", "Debugging via MCP", 0, 0, isToolsOptionPage: true)]
 [ProvideMenuResource("Menus.ctmenu", 1)]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Fields are released in Dispose(bool), which VS invokes through Package.Close.")]
 public sealed class VsMcpDebuggerPackage : AsyncPackage
 {
     public const string PackageGuid = "3a7c1e52-8d4b-4f6e-9a21-6b0c2d9e4f13";
 
+    private McpSettings? _settings;
     private PipeHost? _host;
     private DiscoveryWriter? _discovery;
     private DebuggerEventPump? _pump;
     private SolutionEvents? _solutionEvents;
     private StatusBarIndicator? _indicator;
-
-    /// <summary>The running package, for UI that Visual Studio creates itself (the Options page).</summary>
-    internal static VsMcpDebuggerPackage? Instance { get; private set; }
-
-    private ILog? _log;
-
-    /// <summary>Same as Extensions → VsMcpDebugger → Set Up AI Agent.</summary>
-    internal void RunMcpSetup()
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        if (_log is { } log) McpSetupCommand.Run(this, log, typeof(VsMcpDebuggerPackage).Assembly.GetName().Version.ToString(3));
-    }
-
-    /// <summary>Same as Extensions → VsMcpDebugger → Copy MCP Setup Command.</summary>
-    internal void CopyMcpSetupCommands()
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        McpSetupCommand.CopyCommands(this);
-    }
 
     internal BridgeSecurity? Security { get; private set; }
     internal ActivityPane? Activity { get; private set; }
@@ -71,8 +51,20 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
         outputWindow.CreatePane(ref paneGuid, "VsMcpDebugger", 1, 1);
         outputWindow.GetPane(ref paneGuid, out var pane);
 
-        Instance = this;
-        var page = (GeneralOptionsPage)GetDialogPage(typeof(GeneralOptionsPage));
+        McpSettings mcpSettings;
+        Exception? settingsError = null;
+#pragma warning disable CA1031 // Without Visual Studio's settings service the extension still runs with the default settings.
+        try
+        {
+            mcpSettings = await McpSettings.CreateAsync(this, cancellationToken);
+        }
+        catch (Exception e)
+        {
+            mcpSettings = new McpSettings();
+            settingsError = e;
+        }
+#pragma warning restore CA1031
+        _settings = mcpSettings;
         var activityGuid = ActivityPane.PaneGuid;
         outputWindow.CreatePane(ref activityGuid, "VsMcpDebugger Activity", 1, 1);
         outputWindow.GetPane(ref activityGuid, out var activityPane);
@@ -80,9 +72,9 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
 
         int pid;
         using (var self = System.Diagnostics.Process.GetCurrentProcess()) pid = self.Id;
-        var log = new LevelFilterLog(new CompositeLog(new OutputPaneLog(pane), new FileLog(DiscoveryPaths.LogsDirectory, pid)), () => page.Applied.LogLevel);
-        _log = log;
-        LogRetention.Prune(DiscoveryPaths.LogsDirectory, "vsix-", page.Applied.LogRetentionDays, DateTimeOffset.UtcNow);
+        var log = new LevelFilterLog(new CompositeLog(new OutputPaneLog(pane), new FileLog(DiscoveryPaths.LogsDirectory, pid)), () => mcpSettings.Applied.LogLevel);
+        LogRetention.Prune(DiscoveryPaths.LogsDirectory, "vsix-", mcpSettings.Applied.LogRetentionDays, DateTimeOffset.UtcNow);
+        if (settingsError is not null) log.Error("Could not read Visual Studio's settings; using the default settings", settingsError);
         var vsixVersion = typeof(VsMcpDebuggerPackage).Assembly.GetName().Version.ToString(3);
 
         try
@@ -97,13 +89,13 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
 
             var token = DiscoveryWriter.NewToken();
             var pipeName = DiscoveryWriter.NewPipeName();
-            var settings = new OptionsBridgeSettings(page);
-            var access = new AiAccessSwitch(page.Applied.AcceptConnectionsOnStartup);
+            var settings = new OptionsBridgeSettings(mcpSettings);
+            var access = new AiAccessSwitch(mcpSettings.Applied.AcceptConnectionsOnStartup);
             var consent = new ConsentGate(new InfoBarConsentPrompt(this, JoinableTaskFactory), () => settings.ConsentTimeout);
-            var audit = new AuditLog(DiscoveryPaths.LogsDirectory, () => page.Applied.LogRetentionDays, Activity, log);
+            var audit = new AuditLog(DiscoveryPaths.LogsDirectory, () => mcpSettings.Applied.LogRetentionDays, Activity, log);
             var security = new BridgeSecurity(settings, consent, audit, access, lease);
             Security = security;
-            page.PermissionsChanged += (_, summary) => security.SettingsChanged(summary);
+            mcpSettings.PermissionsChanged += (_, summary) => security.SettingsChanged(summary);
             _host = new PipeHost(pipeName, new SecurePipeFactory(), hooks => new BridgeConnectionHandler(service, token, security, log, hooks), broadcaster, log);
             _host.Start();
 
@@ -134,8 +126,24 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
             _solutionEvents.AfterClosing += () => _discovery.UpdateSolution(null);
             if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commands)
                 VsMcpDebuggerCommands.Register(this, commands, security, Activity, log);
-            _indicator = StatusBarIndicator.TryCreate(access, lease, JoinableTaskFactory, () => page.Applied.ShowStatusBarIndicator, Activity, log);
-            page.AnyApplied += (_, _) => { ThreadHelper.ThrowIfNotOnUIThread(); _indicator?.Refresh(); };
+            _indicator = StatusBarIndicator.TryCreate(access, lease, JoinableTaskFactory, () => mcpSettings.Applied.ShowStatusBarIndicator, Activity, log);
+            // Mutate = Allow in the settings (also one written while Visual Studio was closed) counts only after the user confirms it here.
+            mcpSettings.MutateAllowRequested += (_, _) => _ = JoinableTaskFactory.RunAsync(async () =>
+            {
+                await JoinableTaskFactory.SwitchToMainThreadAsync();
+                var answer = VsShellUtilities.ShowMessageBox(this,
+                    "The settings say Mutate = Allow: the agent could change program state without asking you. Until you confirm, VsMcpDebugger keeps asking. Allow it?",
+                    "VsMcpDebugger", OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_YESNO, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_SECOND);
+                if (answer == 6) mcpSettings.ConfirmMutateAllow();
+                else mcpSettings.DeclineMutateAllow();
+            });
+            mcpSettings.CheckMutateConfirmation();
+            // Settings changes arrive on a background thread; the status bar belongs to the UI thread.
+            mcpSettings.AnyApplied += (_, _) => _ = JoinableTaskFactory.RunAsync(async () =>
+            {
+                await JoinableTaskFactory.SwitchToMainThreadAsync();
+                _indicator?.Refresh();
+            });
             log.Info($"VsMcpDebugger {vsixVersion} ready (pid {pid}, protocol {ProtocolInfo.Major}.{ProtocolInfo.Minor})");
         }
 #pragma warning disable CA1031 // A startup failure must be logged, never crash Visual Studio.
@@ -160,6 +168,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
     {
         if (disposing)
         {
+            _settings?.Dispose();
             _host?.Dispose();
             _discovery?.Delete();
         }

@@ -5,23 +5,23 @@ using VsMcpDebugger.Vsix.Core;
 namespace VsMcpDebugger.Vsix.Options;
 
 /// <summary>
-/// Reads the page's last applied snapshot on every call (one reference read, safe off the UI thread), so applied
-/// changes take effect on the next request and values still being edited never do.
+/// Reads the settings' current snapshot on every call (one reference read, safe off the UI thread), so a change takes
+/// effect on the next request.
 /// </summary>
-internal sealed class OptionsBridgeSettings(GeneralOptionsPage page) : IBridgeSettings
+internal sealed class OptionsBridgeSettings(McpSettings settings) : IBridgeSettings
 {
     public PermissionSet Permissions
     {
         get
         {
-            var p = page.Applied.Permissions;
+            var p = settings.Applied.Permissions;
             return new PermissionSet { Read = p.Read, Control = p.Control, Mutate = p.Mutate };
         }
     }
 
-    public TimeSpan ConsentTimeout => page.Applied.ConsentTimeout;
-    public LogVerbosity LogLevel => page.Applied.LogLevel;
-    public int LogRetentionDays => page.Applied.LogRetentionDays;
+    public TimeSpan ConsentTimeout => settings.Applied.ConsentTimeout;
+    public LogVerbosity LogLevel => settings.Applied.LogLevel;
+    public int LogRetentionDays => settings.Applied.LogRetentionDays;
 }
 
 /// <summary>Immutable copy of the applied Options values.</summary>
