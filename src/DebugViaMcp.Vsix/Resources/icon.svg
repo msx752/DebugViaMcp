@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <!-- Debugging via MCP icon. Source of truth: the PNGs next to it are rendered from this file by scripts/make-icons.ps1.
-       Everything is symmetric about x = 64 and y = 64: the right brace is the left brace mirrored. -->
+       Curly braces around a play triangle: a code block that an agent runs and steps through. The right brace is the left
+       brace mirrored about x = 64; the triangle is centred on y = 64 and sits a little right of centre so it looks centred. -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#68217A"/>
@@ -10,7 +11,7 @@
           fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
   </defs>
   <rect x="0" y="0" width="128" height="128" rx="24" ry="24" fill="url(#bg)"/>
-  <use href="#brace"/>
-  <use href="#brace" transform="translate(128 0) scale(-1 1)"/>
-  <circle cx="64" cy="64" r="12" fill="#E51400"/>
+  <use href="#brace" transform="translate(-6 0)"/>
+  <use href="#brace" transform="translate(134 0) scale(-1 1)"/>
+  <path d="M 52 48 L 52 80 L 78 64 Z" fill="#FF6B6B" stroke="#FF6B6B" stroke-width="5" stroke-linejoin="round"/>
 </svg>
