@@ -45,8 +45,13 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
         lock (_sessions) _sessions.Remove(session);
     }
 
+    /// <summary>
+    /// Asks (or applies the policy) for one operation. <paramref name="onAllowed"/> runs while this request still holds the gate, as
+    /// soon as the outcome is an allowance: the caller takes whatever the next queued question must see (the lease) there, so that
+    /// no other agent's question can slip in between the answer and that step.
+    /// </summary>
     public async Task<ConsentOutcome> RequestAsync(ConsentSession session, Operation operation, string text, CancellationToken ct,
-        Func<PermissionLevel>? currentLevel = null, Func<bool>? stillNeeded = null)
+        Func<PermissionLevel>? currentLevel = null, Func<bool>? stillNeeded = null, Action<ConsentOutcome>? onAllowed = null)
     {
         if (session is null) throw new ArgumentNullException(nameof(session));
         if (session.RevokedToken.IsCancellationRequested) return ConsentOutcome.Disconnected;
@@ -60,12 +65,18 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, revoked, expiry.Token);
         _ = ExpireAsync(limit, expiry, done.Token);
 
+        ConsentOutcome Allowed(ConsentOutcome outcome)
+        {
+            onAllowed?.Invoke(outcome);
+            return outcome;
+        }
+
         var entered = false;
         try
         {
             await _one.WaitAsync(linked.Token).ConfigureAwait(false);
             entered = true;
-            if (session.IsGranted(operation)) return ConsentOutcome.AllowedBySessionGrant;
+            if (session.IsGranted(operation)) return Allowed(ConsentOutcome.AllowedBySessionGrant);
 
             // Something else may have made the question pointless while it waited (for example another agent took the lease).
             if (stillNeeded is not null && !stillNeeded()) return ConsentOutcome.Cancelled;
@@ -73,7 +84,7 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
             // Settings may have changed while this request waited behind another question (M2 review minor 1).
             switch (currentLevel?.Invoke())
             {
-                case PermissionLevel.Allow: return ConsentOutcome.AllowedByPolicy;
+                case PermissionLevel.Allow: return Allowed(ConsentOutcome.AllowedByPolicy);
                 case PermissionLevel.Deny: return ConsentOutcome.DeniedByPolicy;
             }
 
@@ -90,9 +101,9 @@ public sealed class ConsentGate(IConsentPrompt prompt, Func<TimeSpan> timeout, F
             {
                 case ConsentChoice.AllowSession:
                     // Settings changed while the question was open: allow this call, keep no grant.
-                    return session.TryGrant(operation, generation) ? ConsentOutcome.AllowedForSession : ConsentOutcome.AllowedOnce;
+                    return Allowed(session.TryGrant(operation, generation) ? ConsentOutcome.AllowedForSession : ConsentOutcome.AllowedOnce);
                 case ConsentChoice.AllowOnce:
-                    return ConsentOutcome.AllowedOnce;
+                    return Allowed(ConsentOutcome.AllowedOnce);
                 default:
                     return ConsentOutcome.Denied;
             }

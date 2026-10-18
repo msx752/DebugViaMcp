@@ -317,7 +317,15 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
                     prompted = true;
                     var outcome = await security.Consent.RequestAsync(_consent, operation,
                         text ?? ConsentText.Operation(_client, PermissionPolicy.ToolName(operation), request.Summary), ct,
-                        () => PermissionPolicy.Decide(operation, security.Settings.Permissions), () => !LeaseTakenByOther(operation)).ConfigureAwait(false);
+                        () => PermissionPolicy.Decide(operation, security.Settings.Permissions), () => !LeaseTakenByOther(operation),
+                        // Take the lease before the gate lets the next queued question in, or another agent's question could be shown
+                        // in between although this agent is about to hold the Visual Studio.
+                        allowed =>
+                        {
+                            decision = ToDecision(allowed);
+                            ThrowIfRevoked();
+                            AcquireLease(operation);
+                        }).ConfigureAwait(false);
                     decision = ToDecision(outcome);
                     if (outcome == ConsentOutcome.Cancelled) EnsureLeaseAvailable(operation);
                     ThrowIfDenied(outcome, tier);

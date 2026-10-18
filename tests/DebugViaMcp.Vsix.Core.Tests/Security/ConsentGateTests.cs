@@ -25,6 +25,49 @@ public class ConsentGateTests
     }
 
     [Fact]
+    public async Task What_onAllowed_takes_is_visible_to_the_next_queued_question()
+    {
+        var gate = Gate();
+        using var first = gate.CreateSession();
+        using var second = gate.CreateSession();
+        var taken = false;
+        var secondEnteredBeforeIt = false;
+        var secondEntered = false;
+
+        var a = gate.RequestAsync(first, Operation.SetValue, "q1", CancellationToken.None, onAllowed: _ =>
+        {
+            secondEnteredBeforeIt = secondEntered;
+            taken = true;
+        });
+        await _prompt.WaitForPromptsAsync(1);
+        var b = gate.RequestAsync(second, Operation.SetValue, "q2", CancellationToken.None, stillNeeded: () =>
+        {
+            secondEntered = true;
+            return !taken;
+        });
+        _prompt.Answer(ConsentChoice.AllowOnce);
+
+        Assert.Equal(ConsentOutcome.AllowedOnce, await a);
+        Assert.Equal(ConsentOutcome.Cancelled, await b);
+        Assert.False(secondEnteredBeforeIt);
+        Assert.Single(_prompt.Texts);
+    }
+
+    [Fact]
+    public async Task An_exception_in_onAllowed_still_releases_the_gate()
+    {
+        var gate = Gate();
+        using var first = gate.CreateSession();
+        using var second = gate.CreateSession();
+        _prompt.AutoAnswer = ConsentChoice.AllowOnce;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            gate.RequestAsync(first, Operation.SetValue, "q1", CancellationToken.None, onAllowed: _ => throw new InvalidOperationException()));
+
+        Assert.Equal(ConsentOutcome.AllowedOnce, await gate.RequestAsync(second, Operation.SetValue, "q2", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Allow_for_session_covers_only_the_same_operation()
     {
         var gate = Gate();
