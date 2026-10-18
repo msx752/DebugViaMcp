@@ -107,15 +107,19 @@ public class RunToTests
     [Fact]
     public async Task Run_mode_hit_during_the_bind_wait_is_the_run_to_and_does_not_resume()
     {
-        var (svc, dte) = Create(DebuggerMode.Run);
-        dte.BoundCountFor = _ => 0;
+        var dte = new FakeDte { Mode = DebuggerMode.Run, BoundCountFor = _ => 0 };
+        var ui = new InlineUiThread();
+        var svc = new DebugBridgeService(dte, ui, new EventSeq(), new NullLog(), "0.1.0");
 
         var run = svc.RunToAsync("OrderService.cs", 12, Owner, CancellationToken.None);
-        await Task.Delay(100);
-        dte.Bps[^1].BoundCount = 1;
-        HitLast(dte);
-        dte.Mode = DebuggerMode.Break;
-        var snapshot = svc.OnEnterBreak(BreakReason.Breakpoint);
+        // Visual Studio binds, hits and enters break as one step on its UI thread; the bind wait must not see it half done.
+        var snapshot = await ui.RunAsync(() =>
+        {
+            dte.Bps[^1].BoundCount = 1;
+            HitLast(dte);
+            dte.Mode = DebuggerMode.Break;
+            return svc.OnEnterBreak(BreakReason.Breakpoint);
+        }, CancellationToken.None);
         var r = await run;
 
         Assert.Equal(BreakReason.RunTo, snapshot.Reason);
