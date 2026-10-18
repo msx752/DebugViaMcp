@@ -2,7 +2,7 @@
 #:property PublishAot=false
 // Manual consent checks (docs/testing/m3-manual-e2e.md rows 5-6 and the instruction-pointer check).
 // Stops OrderDemo in Calculate and opens ONE set_value question; the person at the keyboard acts in Visual Studio.
-// Usage: dotnet run scripts/e2e/m3-consent-check.cs -- <path-to-DebugViaMcp.Mcp.dll> <long|frame|ip>
+// Usage: dotnet run tests/e2e/consent-check.cs -- <path-to-DebugViaMcp.Mcp.dll> <long|frame|ip>
 using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;

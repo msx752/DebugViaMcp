@@ -5,7 +5,7 @@ running Visual Studio with the Debugging via MCP extension.
 
 ## Prerequisites
 
-1. Build: `powershell -File build.ps1` (or build `src/DebugViaMcp.Vsix` with Visual Studio's MSBuild and `-nodeReuse:false`).
+1. Build: `powershell -File scripts\build.ps1` (or build `src/DebugViaMcp.Vsix` with Visual Studio's MSBuild and `-nodeReuse:false`).
 2. Install `src/DebugViaMcp.Vsix/bin/Debug/net48/DebugViaMcp.Vsix.vsix` into Visual Studio 2026 (double-click, or
    `VSIXInstaller.exe /quiet /instanceIds:<id> <vsix>`). Remove it later via Extensions → Manage Extensions.
 3. Open `samples/OrderDemo/OrderDemo.csproj` in Visual Studio and make **OrderDemo** the startup project.
@@ -13,7 +13,7 @@ running Visual Studio with the Debugging via MCP extension.
 
 ## Automated driver
 
-    dotnet run scripts/e2e/m1-e2e.cs -- <repo>\src\DebugViaMcp.Mcp\bin\Debug\net10.0\DebugViaMcp.Mcp.dll
+    dotnet run tests/e2e/session-basics.cs -- <repo>\src\DebugViaMcp.Mcp\bin\Debug\net10.0\DebugViaMcp.Mcp.dll
 
 ## With Claude Code
 

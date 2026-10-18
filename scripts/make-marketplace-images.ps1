@@ -1,8 +1,8 @@
-# Renders the two explanatory diagrams of the Marketplace page (marketplace/images/*.png, 1280x720).
+# Renders the two explanatory diagrams of the Marketplace page (docs/marketplace/images/*.png, 1280x720).
 # They are schematic illustrations, not screenshots. Usage: powershell -File scripts\make-marketplace-images.ps1
 Add-Type -AssemblyName System.Drawing
 
-$outDir = Join-Path $PSScriptRoot '..\marketplace\images'
+$outDir = Join-Path $PSScriptRoot '..\docs\marketplace\images'
 New-Item -ItemType Directory -Force $outDir | Out-Null
 $outDir = (Resolve-Path $outDir).Path
 

@@ -2,14 +2,14 @@
 #:property PublishAot=false
 // M2 end-to-end driver: talks to the real debugviamcp MCP server over stdio, like Claude Code, against a running
 // Visual Studio with the Debugging via MCP extension and samples/OrderDemo open (OrderDemo = startup project).
-// Consent info bars are answered by scripts/e2e/click-infobar.ps1 (UI Automation).
-// Usage: dotnet run scripts/e2e/m2-e2e.cs -- <path-to-DebugViaMcp.Mcp.dll>
+// Consent info bars are answered by tests/e2e/click-infobar.ps1 (UI Automation).
+// Usage: dotnet run tests/e2e/safety-and-consent.cs -- <path-to-DebugViaMcp.Mcp.dll>
 using System.Diagnostics;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
 var server = args.Length > 0 ? args[0] : Path.GetFullPath("src/DebugViaMcp.Mcp/bin/Debug/net10.0/DebugViaMcp.Mcp.dll");
-var clicker = Path.GetFullPath("scripts/e2e/click-infobar.ps1");
+var clicker = Path.GetFullPath("tests/e2e/click-infobar.ps1");
 await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
 {
     Name = "debugviamcp",

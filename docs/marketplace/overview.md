@@ -6,7 +6,7 @@ variables, and evaluate expressions — while you stay in control.
 
 > Preview: the tool set is growing; feedback is welcome on the repository.
 
-![How Debugging via MCP works](https://raw.githubusercontent.com/msx752/DebugViaMcp/main/marketplace/images/how-it-works.png)
+![How Debugging via MCP works](https://raw.githubusercontent.com/msx752/DebugViaMcp/main/docs/marketplace/images/how-it-works.png)
 
 ## What the agent can do
 
@@ -29,7 +29,7 @@ variables, and evaluate expressions — while you stay in control.
 - **Disconnect AI** — **Extensions → Debugging via MCP → Disconnect AI** (Ctrl+Alt+Shift+F12) cuts the agent off at once.
 - **Local only** — a per-user named pipe; no network, no telemetry.
 
-![Several Visual Studios, one agent each](https://raw.githubusercontent.com/msx752/DebugViaMcp/main/marketplace/images/several-visual-studios.png)
+![Several Visual Studios, one agent each](https://raw.githubusercontent.com/msx752/DebugViaMcp/main/docs/marketplace/images/several-visual-studios.png)
 
 ## Before you start
 

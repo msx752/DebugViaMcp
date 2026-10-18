@@ -226,7 +226,7 @@ The manual E2E also checks very long text wrapping in the info bar.
 - **Mcp:** `tools/list` snapshot updated; `unsupported` against a minor-0 VSIX; `frame` field from the mirror;
   `diag` tail and masking.
 - **Protocol:** golden JSON for the new DTOs and error codes.
-- **E2E (`scripts/e2e/m3-e2e.cs`, real VS 2026, `samples/OrderDemo`):** `vs_build` → `errors_list` →
+- **E2E (`tests/e2e/full-tool-set.cs`, real VS 2026, `samples/OrderDemo`):** `vs_build` → `errors_list` →
   `output_read(build)` → `bp_set` → `debug_start` → `debug_run_to` → `threads` → `frame_select(1)` → `vars` →
   stale `frame_select` after `debug_continue` → `exception` (sample throws) → `bp_enable` → `debug_stop` →
   `debug_attach` to a separate sample process → `debug_stop` (process keeps running).

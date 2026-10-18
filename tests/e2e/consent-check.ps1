@@ -1,12 +1,12 @@
 # Automated version of the manual consent checks (docs/testing/m3-manual-e2e.md row 6 and the instruction-pointer check).
-# Opens one set_value question with scripts/e2e/m3-consent-check.cs, then changes the debugger state through Visual
+# Opens one set_value question with tests/e2e/consent-check.cs, then changes the debugger state through Visual
 # Studio's own automation interface (DTE), exactly what the user would do with the mouse, and answers "Allow once".
 # Test helper only; never used by the product.
-# Usage: powershell -File scripts/e2e/m3-consent-check.ps1 -Scenario frame|ip -Mcp <path-to-DebugViaMcp.Mcp.dll>
+# Usage: powershell -File tests/e2e/consent-check.ps1 -Scenario frame|ip -Mcp <path-to-DebugViaMcp.Mcp.dll>
 param([Parameter(Mandatory)][ValidateSet('frame', 'ip')][string]$Scenario, [Parameter(Mandatory)][string]$Mcp)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$log = Join-Path ([IO.Path]::GetTempPath()) "m3-consent-check-$Scenario.log"
+$log = Join-Path ([IO.Path]::GetTempPath()) "consent-check-$Scenario.log"
 Remove-Item $log -ErrorAction SilentlyContinue
 
 $dte = [Runtime.InteropServices.Marshal]::GetActiveObject('VisualStudio.DTE.18.0')
@@ -16,7 +16,7 @@ function Where-Am-I {
     "{0}  (editor caret line {1})" -f $f.FunctionName, $caret
 }
 
-$driver = Start-Process dotnet -ArgumentList 'run', (Join-Path $repo 'scripts/e2e/m3-consent-check.cs'), '--', $Mcp, $Scenario `
+$driver = Start-Process dotnet -ArgumentList 'run', (Join-Path $repo 'tests/e2e/consent-check.cs'), '--', $Mcp, $Scenario `
     -RedirectStandardOutput $log -NoNewWindow -PassThru -WorkingDirectory $repo
 for ($i = 0; $i -lt 90 -and -not (Select-String -Path $log -Pattern 'QUESTION OPEN' -Quiet -ErrorAction SilentlyContinue); $i++) { Start-Sleep 1 }
 Start-Sleep 2   # let the info bar appear

@@ -2,14 +2,14 @@
 #:property PublishAot=false
 // M3.1 driver: two MCP servers (two agents) with different working directories against two running Visual Studios.
 // Written and compile-checked only; the owner runs it. See docs/testing/m3.1-manual-e2e.md.
-// Usage: dotnet run scripts/e2e/m3.1-two-instances.cs -- <path-to-DebugViaMcp.Mcp.dll> <folder A> <folder B>
+// Usage: dotnet run tests/e2e/two-instances.cs -- <path-to-DebugViaMcp.Mcp.dll> <folder A> <folder B>
 using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
 if (args.Length < 3)
 {
-    Console.WriteLine("Usage: dotnet run scripts/e2e/m3.1-two-instances.cs -- <DebugViaMcp.Mcp.dll> <folder A> <folder B>");
+    Console.WriteLine("Usage: dotnet run tests/e2e/two-instances.cs -- <DebugViaMcp.Mcp.dll> <folder A> <folder B>");
     return 2;
 }
 

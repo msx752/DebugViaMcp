@@ -2,8 +2,8 @@
 #:property PublishAot=false
 // M3 end-to-end driver: talks to the real debugviamcp MCP server over stdio, like Claude Code, against a running
 // Visual Studio with the Debugging via MCP 0.3 extension and samples/OrderDemo open (OrderDemo = startup project).
-// Consent info bars are answered by scripts/e2e/click-infobar.ps1 (UI Automation).
-// Usage: dotnet run scripts/e2e/m3-e2e.cs -- <path-to-DebugViaMcp.Mcp.dll>
+// Consent info bars are answered by tests/e2e/click-infobar.ps1 (UI Automation).
+// Usage: dotnet run tests/e2e/full-tool-set.cs -- <path-to-DebugViaMcp.Mcp.dll>
 using System.Diagnostics;
 using System.Text.Json;
 using ModelContextProtocol.Client;
@@ -16,7 +16,7 @@ var copy = Path.Combine(Path.GetTempPath(), "debugviamcp-e2e-" + Environment.Pro
 Directory.CreateDirectory(copy);
 foreach (var f in Directory.GetFiles(Path.GetDirectoryName(built)!)) File.Copy(f, Path.Combine(copy, Path.GetFileName(f)), overwrite: true);
 var server = Path.Combine(copy, Path.GetFileName(built));
-var clicker = Path.GetFullPath("scripts/e2e/click-infobar.ps1");
+var clicker = Path.GetFullPath("tests/e2e/click-infobar.ps1");
 var faultDemo = Path.GetFullPath("samples/FaultDemo/bin/Debug/net10.0/FaultDemo.exe");
 await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
 {

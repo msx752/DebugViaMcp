@@ -36,8 +36,8 @@ try {
     Get-ChildItem $artifacts | ForEach-Object { Write-Host "  $($_.Name)" }
     Write-Host ''
     Write-Host 'Nothing was published. When you decide to release:' -ForegroundColor Yellow
-    Write-Host '  1. Put your Marketplace publisher id into marketplace/publishManifest.json ("publisher").'
-    Write-Host '  2. VsixPublisher.exe publish -payload artifacts\DebugViaMcp.vsix -publishManifest marketplace\publishManifest.json -personalAccessToken <PAT>'
+    Write-Host '  1. Put your Marketplace publisher id into docs/marketplace/publishManifest.json ("publisher").'
+    Write-Host '  2. VsixPublisher.exe publish -payload artifacts\DebugViaMcp.vsix -publishManifest docs\marketplace\publishManifest.json -personalAccessToken <PAT>'
     Write-Host "  3. dotnet nuget push artifacts\DebugViaMcp.$version.nupkg --source https://api.nuget.org/v3/index.json --api-key <KEY>"
     Write-Host '  (VsixPublisher.exe ships with Visual Studio: <VS>\VSSDK\VisualStudioIntegration\Tools\Bin\VsixPublisher.exe)'
 }

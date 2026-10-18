@@ -18,4 +18,4 @@ Optional extras: the status bar with "Debugging via MCP: claude-code connected �
 date. Rebuild?" info bar.
 
 Name them `01-consent.png`, `02-options.png`, `03-activity.png`, `04-agent-and-debugger.png`, put them in
-`marketplace/images/`, and tell me — I will add them to the overview and the listing.
+`docs/marketplace/images/`, and tell me — I will add them to the overview and the listing.

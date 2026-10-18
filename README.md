@@ -60,7 +60,7 @@ Once published, steps 1–2 become "install Debugging via MCP from the Visual St
 
 ## Build from source
 
-    powershell -File build.ps1
+    powershell -File scripts\build.ps1
 
 Requires the .NET 10 SDK and Visual Studio 2022 17.14+ or 2026. The VSIX builds with Visual Studio's MSBuild and the
 `Microsoft.VSSDK.BuildTools` package.
@@ -73,11 +73,10 @@ Requires the .NET 10 SDK and Visual Studio 2022 17.14+ or 2026. The VSIX builds 
 | `src/DebugViaMcp.Protocol` | Wire protocol shared by the server and the extension (DTOs, errors, discovery paths) |
 | `src/DebugViaMcp.Vsix.Core` | The extension's logic without Visual Studio types, by feature: `Security` (consent, permissions, audit), `Bridge` (pipe host, request handling), `Instances` (lease, discovery), `Builds`, `Setup`, `Debugging`, `Support`, `Abstractions` |
 | `src/DebugViaMcp.Vsix` | The Visual Studio extension: package, commands, UI, settings (`UnifiedSettings`), `Dte` and `Infrastructure` adapters |
-| `tests/` | One test project per source project (the Vsix.Core tests mirror its folders), plus `ArchitectureTests` for the dependency rule |
+| `tests/` | One test project per source project (the Vsix.Core tests mirror its folders), `ArchitectureTests` for the dependency rule, and `e2e/` drivers that run against a real Visual Studio |
 | `samples/` | `OrderDemo` and `FaultDemo`, small programs to debug with the agent |
-| `docs/` | `security.md`, `design/` (specifications), `testing/` (manual end-to-end runs) |
-| `scripts/` | Release (`release.ps1`), development helpers (`reinstall-vsix.ps1`, icon and image generators) and `e2e/` drivers |
-| `marketplace/` | Listing text, images and the publish manifest for the Visual Studio Marketplace |
+| `docs/` | `security.md`, `design/` (specifications), `testing/` (manual end-to-end runs), `marketplace/` (listing text, images and the publish manifest) |
+| `scripts/` | Build (`build.ps1`), release (`release.ps1`) and development helpers (`reinstall-vsix.ps1`, icon and image generators) |
 
 ## Reinstall the extension while developing
 

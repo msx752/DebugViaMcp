@@ -6,10 +6,10 @@ environment, open `samples/OrderDemo/OrderDemo.csproj`, OrderDemo = startup proj
 
 ## Automated driver
 
-    dotnet run scripts/e2e/m3-e2e.cs -- <repo>\src\DebugViaMcp.Mcp\bin\Debug\net10.0\DebugViaMcp.Mcp.dll
+    dotnet run tests/e2e/full-tool-set.cs -- <repo>\src\DebugViaMcp.Mcp\bin\Debug\net10.0\DebugViaMcp.Mcp.dll
 
 It builds and starts `samples/FaultDemo` for the attach and exception steps and answers info bars with
-`scripts/e2e/click-infobar.ps1`.
+`tests/e2e/click-infobar.ps1`.
 
 ## Manual checks
 
@@ -77,7 +77,7 @@ settling instead of polling, a deadline for commands that block in a modal dialo
 | 3 | Activity pane: `denied` / `policy` |
 | 4 | Import and Export Settings: the page is listed (`ProvideProfile` was missing before this run and was added). Importing a file with Mutate = Deny took effect at once (audit: `Imported settings: Mutate: Allow → Deny`). A file with Mutate = Allow left Mutate at Ask (audit: `Imported settings (Mutate = Allow ignored; set it in Options): Mutate: Deny → Ask`). The unrelated errors VS lists for the JavaScript/TypeScript categories of the exported file are Visual Studio's own. |
 | 5 | A 497-character value: the info bar showed Allow once / Allow for session / Deny; Deny gave `user_denied`, nothing assigned |
-| 6 | `scripts/e2e/m3-consent-check.ps1 -Scenario frame` (moves the selected frame through DTE while the question is open, then Allow once): frame `Calculate` → `Submit`, audit `allowOnce` + `wrong_mode`, nothing assigned; the agent receives a structured `wrong_mode` |
+| 6 | `tests/e2e/consent-check.ps1 -Scenario frame` (moves the selected frame through DTE while the question is open, then Allow once): frame `Calculate` → `Submit`, audit `allowOnce` + `wrong_mode`, nothing assigned; the agent receives a structured `wrong_mode` |
 | 7 | `-Scenario ip` (caret to line 21, Debug > Set Next Statement, then Allow once): audit `allowOnce` + `wrong_mode`, `sum` still 0 |
 
 Findings of this part, fixed with a test each: the extension's `wrong_mode` reached the agent as a generic SDK error because its

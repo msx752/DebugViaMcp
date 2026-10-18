@@ -2,7 +2,7 @@
 #:property PublishAot=false
 // M1 end-to-end driver: talks to the real debugviamcp MCP server over stdio, exactly like Claude Code,
 // against a running Visual Studio with the Debugging via MCP extension and samples/OrderDemo open.
-// Usage: dotnet run scripts/e2e/m1-e2e.cs -- <path-to-DebugViaMcp.Mcp.dll>
+// Usage: dotnet run tests/e2e/session-basics.cs -- <path-to-DebugViaMcp.Mcp.dll>
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 

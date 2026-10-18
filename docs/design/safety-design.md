@@ -205,7 +205,7 @@ New behaviour is written test-first. The existing 152 tests stay green.
 | `Mcp.Tests` | `callId` unique, forwarded and in log scope; `denied` / `ai_disabled` texts and hints; cancellation → RPC cancellation; `tools/list` snapshot (new tool, parameter, annotations, untrusted notes) |
 | `Protocol.Tests` | Round-trip of new DTOs; golden JSON for v2 and new error codes |
 | `ArchitectureTests` | New Vsix.Core types do not reference the VS SDK |
-| Manual / E2E | `docs/testing/m2-manual-e2e.md` and an `m2-e2e` driver extending `scripts/e2e/m1-e2e.cs`: set_value → Allow → value changed; Deny; timeout; Disconnect → `ai_disabled` → Reconnect; Mutate = Deny; Activity pane lines. Info-bar clicks via UI Automation where possible. VS is launched with the real profile environment. |
+| Manual / E2E | `docs/testing/m2-manual-e2e.md` and an `m2-e2e` driver extending `tests/e2e/session-basics.cs`: set_value → Allow → value changed; Deny; timeout; Disconnect → `ai_disabled` → Reconnect; Mutate = Deny; Activity pane lines. Info-bar clicks via UI Automation where possible. VS is launched with the real profile environment. |
 
 **Fitness functions added**
 - `mutate` gated: with Mutate = Ask and no answer, `set_value` never reaches `IDteFacade` (asserted on the fake).

@@ -5,7 +5,7 @@ Visual Studio with the Debugging via MCP extension, and answers the consent info
 
 ## Prerequisites
 
-1. Build: `powershell -File build.ps1`, or build `src/DebugViaMcp.Vsix` with Visual Studio's MSBuild and
+1. Build: `powershell -File scripts\build.ps1`, or build `src/DebugViaMcp.Vsix` with Visual Studio's MSBuild and
    `-nodeReuse:false` (add `-p:DeployExtension=false` when the shell's user profile is redirected).
 2. Install `src/DebugViaMcp.Vsix/bin/Debug/net48/DebugViaMcp.Vsix.vsix` into Visual Studio 2026
    (`VSIXInstaller.exe /quiet /instanceIds:<id> <vsix>`; uninstall an older build of the same version first with
@@ -16,9 +16,9 @@ Visual Studio with the Debugging via MCP extension, and answers the consent info
 
 ## Automated driver
 
-    dotnet run scripts/e2e/m2-e2e.cs -- <repo>\src\DebugViaMcp.Mcp\bin\Debug\net10.0\DebugViaMcp.Mcp.dll
+    dotnet run tests/e2e/safety-and-consent.cs -- <repo>\src\DebugViaMcp.Mcp\bin\Debug\net10.0\DebugViaMcp.Mcp.dll
 
-It clicks the info bars with `scripts/e2e/click-infobar.ps1` and runs Disconnect AI / Reconnect AI through
+It clicks the info bars with `tests/e2e/click-infobar.ps1` and runs Disconnect AI / Reconnect AI through
 Visual Studio's automation object.
 
 ## With Claude Code

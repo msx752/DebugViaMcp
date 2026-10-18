@@ -1,6 +1,7 @@
 #Requires -Version 5.1
 param([ValidateSet('Debug','Release')][string]$Configuration = 'Debug', [switch]$SkipVsix)
 $ErrorActionPreference = 'Stop'
+Set-Location (Split-Path $PSScriptRoot -Parent)   # the solution files are in the repository root
 dotnet build DebugViaMcp.Core.slnf -c $Configuration
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 dotnet test --solution DebugViaMcp.Core.slnf -c $Configuration --no-build

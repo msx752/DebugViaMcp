@@ -1,5 +1,5 @@
 # Clicks a Debugging via MCP consent info-bar button ("Allow once", "Allow for session", "Deny") in the running
-# Visual Studio via UI Automation. Test helper for scripts/e2e/m2-e2e.cs; never used by the product.
+# Visual Studio via UI Automation. Test helper for tests/e2e/safety-and-consent.cs; never used by the product.
 # Waits 1.5 s after the button appears: the extension ignores Allow clicks during the first second.
 param([Parameter(Mandatory)][string]$Button, [int]$TimeoutSec = 20)
 $ErrorActionPreference = 'Stop'
