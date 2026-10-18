@@ -17,7 +17,7 @@ public class InstancesToolTests
             Instances =
             [
                 new InstanceRecord { Pid = 1, SolutionPath = @"D:\mine\App.sln" },
-                new InstanceRecord { Pid = 2, SolutionPath = @"D:\other\Job.sln", LeaseHolder = "codex", LeaseHolderFolder = @"D:\other" },
+                new InstanceRecord { Pid = 2, SolutionPath = @"D:\other\Job.sln", LeaseHolder = "other-agent", LeaseHolderFolder = @"D:\other" },
                 new InstanceRecord { Pid = 3, SolutionPath = @"D:\third\T.sln" },
             ],
         };
@@ -31,7 +31,7 @@ public class InstancesToolTests
         Assert.False(list[0].TryGetProperty("heldByFolder", out _));
 
         Assert.Equal("in_use", list[1].GetProperty("availability").GetString());
-        Assert.Equal("codex", list[1].GetProperty("heldBy").GetString());
+        Assert.Equal("other-agent", list[1].GetProperty("heldBy").GetString());
         Assert.Equal(@"D:\other", list[1].GetProperty("heldByFolder").GetString());
         Assert.False(list[1].GetProperty("matchesFolder").GetBoolean());
 

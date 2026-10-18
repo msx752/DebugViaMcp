@@ -149,7 +149,7 @@ public class BuildFreshnessTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var other = await s.AddConnectionAsync("codex");
+        var other = await s.AddConnectionAsync("other-agent");
 
         await s.Handler.CheckBuildFreshnessAsync("OrderDemo", null, SecurityHarness.Ctx(), CancellationToken.None);
         await other.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, SecurityHarness.Ctx(), CancellationToken.None);   // the check did not take it

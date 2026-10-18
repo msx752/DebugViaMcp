@@ -251,7 +251,7 @@ public class ConnectionApprovalTests
         using var s = new SecurityHarness();
         s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
         await s.HandshakeAsync("claude-code", Elsewhere);
-        var other = await s.AddConnectionAsync("codex", Elsewhere);
+        var other = await s.AddConnectionAsync("other-agent", Elsewhere);
 
         await Status(s.Handler);
         await Status(other);
@@ -264,7 +264,7 @@ public class ConnectionApprovalTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");   // trusted folder: takes the lease without a question
-        var unapproved = await s.AddConnectionAsync("codex", Elsewhere);
+        var unapproved = await s.AddConnectionAsync("other-agent", Elsewhere);
         await SetBp(s.Handler);
 
         var call = unapproved.ListBreakpointsAsync(SecurityHarness.Ctx(), CancellationToken.None);

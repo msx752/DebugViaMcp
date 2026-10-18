@@ -192,7 +192,7 @@ public class ExecutionToolsTests
     [Fact]
     public async Task In_use_from_the_check_is_the_tools_result()
     {
-        var bridge = new FakeDebugBridge { OnCheckBuild = (_, _) => throw new StreamJsonRpc.RemoteInvocationException("This Visual Studio is in use by codex.", (int)BridgeErrorCode.InUse, new BridgeErrorData()) };
+        var bridge = new FakeDebugBridge { OnCheckBuild = (_, _) => throw new StreamJsonRpc.RemoteInvocationException("This Visual Studio is in use by other-agent.", (int)BridgeErrorCode.InUse, new BridgeErrorData()) };
         var tools = new ExecutionTools(new FakeConnectionManager(bridge, DebuggerMode.Design), TimeSpan.FromMilliseconds(50));
 
         var json = Json(await tools.Start(null, CancellationToken.None));

@@ -59,10 +59,10 @@ public sealed class DiscoveryWriterTests : IDisposable
         var writer = new DiscoveryWriter(_dir);
         var (_, path) = writer.Write(new InstanceRecord { Pid = 4242, PipeName = "vsmcpdebugger-x", Token = "secret" });
 
-        writer.UpdateLease("codex", @"D:\jobs");
+        writer.UpdateLease("other-agent", @"D:\jobs");
 
         var record = ProtocolJson.Deserialize<InstanceRecord>(File.ReadAllText(path))!;
-        Assert.Equal("codex", record.LeaseHolder);
+        Assert.Equal("other-agent", record.LeaseHolder);
         Assert.Equal(@"D:\jobs", record.LeaseHolderFolder);
     }
 
@@ -71,7 +71,7 @@ public sealed class DiscoveryWriterTests : IDisposable
     {
         var writer = new DiscoveryWriter(_dir);
         var (_, path) = writer.Write(new InstanceRecord { Pid = 4242, PipeName = "vsmcpdebugger-x", Token = "secret" });
-        writer.UpdateLease("codex", @"D:\jobs");
+        writer.UpdateLease("other-agent", @"D:\jobs");
 
         writer.UpdateLease(null, null);
 
@@ -89,7 +89,7 @@ public sealed class DiscoveryWriterTests : IDisposable
         var writer = new DiscoveryWriter(_dir, _ => hardenCount++);
         var (_, path) = writer.Write(new InstanceRecord { Pid = 4242, PipeName = "vsmcpdebugger-x", Token = "secret", SolutionPath = @"C:\src\Shop.sln", VsVersion = "18.10" });
 
-        writer.UpdateLease("codex", null);
+        writer.UpdateLease("other-agent", null);
 
         var record = ProtocolJson.Deserialize<InstanceRecord>(File.ReadAllText(path))!;
         Assert.Equal("secret", record.Token);
@@ -107,9 +107,9 @@ public sealed class DiscoveryWriterTests : IDisposable
         var writer = new DiscoveryWriter(_dir);
         var (_, path) = writer.Write(new InstanceRecord { Pid = 4242, PipeName = "vsmcpdebugger-x", Token = "secret" });
 
-        lease.TryAcquire(1, "codex", null);
+        lease.TryAcquire(1, "other-agent", null);
         writer.UpdateLease(lease);
-        Assert.Equal("codex", ProtocolJson.Deserialize<InstanceRecord>(File.ReadAllText(path))!.LeaseHolder);
+        Assert.Equal("other-agent", ProtocolJson.Deserialize<InstanceRecord>(File.ReadAllText(path))!.LeaseHolder);
 
         lease.Release(1);
         writer.UpdateLease(lease);
@@ -126,7 +126,7 @@ public sealed class DiscoveryWriterTests : IDisposable
     {
         var writer = new DiscoveryWriter(_dir);
 
-        writer.UpdateLease("codex", null);
+        writer.UpdateLease("other-agent", null);
 
         Assert.False(Directory.Exists(_dir) && Directory.GetFiles(_dir).Length > 0);
     }

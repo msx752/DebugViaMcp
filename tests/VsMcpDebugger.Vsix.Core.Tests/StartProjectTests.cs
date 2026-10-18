@@ -166,7 +166,7 @@ public class StartProjectTests
         using var s = new SecurityHarness();
         s.Dte.Mode = DebuggerMode.Design;
         await s.HandshakeAsync("claude-code");
-        var other = await s.AddConnectionAsync("codex");
+        var other = await s.AddConnectionAsync("other-agent");
 
         await s.Handler.StartProjectAsync("OrderDemo", SecurityHarness.Ctx("c-000042"), CancellationToken.None);
 

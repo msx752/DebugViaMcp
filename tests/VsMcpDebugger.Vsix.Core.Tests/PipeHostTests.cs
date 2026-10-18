@@ -101,7 +101,7 @@ public class PipeHostTests
         }
 
         var a = await ConnectAsync("claude-code");
-        var b = await ConnectAsync("codex");
+        var b = await ConnectAsync("other-agent");
         await b.Bridge.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9 }, new CallContext { CallId = "c-000001" }, CancellationToken.None);
 
         broadcaster.PublishBreak(new BreakEvent { Seq = 1, Snapshot = new BreakSnapshot { Reason = BreakReason.Pause } });

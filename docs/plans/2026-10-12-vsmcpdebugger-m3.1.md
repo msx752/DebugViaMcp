@@ -136,7 +136,7 @@
     - `Explicit_select_wins_over_the_folder_rule`.
     - `Selection_never_runs_two_connections` (second `SelectAsync` disposes the first; existing test pattern).
   - `BridgeConnectionTests.Connect_sends_the_working_directory_in_the_handshake` (via `FakeDebugBridge.LastHandshake`).
-  - `InstancesToolTests.Instances_report_availability_holder_and_folder_match` (`FakeConnectionManager` with three records: free, in use by `codex` at `D:\other`, and one related to `WorkingDirectory`; assert JSON fields).
+  - `InstancesToolTests.Instances_report_availability_holder_and_folder_match` (`FakeConnectionManager` with three records: free, in use by `other-agent` at `D:\other`, and one related to `WorkingDirectory`; assert JSON fields).
 - [ ] **Step 2: Run to verify failure** — whole suite — Expected: build errors, then failures.
 - [ ] **Step 3: Implement.** In `GetBridgeAsync`, replace the `instances.Count switch` auto-choice: 0 → `NotConnected` (unchanged); 1 → it; more → `related = instances.Where(r => FolderMatch.Relates(WorkingDirectory, r.SolutionPath))`, exactly one → it, otherwise `AmbiguousInstance` whose message lists candidates (one line per instance: pid, solution file name, availability). `Program.cs` passes nothing new (defaults). `FakeConnectionManager.WorkingDirectory` settable.
 - [ ] **Step 4: Run to verify pass** — whole suite; compile check not needed (no Vsix change).

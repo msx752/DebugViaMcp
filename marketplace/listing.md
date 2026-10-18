@@ -23,7 +23,7 @@ Debugging, Coding (already in `publishManifest.json`)
 
 ## Tags / keywords
 
-debugger, debugging, mcp, model context protocol, ai, agent, claude, claude code, breakpoints, copilot, llm,
+debugger, debugging, mcp, model context protocol, ai, agent, claude, claude code, breakpoints, llm,
 visual studio 2026
 
 (The manifest `Tags` field holds the first nine; add the rest on the page if it allows more.)
@@ -51,7 +51,7 @@ offers an optional Rebuild. This is a preview: feedback is welcome on GitHub.
 
 ## Questions and answers (seed the Q&A tab)
 
-**Does it work with GitHub Copilot or other agents?**
+**Does it work with other agents?**
 Any MCP client can use the `vsmcpdebugger` server. It is tested with Claude Code.
 
 **Can the agent change my program without asking?**

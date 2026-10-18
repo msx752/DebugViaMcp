@@ -36,12 +36,12 @@ public class InstanceLeaseTests
     public void Other_connection_is_held_by_other_and_sees_the_holder()
     {
         var lease = new InstanceLease();
-        lease.TryAcquire(1, "codex", @"D:\x");
+        lease.TryAcquire(1, "other-agent", @"D:\x");
 
         var attempt = lease.TryAcquire(2, "claude-code", null);
 
         Assert.Equal(LeaseOutcome.HeldByOther, attempt.Outcome);
-        Assert.Equal("codex", attempt.Holder!.Client);
+        Assert.Equal("other-agent", attempt.Holder!.Client);
         Assert.Equal(@"D:\x", attempt.Holder.Folder);
         Assert.Equal(1, lease.Holder!.ConnectionId);
     }

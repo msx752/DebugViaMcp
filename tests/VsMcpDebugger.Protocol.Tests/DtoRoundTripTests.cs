@@ -101,9 +101,9 @@ public class DtoRoundTripTests
     [Fact]
     public void InstanceRecord_lease_fields_round_trip()
     {
-        var copy = RoundTrip(new InstanceRecord { Pid = 1, LeaseHolder = "codex", LeaseHolderFolder = @"D:\x" });
+        var copy = RoundTrip(new InstanceRecord { Pid = 1, LeaseHolder = "other-agent", LeaseHolderFolder = @"D:\x" });
 
-        Assert.Equal("codex", copy.LeaseHolder);
+        Assert.Equal("other-agent", copy.LeaseHolder);
         Assert.Equal(@"D:\x", copy.LeaseHolderFolder);
     }
 

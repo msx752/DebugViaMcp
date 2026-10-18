@@ -52,7 +52,7 @@ public class SessionToolsTests
     {
         var fake = new FakeDebugBridge
         {
-            OnStatus = () => throw new LocalRpcException("This Visual Studio is in use by codex.") { ErrorCode = (int)BridgeErrorCode.InUse, ErrorData = new BridgeErrorData { Hint = "retry later" } },
+            OnStatus = () => throw new LocalRpcException("This Visual Studio is in use by other-agent.") { ErrorCode = (int)BridgeErrorCode.InUse, ErrorData = new BridgeErrorData { Hint = "retry later" } },
         };
         await using var server = new PipeTestServer(fake);
         await using var connection = await BridgeConnection.ConnectAsync(server.Record, new SessionState(), NullLogger.Instance, CancellationToken.None);
@@ -62,7 +62,7 @@ public class SessionToolsTests
 
         var error = json.GetProperty("error");
         Assert.Equal("in_use", error.GetProperty("code").GetString());
-        Assert.Contains("in use by codex", error.GetProperty("message").GetString(), StringComparison.Ordinal);
+        Assert.Contains("in use by other-agent", error.GetProperty("message").GetString(), StringComparison.Ordinal);
         Assert.Equal("retry later", error.GetProperty("hint").GetString());
     }
 

@@ -35,7 +35,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
 
         await SetBp(s.Handler);
         var ex = await Assert.ThrowsAsync<LocalRpcException>(() => SetBp(b));
@@ -49,7 +49,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         await SetBp(s.Handler);
 
         AssertInUse(await Assert.ThrowsAsync<LocalRpcException>(() => b.ListBreakpointsAsync(SecurityHarness.Ctx(), CancellationToken.None)));
@@ -62,7 +62,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
 
         await s.Handler.ListBreakpointsAsync(SecurityHarness.Ctx(), CancellationToken.None);
         await s.Handler.GetStatusAsync(SecurityHarness.Ctx(), CancellationToken.None);
@@ -77,7 +77,7 @@ public class LeaseTests
         using var s = new SecurityHarness();
         s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;   // this folder is not the solution's
         await s.HandshakeAsync("bo\nt", @"D:\x" + (char)0x202E + "y");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         await SetBp(s.Handler);
 
         var ex = await Assert.ThrowsAsync<LocalRpcException>(() => SetBp(b));
@@ -94,7 +94,7 @@ public class LeaseTests
         using var s = new SecurityHarness();
         s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;   // this folder is not the solution's
         await s.HandshakeAsync("claude-code", @"D:\" + new string('x', 500));
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         await SetBp(s.Handler);
 
         var ex = await Assert.ThrowsAsync<LocalRpcException>(() => SetBp(b));
@@ -108,7 +108,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         s.Dte.Mode = DebuggerMode.Design;
         await s.Handler.StartAsync(SecurityHarness.Ctx(), CancellationToken.None);
         s.Dte.Mode = DebuggerMode.Break;
@@ -122,7 +122,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         await SetBp(s.Handler);
 
         await s.Handler.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
@@ -138,7 +138,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         await SetBp(s.Handler);
 
         await b.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
@@ -151,7 +151,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         await SetBp(s.Handler);
 
         s.Handler.Dispose();
@@ -168,7 +168,7 @@ public class LeaseTests
 
         s.Security.DisconnectAi();
         s.Security.ReconnectAi();
-        var again = await s.AddConnectionAsync("codex");
+        var again = await s.AddConnectionAsync("other-agent");
 
         await SetBp(again);
         var old = await Assert.ThrowsAsync<LocalRpcException>(() => SetBp(s.Handler));
@@ -180,7 +180,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         s.Settings.Permissions.Control = PermissionLevel.Deny;
         var denied = await Assert.ThrowsAsync<LocalRpcException>(() => SetBp(s.Handler));
         Assert.Equal((int)BridgeErrorCode.Denied, denied.ErrorCode);
@@ -194,7 +194,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         s.Prompt.AutoAnswer = ConsentChoice.Deny;
         var denied = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None));
         Assert.Equal((int)BridgeErrorCode.Denied, denied.ErrorCode);
@@ -207,7 +207,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         await SetBp(s.Handler);
 
         var ex = await Assert.ThrowsAsync<LocalRpcException>(() => b.SetValueAsync("total", "0", SecurityHarness.Ctx(), CancellationToken.None));
@@ -222,7 +222,7 @@ public class LeaseTests
         var ui = new SwitchUiThread();
         using var s = new SecurityHarness(ui: ui);
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         ui.HoldCalls();
 
         var first = SetBp(s.Handler);
@@ -256,7 +256,7 @@ public class LeaseTests
         using var s = new SecurityHarness();
         s.Settings.Permissions.Read = PermissionLevel.Ask;
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
 
         var waiting = b.GetStatusAsync(SecurityHarness.Ctx("c-000050"), CancellationToken.None);
         await s.Prompt.WaitForPromptsAsync(1);
@@ -277,7 +277,7 @@ public class LeaseTests
 
         Assert.Null(s.Security.Lease.Holder);
         s.Security.ReconnectAi();
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         await SetBp(b);
     }
 
@@ -315,7 +315,7 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
 
         var first = s.Handler.SetValueAsync("total", "0", SecurityHarness.Ctx("c-000001"), CancellationToken.None);
         await s.Prompt.WaitForPromptsAsync(1);
@@ -346,11 +346,11 @@ public class LeaseTests
     {
         using var s = new SecurityHarness();
         await s.HandshakeAsync("claude-code");
-        var b = await s.AddConnectionAsync("codex");
+        var b = await s.AddConnectionAsync("other-agent");
         await SetBp(s.Handler);
 
         await Assert.ThrowsAsync<LocalRpcException>(() => SetBp(b));
 
-        Assert.Single(s.AuditLines(), l => l.Contains("\"client\":\"codex\"", StringComparison.Ordinal) && l.Contains("\"outcome\":\"in_use\"", StringComparison.Ordinal));
+        Assert.Single(s.AuditLines(), l => l.Contains("\"client\":\"other-agent\"", StringComparison.Ordinal) && l.Contains("\"outcome\":\"in_use\"", StringComparison.Ordinal));
     }
 }
