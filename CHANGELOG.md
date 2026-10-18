@@ -45,6 +45,11 @@ the `debugviamcp` tool are released together with the same version.
 - Settings apply as soon as they change. A stored **Mutate = Allow** counts only after you confirm it in a dialog (also at
   startup); until then Visual Studio keeps asking, so a value written to the settings file never silently lets the agent
   change program state.
+- Two new settings cap how long an agent may keep Visual Studio waiting: **Longest wait for a break** (`debug_start`, `debug_continue`,
+  `debug_step`, `debug_run_to`, `debug_wait`; 5–600 s, default 120) and **Longest wait for a build** (`vs_build`; 30–1800 s, default 600).
+  The agent may ask for less, never for more; a longer build keeps running and the agent can ask again. Together with the existing
+  **Consent timeout** they are in the settings page of Visual Studio.
+- Wire protocol 2.3 (additive): the handshake carries the two limits. Older extensions or servers keep the built-in 120 s / 600 s.
 - Wire protocol 2.2 (additive). A 2.1 extension keeps working with the 0.4 tool; the new tools then report
   `unsupported`.
 - Break and mode events go only to the agent that holds the Visual Studio.

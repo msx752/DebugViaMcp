@@ -74,6 +74,8 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         response.Permissions = security.Settings.Permissions;
         response.LogLevel = security.Settings.LogLevel;
         response.LogRetentionDays = security.Settings.LogRetentionDays;
+        response.MaxWaitSeconds = security.Settings.MaxWaitSeconds;
+        response.MaxBuildSeconds = security.Settings.MaxBuildSeconds;
 
         var first = false;
         lock (_attachGate)
@@ -216,7 +218,8 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         Guard(Operation.ErrorList, context, () => service.GetErrorListAsync(severities, offset, max, cancellationToken), null, null, cancellationToken);
 
     public Task<BuildResult> BuildAsync(string? project, int timeoutSec, CallContext context, CancellationToken cancellationToken) =>
-        Guard(Operation.Build, context, () => service.BuildAsync(project, timeoutSec, cancellationToken),
+        // The user's Options cap how long an agent may keep the build waiting, whatever the agent asked for.
+        Guard(Operation.Build, context, () => service.BuildAsync(project, Math.Min(Math.Max(1, timeoutSec), security.Settings.MaxBuildSeconds), cancellationToken),
             Request.Of(project ?? "solution", ("project", project), ("timeoutSec", timeoutSec.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
 
     // Protocol 2.2 methods; later M3.1 tasks replace these stubs.

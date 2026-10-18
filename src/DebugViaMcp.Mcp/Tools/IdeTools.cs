@@ -30,10 +30,10 @@ public sealed class IdeTools(IConnectionManager connections)
     });
 
     [McpServerTool(Name = "vs_build"),
-     Description("Builds the solution, or one project, in Visual Studio and waits up to timeoutSec (max 600). If a build is already running, waits for that one instead. Afterwards errors_list and output_read('build') show the results.")]
+     Description("Builds the solution, or one project, in Visual Studio and waits up to timeoutSec (at most the limit set in Options, 600 by default). If a build is already running, waits for that one instead. Afterwards errors_list and output_read('build') show the results.")]
     public Task<CallToolResult> Build(
         [Description("Project name (e.g. OrderDemo); omit for the whole solution.")] string? project = null,
-        [Description("Seconds to wait (1-600).")] int timeoutSec = 120,
+        [Description("Seconds to wait (1 to the limit set in Options, 600 by default).")] int timeoutSec = 120,
         CancellationToken ct = default) => ToolResponse.RunAsync(connections, "vs_build", async ctx =>
     {
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
@@ -41,7 +41,7 @@ public sealed class IdeTools(IConnectionManager connections)
             return ToolResponse.WrongMode(DebuggerMode.Design, connections.Session.Mode, "Stop debugging first (debug_stop): Visual Studio does not build while debugging.");
         if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3) is { } unsupported) return unsupported;
 
-        var r = await bridge.BuildAsync(string.IsNullOrWhiteSpace(project) ? null : project, Math.Clamp(timeoutSec, 1, 600), ctx, ct).ConfigureAwait(false);
+        var r = await bridge.BuildAsync(string.IsNullOrWhiteSpace(project) ? null : project, Math.Clamp(timeoutSec, 1, (int)connections.Session.MaxBuild.TotalSeconds), ctx, ct).ConfigureAwait(false);
         return r.State == BuildState.Building
             ? ToolResponse.Ok(new { state = "building", durationMs = r.DurationMs, hint = "Still building. Call vs_build again to keep waiting." })
             : ToolResponse.Ok(new { state = "done", succeeded = r.Succeeded, failedProjects = r.FailedProjects, durationMs = r.DurationMs, hint = "Call errors_list for the diagnostics." });

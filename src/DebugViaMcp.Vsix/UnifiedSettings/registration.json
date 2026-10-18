@@ -59,6 +59,24 @@
       "enumItemLabels": [ "Error", "Warning", "Information", "Debug" ],
       "order": 70
     },
+    "debugging.mcp.maxWaitSeconds": {
+      "type": "integer",
+      "title": "Longest wait for a break (seconds)",
+      "description": "Upper limit for debug_start, debug_continue, debug_step, debug_run_to and debug_wait. The agent may ask for less, never for more. Applies to the next connection of an agent (5–600).",
+      "default": 120,
+      "minimum": 5,
+      "maximum": 600,
+      "order": 45
+    },
+    "debugging.mcp.maxBuildSeconds": {
+      "type": "integer",
+      "title": "Longest wait for a build (seconds)",
+      "description": "Upper limit for vs_build. The agent may ask for less, never for more; a build that takes longer keeps running and the agent can ask again (30–1800).",
+      "default": 600,
+      "minimum": 30,
+      "maximum": 1800,
+      "order": 46
+    },
     "debugging.mcp.logRetentionDays": {
       "type": "integer",
       "title": "Log retention (days)",

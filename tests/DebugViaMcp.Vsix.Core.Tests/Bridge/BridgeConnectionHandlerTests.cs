@@ -149,6 +149,33 @@ public class BridgeConnectionHandlerTests
     }
 
     [Fact]
+    public async Task Handshake_reports_the_wait_and_build_limits_from_the_options()
+    {
+        using var s = new SecurityHarness();
+        s.Settings.MaxWaitSeconds = 45;
+        s.Settings.MaxBuildSeconds = 900;
+
+        var r = await s.HandshakeAsync();
+
+        Assert.Equal(45, r.MaxWaitSeconds);
+        Assert.Equal(900, r.MaxBuildSeconds);
+    }
+
+    [Fact]
+    public async Task A_build_never_waits_longer_than_the_limit_from_the_options()
+    {
+        using var s = new SecurityHarness(new FakeDte { Mode = DebuggerMode.Design });
+        await s.HandshakeAsync();
+        s.Settings.MaxBuildSeconds = 1;   // the agent asks for 10 minutes; the build never reports done in this test
+
+        var started = DateTime.UtcNow;
+        var result = await s.Handler.BuildAsync(null, 600, SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Equal(BuildState.Building, result.State);
+        Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(30));
+    }
+
+    [Fact]
     public async Task Status_reports_current_permissions()
     {
         using var s = new SecurityHarness();

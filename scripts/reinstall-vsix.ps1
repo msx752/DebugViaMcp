@@ -88,4 +88,4 @@ if ($installRun.ExitCode -ne 0) { throw "VSIXInstaller failed with exit code $($
 
 Write-Host ''
 Write-Host 'Installed. Start Visual Studio, open a solution and look for this line in View > Output > Debugging via MCP:' -ForegroundColor Green
-Write-Host "  Debugging via MCP $($identity.Version) ready (..., protocol 2.2)"
+Write-Host "  Debugging via MCP $($identity.Version) ready (..., protocol 2.3)"

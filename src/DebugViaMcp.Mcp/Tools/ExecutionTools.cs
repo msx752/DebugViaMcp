@@ -16,7 +16,12 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
     [ActivatorUtilitiesConstructor]
     public ExecutionTools(IConnectionManager connections) : this(connections, DefaultWait) { }
 
-    public static TimeSpan ClampWait(int seconds) => TimeSpan.FromSeconds(Math.Clamp(seconds, 1, 120));
+    /// <summary>The agent's wait, at least 1 s and at most <paramref name="max"/> (the user's setting; 120 s when none is known).</summary>
+    public static TimeSpan ClampWait(int seconds, TimeSpan? max = null) =>
+        TimeSpan.FromSeconds(Math.Clamp(seconds, 1, (int)(max ?? Session.SessionState.DefaultMaxWait).TotalSeconds));
+
+    /// <summary>The wait after a resume command: the tool's own length, never more than the user's limit.</summary>
+    private TimeSpan ResumeWait(Session.SessionState session) => waitForBreak < session.MaxWait ? waitForBreak : session.MaxWait;
 
     [McpServerTool(Name = "debug_start"), Description("Starts debugging the solution's startup project (F5), or the given project when project is set; the solution's startup project is not changed. Waits up to 30 s for the first break. " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Start(
@@ -44,7 +49,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
         return Resume("debug_step", DebuggerMode.Break, "Call debug_pause or debug_wait first.", (b, ctx) => b.StepAsync(stepKind.Value, ctx, ct), ct);
     }
 
-    [McpServerTool(Name = "debug_wait", ReadOnly = true), Description("Waits for the next break (breakpoint, exception, pause) up to timeoutSec (max 120). " + InspectionTools.UntrustedNote)]
+    [McpServerTool(Name = "debug_wait", ReadOnly = true), Description("Waits for the next break (breakpoint, exception, pause) up to timeoutSec (at most the limit set in Options, 120 by default). " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Wait(int timeoutSec = 30, CancellationToken ct = default) => ToolResponse.RunAsync(connections, "debug_wait", async _ =>
     {
         await connections.GetBridgeAsync(ct).ConfigureAwait(false);
@@ -53,7 +58,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
             return ToolResponse.WrongMode(DebuggerMode.Run, session.Mode, "Start debugging with debug_start.");
         // Wait for a break after the last resume command, so a break that landed after a timed-out
         // debug_continue (but before this call) is returned instead of being skipped.
-        var outcome = await session.WaitForBreakAfterAsync(session.LastResumeSeq, ClampWait(timeoutSec), ct).ConfigureAwait(false);
+        var outcome = await session.WaitForBreakAfterAsync(session.LastResumeSeq, ClampWait(timeoutSec, session.MaxWait), ct).ConfigureAwait(false);
         return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
     });
 
@@ -84,7 +89,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
         if (r.BindError is not null)
             return ToolResponse.Ok(new { state = session.Mode, bindError = r.BindError, hint = "Pick a line with executable code." });
         session.MarkResumed(r.Seq);
-        var outcome = await session.WaitForBreakAfterAsync(r.Seq, waitForBreak, ct).ConfigureAwait(false);
+        var outcome = await session.WaitForBreakAfterAsync(r.Seq, ResumeWait(session), ct).ConfigureAwait(false);
         return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
     });
 
@@ -148,7 +153,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
 
             var warnings = check is null ? [] : await check(bridge, ctx).ConfigureAwait(false);
             var seq = await session.IssueAsync(() => command(bridge, ctx)).ConfigureAwait(false);
-            var outcome = await session.WaitForBreakAfterAsync(seq, waitForBreak, ct).ConfigureAwait(false);
+            var outcome = await session.WaitForBreakAfterAsync(seq, ResumeWait(session), ct).ConfigureAwait(false);
             return ToolResponse.OkWithWarnings(ToolResponse.FromOutcome(outcome), warnings);
         });
 }

@@ -280,6 +280,44 @@ public class ExecutionToolsTests
     }
 
     [Fact]
+    public void Wait_is_capped_by_the_limit_from_the_handshake()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(30), ExecutionTools.ClampWait(999, TimeSpan.FromSeconds(30)));
+        Assert.Equal(TimeSpan.FromSeconds(20), ExecutionTools.ClampWait(20, TimeSpan.FromSeconds(30)));
+        Assert.Equal(TimeSpan.FromSeconds(1), ExecutionTools.ClampWait(0, TimeSpan.FromSeconds(30)));
+    }
+
+    [Fact]
+    public void The_session_keeps_the_built_in_limits_until_the_handshake_sets_them()
+    {
+        var session = new DebugViaMcp.Mcp.Session.SessionState();
+        Assert.Equal(TimeSpan.FromSeconds(120), session.MaxWait);
+        Assert.Equal(TimeSpan.FromSeconds(600), session.MaxBuild);
+
+        session.SetLimits(45, 900);
+        Assert.Equal(TimeSpan.FromSeconds(45), session.MaxWait);
+        Assert.Equal(TimeSpan.FromSeconds(900), session.MaxBuild);
+
+        session.SetLimits(0, 0);   // an older extension does not send them
+        Assert.Equal(TimeSpan.FromSeconds(120), session.MaxWait);
+        Assert.Equal(TimeSpan.FromSeconds(600), session.MaxBuild);
+    }
+
+    [Fact]
+    public async Task A_resume_command_waits_no_longer_than_the_limit_from_the_options()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge());
+        cm.Session.SetLimits(1, 600);
+        var tools = new ExecutionTools(cm, TimeSpan.FromSeconds(30));
+
+        var started = DateTime.UtcNow;
+        var json = Json(await tools.Continue(CancellationToken.None));
+
+        Assert.Equal("running", json.GetProperty("state").GetString());
+        Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
     public async Task Bridge_failure_is_reported_as_error_code()
     {
         var cm = new FakeConnectionManager(new FakeDebugBridge())

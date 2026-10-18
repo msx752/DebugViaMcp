@@ -68,6 +68,25 @@ public sealed class SessionState : IDebugBridgeEvents
         }
     }
 
+    /// <summary>Longest a tool may wait for a break; the user's Options (sent in the handshake) can lower or raise it.</summary>
+    public static readonly TimeSpan DefaultMaxWait = TimeSpan.FromSeconds(120);
+
+    /// <summary>Longest vs_build may wait; see <see cref="DefaultMaxWait"/>.</summary>
+    public static readonly TimeSpan DefaultMaxBuild = TimeSpan.FromSeconds(600);
+
+    public TimeSpan MaxWait { get; private set; } = DefaultMaxWait;
+    public TimeSpan MaxBuild { get; private set; } = DefaultMaxBuild;
+
+    /// <summary>Applies the limits from the handshake; 0 (an older extension) keeps the built-in ones.</summary>
+    public void SetLimits(int maxWaitSeconds, int maxBuildSeconds)
+    {
+        lock (_gate)
+        {
+            MaxWait = maxWaitSeconds > 0 ? TimeSpan.FromSeconds(maxWaitSeconds) : DefaultMaxWait;
+            MaxBuild = maxBuildSeconds > 0 ? TimeSpan.FromSeconds(maxBuildSeconds) : DefaultMaxBuild;
+        }
+    }
+
     public void Reset(DebuggerMode mode, long seq)
     {
         lock (_gate)

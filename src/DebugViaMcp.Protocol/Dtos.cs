@@ -38,6 +38,13 @@ public sealed class HandshakeResponse
 
     /// <summary>Protocol 2.2. Log retention in days from Visual Studio's Options; 0 when the extension did not say.</summary>
     public int LogRetentionDays { get; set; }
+
+    /// <summary>Protocol 2.3. Longest a tool may wait for a break (debug_start, debug_continue, debug_step, debug_wait) in seconds,
+    /// from Visual Studio's Options; 0 when the extension did not say (the server then uses its built-in limit).</summary>
+    public int MaxWaitSeconds { get; set; }
+
+    /// <summary>Protocol 2.3. Longest vs_build may wait in seconds, from Visual Studio's Options; 0 when the extension did not say.</summary>
+    public int MaxBuildSeconds { get; set; }
 }
 
 public sealed class SourceLocation

@@ -23,8 +23,9 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
     private const string Read = Prefix + "read", Control = Prefix + "control", Mutate = Prefix + "mutate";
     private const string ConsentTimeout = Prefix + "consentTimeoutSeconds", AcceptOnStartup = Prefix + "acceptConnectionsOnStartup";
     private const string StatusBar = Prefix + "showStatusBarIndicator", LogLevel = Prefix + "logLevel", LogRetention = Prefix + "logRetentionDays";
+    private const string MaxWait = Prefix + "maxWaitSeconds", MaxBuild = Prefix + "maxBuildSeconds";
 
-    private static readonly string[] Monikers = [Read, Control, Mutate, ConsentTimeout, AcceptOnStartup, StatusBar, LogLevel, LogRetention];
+    private static readonly string[] Monikers = [Read, Control, Mutate, ConsentTimeout, AcceptOnStartup, StatusBar, LogLevel, LogRetention, MaxWait, MaxBuild];
 
     private readonly object _gate = new();
     private readonly Dictionary<string, string> _raw = new();
@@ -215,7 +216,9 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
         Bool(AcceptOnStartup, true),
         Bool(StatusBar, true),
         Enum(LogLevel, LogVerbosity.Information),
-        Int(LogRetention, 7, 1, 90));
+        Int(LogRetention, 7, 1, 90),
+        Int(MaxWait, 120, 5, 600),
+        Int(MaxBuild, 600, 30, 1800));
 
     /// <summary>String settings come back JSON-encoded ("Deny" with its quotes).</summary>
     private static string Unquote(string? data) =>

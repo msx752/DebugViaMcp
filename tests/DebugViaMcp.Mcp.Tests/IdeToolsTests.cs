@@ -64,6 +64,17 @@ public class IdeToolsTests
     }
 
     [Fact]
+    public async Task Build_wait_is_capped_by_the_limit_from_the_options()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design);
+        cm.Session.SetLimits(0, 90);
+
+        await new IdeTools(cm).Build(timeoutSec: 5000, ct: CancellationToken.None);
+
+        Assert.Contains("Build::90", cm.Bridge.Calls);
+    }
+
+    [Fact]
     public async Task Build_while_debugging_is_wrong_mode()
     {
         var json = Json(await new IdeTools(new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Break)).Build(ct: CancellationToken.None));

@@ -104,6 +104,7 @@ public sealed class BridgeConnection : IAsyncDisposable
         }
 
         session.Reset(handshake.Mode, handshake.Seq);
+        session.SetLimits(handshake.MaxWaitSeconds, handshake.MaxBuildSeconds);
         Log.Connected(logger, instance.Pid, handshake.VsVersion, handshake.VsixVersion);
         return new BridgeConnection(instance, stream, rpc, bridge, handshake);
     }

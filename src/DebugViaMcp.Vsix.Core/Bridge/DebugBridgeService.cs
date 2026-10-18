@@ -429,7 +429,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public Task<ErrorListPage> GetErrorListAsync(ErrorSeverity[] severities, int offset, int max, CancellationToken ct) =>
         ui.RunAsync(() => ErrorListShaping.Page(dte.ErrorItems(), severities ?? [], SolutionDir, offset, max), ct);
 
-    public const int MaxBuildSeconds = 600;
+    public const int MaxBuildSeconds = 1800;
 
     public BuildMonitor Builds { get; } = builds ?? new BuildMonitor();
 

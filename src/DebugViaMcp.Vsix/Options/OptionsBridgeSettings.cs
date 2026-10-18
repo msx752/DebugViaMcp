@@ -22,12 +22,14 @@ internal sealed class OptionsBridgeSettings(McpSettings settings) : IBridgeSetti
     public TimeSpan ConsentTimeout => settings.Applied.ConsentTimeout;
     public LogVerbosity LogLevel => settings.Applied.LogLevel;
     public int LogRetentionDays => settings.Applied.LogRetentionDays;
+    public int MaxWaitSeconds => settings.Applied.MaxWaitSeconds;
+    public int MaxBuildSeconds => settings.Applied.MaxBuildSeconds;
 }
 
 /// <summary>Immutable copy of the applied Options values.</summary>
-internal sealed class AppliedSettings(PermissionSet permissions, TimeSpan consentTimeout, bool acceptConnectionsOnStartup, bool showStatusBarIndicator, LogVerbosity logLevel, int logRetentionDays)
+internal sealed class AppliedSettings(PermissionSet permissions, TimeSpan consentTimeout, bool acceptConnectionsOnStartup, bool showStatusBarIndicator, LogVerbosity logLevel, int logRetentionDays, int maxWaitSeconds, int maxBuildSeconds)
 {
-    public static readonly AppliedSettings Defaults = new(new PermissionSet(), TimeSpan.FromSeconds(60), true, true, LogVerbosity.Information, 7);
+    public static readonly AppliedSettings Defaults = new(new PermissionSet(), TimeSpan.FromSeconds(60), true, true, LogVerbosity.Information, 7, 120, 600);
 
     public PermissionSet Permissions { get; } = permissions;
     public TimeSpan ConsentTimeout { get; } = consentTimeout;
@@ -35,4 +37,6 @@ internal sealed class AppliedSettings(PermissionSet permissions, TimeSpan consen
     public bool ShowStatusBarIndicator { get; } = showStatusBarIndicator;
     public LogVerbosity LogLevel { get; } = logLevel;
     public int LogRetentionDays { get; } = logRetentionDays;
+    public int MaxWaitSeconds { get; } = maxWaitSeconds;
+    public int MaxBuildSeconds { get; } = maxBuildSeconds;
 }

@@ -45,6 +45,12 @@ public interface IBridgeSettings
     TimeSpan ConsentTimeout { get; }
     LogVerbosity LogLevel { get; }
     int LogRetentionDays { get; }
+
+    /// <summary>Longest a tool may wait for a break, in seconds; the server clamps the agent's own wait to it.</summary>
+    int MaxWaitSeconds { get; }
+
+    /// <summary>Longest vs_build may wait, in seconds.</summary>
+    int MaxBuildSeconds { get; }
 }
 
 /// <summary>The single tier table (spec §3.1). New operations get their tier here.</summary>
