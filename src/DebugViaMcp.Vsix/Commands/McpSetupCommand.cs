@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Threading;
-using DebugViaMcp.Vsix.Core;
+using DebugViaMcp.Vsix.Core.Abstractions;
+using DebugViaMcp.Vsix.Core.Setup;
 
 namespace DebugViaMcp.Vsix.Commands;
 

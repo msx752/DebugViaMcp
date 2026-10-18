@@ -8,7 +8,7 @@ public class DependencyRuleTests
 {
     private static readonly Assembly Protocol = typeof(DebugViaMcp.Protocol.IDebugBridge).Assembly;
     private static readonly Assembly Mcp = typeof(DebugViaMcp.Mcp.Session.SessionState).Assembly;
-    private static readonly Assembly VsixCore = typeof(DebugViaMcp.Vsix.Core.DebugBridgeService).Assembly;
+    private static readonly Assembly VsixCore = typeof(DebugViaMcp.Vsix.Core.Bridge.DebugBridgeService).Assembly;
 
     private static string[] References(Assembly a) => a.GetReferencedAssemblies().Select(n => n.Name!).ToArray();
 

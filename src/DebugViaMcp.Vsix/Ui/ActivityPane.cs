@@ -1,7 +1,8 @@
 using System;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using DebugViaMcp.Vsix.Core;
+using DebugViaMcp.Vsix.Core.Debugging;
+using DebugViaMcp.Vsix.Core.Security;
 
 namespace DebugViaMcp.Vsix.Ui;
 

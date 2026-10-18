@@ -7,8 +7,8 @@ using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Threading;
-using DebugViaMcp.Vsix.Core;
 using IAsyncServiceProvider = Microsoft.VisualStudio.Shell.IAsyncServiceProvider;
+using DebugViaMcp.Vsix.Core.Security;
 
 namespace DebugViaMcp.Vsix.Ui;
 

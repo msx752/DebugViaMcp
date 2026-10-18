@@ -7,7 +7,9 @@ using System.Windows.Media;
 using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
-using DebugViaMcp.Vsix.Core;
+using DebugViaMcp.Vsix.Core.Abstractions;
+using DebugViaMcp.Vsix.Core.Instances;
+using DebugViaMcp.Vsix.Core.Security;
 
 namespace DebugViaMcp.Vsix.Ui;
 

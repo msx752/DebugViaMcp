@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
-using DebugViaMcp.Vsix.Core;
+using DebugViaMcp.Vsix.Core.Abstractions;
 
 namespace DebugViaMcp.Vsix.Logging;
 

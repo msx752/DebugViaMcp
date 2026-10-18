@@ -4,7 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using Microsoft.VisualStudio.Shell;
 using DebugViaMcp.Protocol;
-using DebugViaMcp.Vsix.Core;
+using DebugViaMcp.Vsix.Core.Abstractions;
+using DebugViaMcp.Vsix.Core.Security;
 using DebugViaMcp.Vsix.Options;
 using DebugViaMcp.Vsix.Ui;
 

@@ -1,5 +1,5 @@
 using System;
-using DebugViaMcp.Vsix.Core;
+using DebugViaMcp.Vsix.Core.Abstractions;
 
 namespace DebugViaMcp.Vsix.Logging;
 

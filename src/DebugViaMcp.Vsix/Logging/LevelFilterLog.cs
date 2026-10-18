@@ -1,6 +1,6 @@
 using System;
 using DebugViaMcp.Protocol;
-using DebugViaMcp.Vsix.Core;
+using DebugViaMcp.Vsix.Core.Abstractions;
 
 namespace DebugViaMcp.Vsix.Logging;
 
