@@ -74,6 +74,7 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
         using (var self = System.Diagnostics.Process.GetCurrentProcess()) pid = self.Id;
         var log = new LevelFilterLog(new CompositeLog(new OutputPaneLog(pane), new FileLog(DiscoveryPaths.LogsDirectory, pid)), () => mcpSettings.Applied.LogLevel);
         LogRetention.Prune(DiscoveryPaths.LogsDirectory, "vsix-", mcpSettings.Applied.LogRetentionDays, DateTimeOffset.UtcNow);
+        log.Info("Settings: " + mcpSettings.ReadSummary);
         if (settingsError is not null) log.Error("Could not read Visual Studio's settings; using the default settings", settingsError);
         var vsixVersion = typeof(VsMcpDebuggerPackage).Assembly.GetName().Version.ToString(3);
 
@@ -130,12 +131,26 @@ public sealed class VsMcpDebuggerPackage : AsyncPackage
             // Mutate = Allow in the settings (also one written while Visual Studio was closed) counts only after the user confirms it here.
             mcpSettings.MutateAllowRequested += (_, _) => _ = JoinableTaskFactory.RunAsync(async () =>
             {
-                await JoinableTaskFactory.SwitchToMainThreadAsync();
-                var answer = VsShellUtilities.ShowMessageBox(this,
-                    "The settings say Mutate = Allow: the agent could change program state without asking you. Until you confirm, VsMcpDebugger keeps asking. Allow it?",
-                    "VsMcpDebugger", OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_YESNO, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_SECOND);
-                if (answer == 6) mcpSettings.ConfirmMutateAllow();
-                else mcpSettings.DeclineMutateAllow();
+#pragma warning disable CA1031 // A failure here must not leave the confirmation pending forever: it is logged and treated as declined.
+                try
+                {
+                    log.Info("Mutate = Allow is stored: asking the user to confirm it");
+                    // Yield first: the request can arise during package initialisation, which the modal dialog must not block.
+                    await System.Threading.Tasks.Task.Yield();
+                    await JoinableTaskFactory.SwitchToMainThreadAsync();
+                    var answer = VsShellUtilities.ShowMessageBox(this,
+                        "The settings say Mutate = Allow: the agent could change program state without asking you. Until you confirm, VsMcpDebugger keeps asking. Allow it?",
+                        "VsMcpDebugger", OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_YESNO, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_SECOND);
+                    log.Info(answer == 6 ? "Mutate = Allow confirmed by the user" : "Mutate = Allow declined by the user");
+                    if (answer == 6) mcpSettings.ConfirmMutateAllow();
+                    else mcpSettings.DeclineMutateAllow();
+                }
+                catch (Exception e)
+                {
+                    log.Error("The Mutate = Allow confirmation failed", e);
+                    mcpSettings.DeclineMutateAllow();
+                }
+#pragma warning restore CA1031
             });
             mcpSettings.CheckMutateConfirmation();
             // Settings changes arrive on a background thread; the status bar belongs to the UI thread.
