@@ -4,7 +4,7 @@ using Xunit;
 
 namespace DebugViaMcp.Vsix.Core.Tests;
 
-/// <summary>Spike 2026-10-11 (docs/spikes/2026-10-11-nse.md): ', nse' discards side effects via DTE.</summary>
+/// <summary>Spike 2026-10-11 (docs/design/expression-side-effects-spike.md): ', nse' discards side effects via DTE.</summary>
 public class ExpressionPolicyTests
 {
     [Fact]

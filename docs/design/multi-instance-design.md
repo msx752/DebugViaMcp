@@ -5,7 +5,7 @@
 | **Status** | Implemented (feature/m3.1) |
 | **Date** | 2026-10-12 |
 | **Milestone** | M3.1 (multi-instance, doing the right thing in the right Visual Studio) |
-| **Parent specs** | [2026-10-11-debugviamcp-design.md](2026-10-11-debugviamcp-design.md) (§3.1 tools, §4 runtime model), [2026-10-11-debugviamcp-m2-safety-design.md](2026-10-11-debugviamcp-m2-safety-design.md) (tiers, consent, audit), [2026-10-11-debugviamcp-m3-design.md](2026-10-11-debugviamcp-m3-design.md) (tool set, protocol 2.1). Where this document is more specific, it wins. |
+| **Parent specs** | [design.md](design.md) (§3.1 tools, §4 runtime model), [safety-design.md](safety-design.md) (tiers, consent, audit), [tools-design.md](tools-design.md) (tool set, protocol 2.1). Where this document is more specific, it wins. |
 
 ## 1. Intent
 

@@ -80,7 +80,7 @@ See [docs/testing/m2-manual-e2e.md](docs/testing/m2-manual-e2e.md).
 
 ## Design
 
-See [docs/design/2026-10-11-debugviamcp-design.md](docs/design/2026-10-11-debugviamcp-design.md).
+See [docs/design/design.md](docs/design/design.md).
 
 ## License
 

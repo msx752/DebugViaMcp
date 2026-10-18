@@ -8,7 +8,7 @@ namespace DebugViaMcp.Vsix.Core;
 /// Keeps debugger expressions from mutating program state.
 /// <list type="bullet">
 /// <item><see cref="PrepareSideEffectFree"/> — for evaluate/drill-down: appends the C# ', nse' format specifier.
-/// Verified by spike 2026-10-11 (docs/spikes/2026-10-11-nse.md): calls are evaluated in a sandbox and their
+/// Verified by spike 2026-10-11 (docs/design/expression-side-effects-spike.md): calls are evaluated in a sandbox and their
 /// side effects are discarded.</item>
 /// <item><see cref="RequireNoSideEffects"/> — for breakpoint conditions and tracepoint placeholders, which run
 /// on every hit and cannot carry a format specifier: rejects anything that could have a side effect.</item>

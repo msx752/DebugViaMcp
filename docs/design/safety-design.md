@@ -5,7 +5,7 @@
 | **Status** | Draft — awaiting review |
 | **Date** | 2026-10-11 |
 | **Milestone** | M2 (safety & control) |
-| **Parent spec** | [2026-10-11-debugviamcp-design.md](2026-10-11-debugviamcp-design.md) — §5 (audit, correlation) and §6 (security). Where this document is more specific, it wins. |
+| **Parent spec** | [design.md](design.md) — §5 (audit, correlation) and §6 (security). Where this document is more specific, it wins. |
 
 ## 1. Intent
 

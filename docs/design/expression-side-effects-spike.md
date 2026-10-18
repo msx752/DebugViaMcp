@@ -1,8 +1,9 @@
 # Spike: side-effect-free evaluation via `, nse`
 
 Date: 2026-10-11 · VS version: Visual Studio Community 2026 (DTE `Version` 18.0, build 18.10.12217.157)
-Scripts: `scripts/spikes/nse-spike.ps1` (evaluations), `scripts/spikes/nse-spike-driver.ps1` (launches VS on
-`samples/OrderDemo`, sets a breakpoint on `var total = Calculate(order);`, runs to it via DTE).
+Scripts: `nse-spike.ps1` (evaluations) and `nse-spike-driver.ps1` (launches VS on `samples/OrderDemo`, sets a breakpoint on
+`var total = Calculate(order);`, runs to it via DTE) were removed from the tree once the spike was done; they are in the git
+history under `scripts/spikes/` (commit 31bf800).
 
 ## Question
 Does appending the C# `, nse` (no side effects) format specifier to an expression passed to
