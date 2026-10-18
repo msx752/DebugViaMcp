@@ -157,7 +157,7 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
         lock (_gate)
         {
             foreach (var result in results.Where(r => r.IsSuccess && r.Value is not null)) _raw[result.Moniker] = Unquote(result.Value!.Data);
-            ReadSummary = string.Join("; ", results.Select(r => $"{r.Moniker.Substring(Prefix.Length)}={r.ResultCode}:{r.Value?.Data}"));
+            ReadSummary = string.Join("; ", results.Select(r => $"{(r.Moniker.StartsWith(Prefix, StringComparison.Ordinal) ? r.Moniker.Substring(Prefix.Length) : r.Moniker)}={r.ResultCode}:{r.Value?.Data}"));
         }
 
         Recompute(announce);
