@@ -165,6 +165,8 @@ public sealed class DebugViaMcpPackage : AsyncPackage
                 _indicator?.Refresh();
             });
             log.Info($"Debugging via MCP {vsixVersion} ready (pid {pid}, protocol {ProtocolInfo.Major}.{ProtocolInfo.Minor})");
+            // Copying the server is file work: off the UI thread, and a failure only shows up in Set Up AI Agent.
+            _ = System.Threading.Tasks.Task.Run(() => McpServerInstaller.TryDeploy(log));
         }
 #pragma warning disable CA1031 // A startup failure must be logged, never crash Visual Studio.
         catch (Exception e)

@@ -46,6 +46,23 @@
     <Content Include="Resources\icon.png" IncludeInVSIX="true" />
     <Content Include="Resources\preview.png" IncludeInVSIX="true" />
   </ItemGroup>
+  <PropertyGroup>
+    <GetVsixSourceItemsDependsOn>$(GetVsixSourceItemsDependsOn);PublishMcpServer</GetVsixSourceItemsDependsOn>
+  </PropertyGroup>
+  <!-- The extension carries the MCP server (framework-dependent, so it needs the .NET 10 runtime) and copies it to
+       %LOCALAPPDATA%\DebugViaMcp\bin on start, so there is no separate tool to install. -->
+  <Target Name="PublishMcpServer">
+    <PropertyGroup>
+      <McpServerPublishDir>$(MSBuildProjectDirectory)\$(IntermediateOutputPath)mcp-server</McpServerPublishDir>
+    </PropertyGroup>
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\DebugViaMcp.Mcp\DebugViaMcp.Mcp.csproj&quot; -c $(Configuration) -o &quot;$(McpServerPublishDir)&quot; --nologo -v:q -p:UseAppHost=false -p:DebugType=None -p:DebugSymbols=false" />
+    <ItemGroup>
+      <_McpServerFile Include="$(McpServerPublishDir)\**\*" />
+      <VSIXSourceItem Include="@(_McpServerFile)">
+        <VSIXSubPath>McpServer\%(RecursiveDir)</VSIXSubPath>
+      </VSIXSourceItem>
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <!-- Visual Studio ships these; bundling our own copies would risk version conflicts in devenv.exe. -->
     <SuppressFromVsix Include="System.Text.Encodings.Web.dll" />

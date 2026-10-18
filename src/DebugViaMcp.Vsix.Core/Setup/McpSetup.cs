@@ -3,17 +3,18 @@ namespace DebugViaMcp.Vsix.Core.Setup;
 /// <summary>Wording of Extensions → Debugging via MCP → Copy MCP Setup Command.</summary>
 public static class McpSetup
 {
-    /// <summary>What goes on the clipboard: install the MCP server, then register it with Claude Code.</summary>
-    public const string Commands = "dotnet tool install -g DebugViaMcp --prerelease\nclaude mcp add debugviamcp -- debugviamcp serve";
+    /// <summary>What goes on the clipboard: the command that registers the extension's MCP server with Claude Code.</summary>
+    public static string Commands(string launcherPath) => McpSetupPlan.RegisterCommand(launcherPath);
 
     public const string Title = "Debugging via MCP - MCP setup";
 
     public const string Explanation =
-        "The setup commands are on the clipboard.\n\n" +
-        "Paste them into a terminal. They install the MCP server (needs the .NET 10 SDK) and register it with Claude Code. " +
-        "Another MCP client needs its own registration of the command \"debugviamcp serve\".\n\n" +
-        "Open a new terminal afterwards so the tool is on your PATH, then start your agent in the folder of this solution.";
+        "The setup command is on the clipboard.\n\n" +
+        "Paste it into a terminal. It registers the MCP server that this extension installed with Claude Code " +
+        "(the server needs the .NET 10 runtime). " +
+        "Another MCP client needs its own registration of the same command.\n\n" +
+        "Then start your agent in the folder of this solution. Debugging via MCP works with Visual Studio only, not with Visual Studio Code.";
 
-    public const string ClipboardFailed =
-        "The clipboard is not available right now. Run these commands in a terminal:\n\n" + Commands;
+    public static string ClipboardFailed(string launcherPath) =>
+        "The clipboard is not available right now. Run this command in a terminal:\n\n" + Commands(launcherPath);
 }

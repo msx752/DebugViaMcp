@@ -5,30 +5,28 @@ namespace DebugViaMcp.Vsix.Core.Tests.Setup;
 
 public class McpSetupTests
 {
-    [Fact]
-    public void The_copied_text_is_exactly_the_two_commands_one_per_line()
-    {
-        var lines = McpSetup.Commands.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+    private const string Launcher = @"C:\Users\me\AppData\Local\DebugViaMcp\debugviamcp.cmd";
 
-        Assert.Equal(2, lines.Length);
-        Assert.Equal("dotnet tool install -g DebugViaMcp --prerelease", lines[0]);
-        Assert.Equal("claude mcp add debugviamcp -- debugviamcp serve", lines[1]);
+    [Fact]
+    public void The_copied_text_is_the_registration_command_with_the_launcher_path()
+    {
+        Assert.Equal("claude mcp add --scope user debugviamcp -- \"" + Launcher + "\" serve", McpSetup.Commands(Launcher));
     }
 
     [Fact]
-    public void The_explanation_names_what_is_needed_and_what_to_do_next()
+    public void The_explanation_names_what_is_needed_and_that_only_visual_studio_is_supported()
     {
         var text = McpSetup.Explanation;
 
-        Assert.Contains(".NET 10 SDK", text, StringComparison.Ordinal);
-        Assert.Contains("terminal", text, StringComparison.Ordinal);
+        Assert.Contains(".NET 10 runtime", text, StringComparison.Ordinal);
         Assert.Contains("MCP client", text, StringComparison.Ordinal);
-        Assert.DoesNotContain(McpSetup.Commands, text, StringComparison.Ordinal);   // the commands are on the clipboard, not repeated
+        Assert.Contains("Visual Studio only", text, StringComparison.Ordinal);
+        Assert.DoesNotContain(McpSetup.Commands(Launcher), text, StringComparison.Ordinal);   // the command is on the clipboard, not repeated
     }
 
     [Fact]
-    public void The_fallback_text_shows_the_commands_when_the_clipboard_is_unavailable()
+    public void The_fallback_text_shows_the_command_when_the_clipboard_is_unavailable()
     {
-        Assert.Contains(McpSetup.Commands, McpSetup.ClipboardFailed, StringComparison.Ordinal);
+        Assert.Contains(McpSetup.Commands(Launcher), McpSetup.ClipboardFailed(Launcher), StringComparison.Ordinal);
     }
 }

@@ -32,8 +32,7 @@ internal static class DebugViaMcpCommands
             Directory.CreateDirectory(DiscoveryPaths.LogsDirectory);
             Process.Start(new ProcessStartInfo("explorer.exe", "\"" + DiscoveryPaths.LogsDirectory + "\"") { UseShellExecute = true })?.Dispose();
         });
-        var version = typeof(DebugViaMcpCommands).Assembly.GetName().Version.ToString(3);
-        Add(commands, SetupAgent, (_, _) => McpSetupCommand.Run(package, log, version));
+        Add(commands, SetupAgent, (_, _) => McpSetupCommand.Run(package, log));
         Add(commands, CopyMcpSetup, (_, _) => McpSetupCommand.CopyCommands(package));
         Add(commands, OpenOptions, (_, _) =>
         {

@@ -20,6 +20,10 @@
 .PARAMETER UninstallOnly
   Only remove the extension.
 
+.PARAMETER InstallerTimeoutSeconds
+  How long VSIXInstaller may take for the removal or the installation (default 180). A stuck installer is stopped after that
+  (only the one this script started) instead of hanging forever.
+
 .EXAMPLE
   powershell -File scripts\reinstall-vsix.ps1 -Build
 #>
@@ -27,7 +31,8 @@ param(
     [switch]$Build,
     [ValidateSet('Release', 'Debug')][string]$Configuration = 'Release',
     [string]$VsixPath,
-    [switch]$UninstallOnly
+    [switch]$UninstallOnly,
+    [int]$InstallerTimeoutSeconds = 180
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -48,6 +53,17 @@ if ($env:USERPROFILE -ne $realHome) {
     $env:USERPROFILE = $realHome
     $env:LOCALAPPDATA = Join-Path $realHome 'AppData\Local'
     $env:APPDATA = Join-Path $realHome 'AppData\Roaming'
+}
+
+# Runs VSIXInstaller and waits for it, but not forever. Returns the exit code, or $null when it had to be stopped.
+function Invoke-VsixInstaller([string]$What, [string[]]$Arguments) {
+    $running = Get-Process VSIXInstaller -ErrorAction SilentlyContinue
+    if ($running) { throw "Another VSIXInstaller is running (process id $($running.Id -join ', ')). Wait for it to finish, then run this script again." }
+    $run = Start-Process -FilePath $installer -ArgumentList $Arguments -PassThru
+    if ($run.WaitForExit($InstallerTimeoutSeconds * 1000)) { return $run.ExitCode }
+    Write-Host "VSIXInstaller did not finish $What within $InstallerTimeoutSeconds s; stopping it (only the one this script started)." -ForegroundColor Yellow
+    Stop-Process -Id $run.Id -Force -ErrorAction SilentlyContinue
+    return $null
 }
 
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
@@ -71,9 +87,12 @@ if ($Build -and -not $UninstallOnly) {
 }
 
 Write-Host 'Removing the installed extension ...' -ForegroundColor Cyan
-$uninstall = Start-Process -FilePath $installer -ArgumentList @('/quiet', "/uninstall:$extensionId", "/instanceIds:$instanceId") -Wait -PassThru
-if ($uninstall.ExitCode -ne 0) {
-    Write-Host "  VSIXInstaller exit code $($uninstall.ExitCode) (the extension was probably not installed; continuing)." -ForegroundColor Yellow
+$uninstallCode = Invoke-VsixInstaller 'the removal' @('/quiet', "/uninstall:$extensionId", "/instanceIds:$instanceId")
+if ($null -eq $uninstallCode) {
+    throw 'The removal got stuck. Close every Visual Studio window and any other VSIXInstaller, then run this script again. The extension''s MCP server runs from %LOCALAPPDATA%\DebugViaMcp\bin, not from the extension folder, so a running agent does not block the removal.'
+}
+if ($uninstallCode -ne 0) {
+    Write-Host "  VSIXInstaller exit code $uninstallCode (the extension was probably not installed; continuing)." -ForegroundColor Yellow
 }
 
 if ($UninstallOnly) {
@@ -83,8 +102,9 @@ if ($UninstallOnly) {
 
 if (-not (Test-Path $VsixPath)) { throw "VSIX not found: $VsixPath (use -Build to create it)." }
 Write-Host "Installing $VsixPath ..." -ForegroundColor Cyan
-$installRun = Start-Process -FilePath $installer -ArgumentList @('/quiet', "/instanceIds:$instanceId", "`"$VsixPath`"") -Wait -PassThru
-if ($installRun.ExitCode -ne 0) { throw "VSIXInstaller failed with exit code $($installRun.ExitCode)." }
+$installCode = Invoke-VsixInstaller 'the installation' @('/quiet', "/instanceIds:$instanceId", "`"$VsixPath`"")
+if ($null -eq $installCode) { throw 'The installation got stuck. Close every Visual Studio window and any other VSIXInstaller, then run this script again.' }
+if ($installCode -ne 0) { throw "VSIXInstaller failed with exit code $installCode." }
 
 Write-Host ''
 Write-Host 'Installed. Start Visual Studio, open a solution and look for this line in View > Output > Debugging via MCP:' -ForegroundColor Green

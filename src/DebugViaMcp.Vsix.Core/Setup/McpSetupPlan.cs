@@ -6,20 +6,22 @@ using System.Text.RegularExpressions;
 
 namespace DebugViaMcp.Vsix.Core.Setup;
 
-public enum SetupStepKind { InstallTool, UpdateTool, RegisterClaude }
+public enum SetupStepKind { RemoveOldRegistration, RegisterClaude }
+
+/// <summary>How the server is registered with Claude Code.</summary>
+public enum ClaudeRegistration { Unknown, None, Current, Other }
 
 /// <summary>What was found on this machine; null means "could not be determined".</summary>
 public sealed class SetupState
 {
-    public int? DotnetSdkMajor { get; set; }
-    public string? ToolVersion { get; set; }
+    public int? DotnetRuntimeMajor { get; set; }
+
+    /// <summary>The extension has put its MCP server and launcher in place.</summary>
+    public bool ServerDeployed { get; set; }
+
+    public string LauncherPath { get; set; } = "";
     public bool? ClaudeFound { get; set; }
-    public bool? ClaudeRegistered { get; set; }
-
-    /// <summary>Number of running debugviamcp processes (agent sessions use one each); they lock the installed files.</summary>
-    public int ToolProcessesRunning { get; set; }
-
-    public string ExtensionVersion { get; set; } = "";
+    public ClaudeRegistration Registration { get; set; } = ClaudeRegistration.Unknown;
 }
 
 /// <summary>One command the setup may run. Every command is a fixed string: nothing an agent or a file supplies goes into it.</summary>
@@ -48,115 +50,89 @@ public sealed class SetupPlan
 /// <summary>Decides what "Set Up AI Agent" has to do, from what was detected. Pure: no processes, no file access.</summary>
 public static class McpSetupPlan
 {
-    public const int RequiredSdkMajor = 10;
+    public const int RequiredRuntimeMajor = 10;
 
     public static SetupPlan Create(SetupState state)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
         var lines = new List<string>();
         var steps = new List<SetupStep>();
-        var sdkOk = state.DotnetSdkMajor is >= RequiredSdkMajor;
 
-        lines.Add(state.DotnetSdkMajor switch
+        lines.Add(state.DotnetRuntimeMajor switch
         {
-            null => "UNKNOWN  .NET SDK: could not run dotnet.",
-            >= RequiredSdkMajor => $"OK       .NET SDK {state.DotnetSdkMajor.Value.ToString(CultureInfo.InvariantCulture)} is installed.",
-            _ => $"MISSING  The .NET {RequiredSdkMajor.ToString(CultureInfo.InvariantCulture)} SDK is required for the MCP server (the highest found is {state.DotnetSdkMajor.Value.ToString(CultureInfo.InvariantCulture)}).",
+            null => "UNKNOWN  .NET runtime: could not run dotnet.",
+            >= RequiredRuntimeMajor => $"OK       .NET {state.DotnetRuntimeMajor.Value.ToString(CultureInfo.InvariantCulture)} runtime is installed.",
+            _ => $"MISSING  The .NET {RequiredRuntimeMajor.ToString(CultureInfo.InvariantCulture)} runtime is required for the MCP server (the highest found is {state.DotnetRuntimeMajor.Value.ToString(CultureInfo.InvariantCulture)}).",
         });
 
-        if (state.ToolVersion is null)
-        {
-            lines.Add("MISSING  The MCP server tool (debugviamcp) is not installed.");
-            if (sdkOk) steps.Add(Step(SetupStepKind.InstallTool, "Install the MCP server tool", "dotnet", "tool install -g DebugViaMcp --prerelease"));
-        }
-        else if (SameRelease(state.ToolVersion, state.ExtensionVersion))
-        {
-            lines.Add($"OK       MCP server tool {state.ToolVersion} matches this extension.");
-        }
-        else
-        {
-            lines.Add($"MISSING  MCP server tool {state.ToolVersion} is not the release of this extension ({state.ExtensionVersion}).");
-            if (state.ToolProcessesRunning > 0)
-            {
-                // A running tool locks its files, so the update would fail halfway. Closing somebody's agent session is not ours to do.
-                lines.Add($"MISSING  {state.ToolProcessesRunning.ToString(CultureInfo.InvariantCulture)} debugviamcp process(es) are running (an agent such as Claude Code uses one per session). " +
-                    "Close those agent sessions, then run Set Up AI Agent again; the old version keeps running until then.");
-            }
-            else if (sdkOk)
-            {
-                steps.Add(Step(SetupStepKind.UpdateTool, "Update the MCP server tool", "dotnet", "tool update -g DebugViaMcp --prerelease"));
-            }
-        }
+        lines.Add(state.ServerDeployed
+            ? $"OK       The MCP server of this extension is installed ({state.LauncherPath})."
+            : "MISSING  The extension could not install its MCP server. See View → Output → Debugging via MCP, then restart Visual Studio.");
 
         if (state.ClaudeFound is false)
         {
-            lines.Add("MISSING  Claude Code was not found. In another MCP client, register the command: debugviamcp serve");
+            lines.Add($"MISSING  Claude Code was not found. In another MCP client, register the command: {Quote(state.LauncherPath)} serve");
         }
         else if (state.ClaudeFound is null)
         {
             lines.Add("UNKNOWN  Claude Code: could not be checked.");
         }
-        else if (state.ClaudeRegistered is true)
+        else switch (state.Registration)
         {
-            lines.Add("OK       The server is registered with Claude Code.");
-        }
-        else if (state.ClaudeRegistered is false)
-        {
-            lines.Add("MISSING  The server is not registered with Claude Code.");
-            // Registering a command that will not exist helps nobody: only when the tool is there or about to be installed.
-            if (state.ToolVersion is not null || steps.Any(s => s.Kind == SetupStepKind.InstallTool)) steps.Add(Step(SetupStepKind.RegisterClaude, "Register the server with Claude Code (for all your projects)", "cmd.exe", "/c claude mcp add --scope user debugviamcp -- debugviamcp serve",
-                "claude mcp add --scope user debugviamcp -- debugviamcp serve"));
-        }
-        else
-        {
-            lines.Add("UNKNOWN  Claude Code registration could not be checked.");
+            case ClaudeRegistration.Current:
+                lines.Add("OK       The server is registered with Claude Code.");
+                break;
+            case ClaudeRegistration.None:
+                lines.Add("MISSING  The server is not registered with Claude Code.");
+                AddRegister(steps, state);
+                break;
+            case ClaudeRegistration.Other:
+                lines.Add("MISSING  The server is registered with Claude Code under an older command.");
+                if (state.ServerDeployed)
+                    steps.Add(Step(SetupStepKind.RemoveOldRegistration, "Remove the old registration", "cmd.exe", "/c claude mcp remove --scope user debugviamcp", "claude mcp remove --scope user debugviamcp"));
+                AddRegister(steps, state);
+                break;
+            default:
+                lines.Add("UNKNOWN  Claude Code registration could not be checked.");
+                break;
         }
 
         return new SetupPlan { Lines = lines, Steps = steps };
     }
 
+    /// <summary>The registration command; the launcher path never changes with the extension version.</summary>
+    public static string RegisterCommand(string launcherPath) => $"claude mcp add --scope user debugviamcp -- {Quote(launcherPath)} serve";
+
+    // Registering a command that does not exist helps nobody: only when the server is in place.
+    private static void AddRegister(List<SetupStep> steps, SetupState state)
+    {
+        if (!state.ServerDeployed) return;
+        steps.Add(Step(SetupStepKind.RegisterClaude, "Register the server with Claude Code (for all your projects)", "cmd.exe", "/c " + RegisterCommand(state.LauncherPath), RegisterCommand(state.LauncherPath)));
+    }
+
+    private static string Quote(string path) => "\"" + path + "\"";
+
     private static SetupStep Step(SetupStepKind kind, string title, string file, string arguments, string? display = null) =>
         new() { Kind = kind, Title = title, FileName = file, Arguments = arguments, Display = display ?? (file + " " + arguments) };
 
-    /// <summary>The same major.minor.patch counts as the same release; a preview suffix does not matter.</summary>
-    private static bool SameRelease(string tool, string extension) =>
-        Core(tool) is { } a && Core(extension) is { } b && a == b;
-
-    private static Version? Core(string version)
-    {
-        var cut = version.IndexOfAny(['-', '+']);
-        var text = cut >= 0 ? version.Substring(0, cut) : version;
-        var parts = text.Split('.');
-        if (parts.Length < 3) return Version.TryParse(text, out var two) ? two : null;
-        return Version.TryParse(string.Join(".", parts.Take(3)), out var v) ? v : null;
-    }
-
-    /// <summary>Highest SDK major in <c>dotnet --list-sdks</c> output; null when none is listed.</summary>
-    public static int? ParseSdkMajor(string? output)
+    /// <summary>Highest major of the Microsoft.NETCore.App runtime in <c>dotnet --list-runtimes</c> output; null when none is listed.</summary>
+    public static int? ParseRuntimeMajor(string? output)
     {
         int? best = null;
         foreach (var line in (output ?? "").Split('\n'))
         {
-            var m = Regex.Match(line, @"^\s*(\d+)\.\d+\.\d+", RegexOptions.None, TimeSpan.FromSeconds(1));
+            var m = Regex.Match(line, @"^\s*Microsoft\.NETCore\.App\s+(\d+)\.\d+\.\d+", RegexOptions.None, TimeSpan.FromSeconds(1));
             if (m.Success && int.TryParse(m.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var major) && (best is null || major > best)) best = major;
         }
 
         return best;
     }
 
-    /// <summary>Version of the debugviamcp package in <c>dotnet tool list -g</c> output; null when it is not listed.</summary>
-    public static string? ParseToolVersion(string? output)
+    /// <summary>How <c>claude mcp list</c> output shows the debugviamcp server: not at all, with this launcher, or with another command.</summary>
+    public static ClaudeRegistration ParseRegistration(string? output, string launcherPath)
     {
-        foreach (var line in (output ?? "").Split('\n'))
-        {
-            var cells = line.Split([' ', '\t', '\r'], StringSplitOptions.RemoveEmptyEntries);
-            if (cells.Length >= 2 && string.Equals(cells[0], "debugviamcp", StringComparison.OrdinalIgnoreCase)) return cells[1];
-        }
-
-        return null;
+        var line = (output ?? "").Split('\n').FirstOrDefault(l => l.TrimStart().StartsWith("debugviamcp:", StringComparison.OrdinalIgnoreCase));
+        if (line is null) return ClaudeRegistration.None;
+        return launcherPath.Length > 0 && line.IndexOf(launcherPath, StringComparison.OrdinalIgnoreCase) >= 0 ? ClaudeRegistration.Current : ClaudeRegistration.Other;
     }
-
-    /// <summary>True when <c>claude mcp list</c> output has a server named debugviamcp.</summary>
-    public static bool ParseRegistered(string? output) =>
-        (output ?? "").Split('\n').Any(l => l.TrimStart().StartsWith("debugviamcp:", StringComparison.OrdinalIgnoreCase));
 }

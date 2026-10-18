@@ -11,18 +11,21 @@ using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Threading;
 using DebugViaMcp.Vsix.Core.Abstractions;
 using DebugViaMcp.Vsix.Core.Setup;
+using DebugViaMcp.Vsix.Infrastructure;
 
 namespace DebugViaMcp.Vsix.Commands;
 
 /// <summary>
-/// Extensions → Debugging via MCP → Set Up AI Agent: finds out what is installed (.NET SDK, the MCP server tool, Claude Code
-/// and its registration), lists what is missing and, only after the user agrees, runs the fixed commands that fix it.
+/// Extensions → Debugging via MCP → Set Up AI Agent: makes sure the extension's MCP server is installed, finds out what else is
+/// there (.NET runtime, Claude Code and its registration), lists what is missing and, only after the user agrees, runs the fixed commands that fix it.
 /// Nothing here takes input from an agent or a file: every command comes from <see cref="McpSetupPlan"/>.
 /// </summary>
 internal static class McpSetupCommand
 {
     private static readonly TimeSpan QuickProbe = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan SlowProbe = TimeSpan.FromSeconds(60);   // claude mcp list health-checks every server
+    internal static readonly string Root = DebugViaMcp.Protocol.DiscoveryPaths.Root;
+
     private static readonly TimeSpan StepTimeout = TimeSpan.FromMinutes(5);
 
     private static int _running;
@@ -33,7 +36,7 @@ internal static class McpSetupCommand
         var copied = false;
         try
         {
-            System.Windows.Clipboard.SetText(McpSetup.Commands);
+            System.Windows.Clipboard.SetText(McpSetup.Commands(McpServerDeployer.LauncherPath(Root)));
             copied = true;
         }
         catch (System.Runtime.InteropServices.ExternalException)
@@ -41,12 +44,12 @@ internal static class McpSetupCommand
             // Another program holds the clipboard; the message below shows the commands instead.
         }
 
-        VsShellUtilities.ShowMessageBox(package, copied ? McpSetup.Explanation : McpSetup.ClipboardFailed, McpSetup.Title,
+        VsShellUtilities.ShowMessageBox(package, copied ? McpSetup.Explanation : McpSetup.ClipboardFailed(McpServerDeployer.LauncherPath(Root)), McpSetup.Title,
             Microsoft.VisualStudio.Shell.Interop.OLEMSGICON.OLEMSGICON_INFO, Microsoft.VisualStudio.Shell.Interop.OLEMSGBUTTON.OLEMSGBUTTON_OK,
             Microsoft.VisualStudio.Shell.Interop.OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
     }
 
-    public static void Run(AsyncPackage package, ILog log, string extensionVersion)
+    public static void Run(AsyncPackage package, ILog log)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return;   // one setup at a time
@@ -55,7 +58,7 @@ internal static class McpSetupCommand
         {
             try
             {
-                await RunCoreAsync(package, log, extensionVersion).ConfigureAwait(true);
+                await RunCoreAsync(package, log).ConfigureAwait(true);
             }
             finally
             {
@@ -64,14 +67,15 @@ internal static class McpSetupCommand
         }).FileAndForget("DebugViaMcp/McpSetup");
     }
 
-    private static async Task RunCoreAsync(AsyncPackage package, ILog log, string extensionVersion)
+    private static async Task RunCoreAsync(AsyncPackage package, ILog log)
     {
         var jtf = package.JoinableTaskFactory;
         await jtf.SwitchToMainThreadAsync();
         SetStatus(package, "Debugging via MCP: checking the AI agent setup...");
 
         await TaskScheduler.Default;
-        var plan = McpSetupPlan.Create(await DetectAsync(extensionVersion).ConfigureAwait(false));
+        McpServerInstaller.TryDeploy(log);
+        var plan = McpSetupPlan.Create(await DetectAsync().ConfigureAwait(false));
 
         await jtf.SwitchToMainThreadAsync();
         SetStatus(package, "");
@@ -101,23 +105,19 @@ internal static class McpSetupCommand
             }
         }
 
-        var after = McpSetupPlan.Create(await DetectAsync(extensionVersion).ConfigureAwait(false));
+        var after = McpSetupPlan.Create(await DetectAsync().ConfigureAwait(false));
         await jtf.SwitchToMainThreadAsync();
         Show(package, (failure is null ? "" : failure + "\n\n") + "Status now:\n" + Summary(after) +
-            (after.IsComplete ? "\n\nDone. Open a new terminal if one was already open (so the tool is on its PATH), restart agent sessions that were already running (they keep the old version until then), then start your agent in the folder of your solution." : ""));
+            (after.IsComplete ? "\n\nDone. Restart agent sessions that were already running (they keep the old registration until then), then start your agent in the folder of your solution." : ""));
     }
 
-    private static async Task<SetupState> DetectAsync(string extensionVersion)
+    private static async Task<SetupState> DetectAsync()
     {
-        var state = new SetupState { ExtensionVersion = extensionVersion };
+        var launcher = McpServerDeployer.LauncherPath(Root);
+        var state = new SetupState { LauncherPath = launcher, ServerDeployed = McpServerDeployer.IsDeployed(Root) };
 
-        var sdks = await ProcessRunner.RunAsync("dotnet", "--list-sdks", QuickProbe).ConfigureAwait(false);
-        if (sdks.Started && !sdks.TimedOut && sdks.ExitCode == 0) state.DotnetSdkMajor = McpSetupPlan.ParseSdkMajor(sdks.Output) ?? 0;
-
-        state.ToolProcessesRunning = CountToolProcesses();
-
-        var tools = await ProcessRunner.RunAsync("dotnet", "tool list -g", QuickProbe).ConfigureAwait(false);
-        if (tools.Started && !tools.TimedOut && tools.ExitCode == 0) state.ToolVersion = McpSetupPlan.ParseToolVersion(tools.Output);
+        var runtimes = await ProcessRunner.RunAsync("dotnet", "--list-runtimes", QuickProbe).ConfigureAwait(false);
+        if (runtimes.Started && !runtimes.TimedOut && runtimes.ExitCode == 0) state.DotnetRuntimeMajor = McpSetupPlan.ParseRuntimeMajor(runtimes.Output) ?? 0;
 
         var where = await ProcessRunner.RunAsync("cmd.exe", "/c where claude", QuickProbe).ConfigureAwait(false);
         if (where.Started && !where.TimedOut)
@@ -126,29 +126,11 @@ internal static class McpSetupCommand
             if (state.ClaudeFound is true)
             {
                 var list = await ProcessRunner.RunAsync("cmd.exe", "/c claude mcp list", SlowProbe).ConfigureAwait(false);
-                if (list.Started && !list.TimedOut && list.ExitCode == 0) state.ClaudeRegistered = McpSetupPlan.ParseRegistered(list.Output);
+                if (list.Started && !list.TimedOut && list.ExitCode == 0) state.Registration = McpSetupPlan.ParseRegistration(list.Output, launcher);
             }
         }
 
         return state;
-    }
-
-    private static int CountToolProcesses()
-    {
-        try
-        {
-            var running = Process.GetProcessesByName("debugviamcp");
-            foreach (var p in running) p.Dispose();
-            return running.Length;
-        }
-        catch (InvalidOperationException)
-        {
-            return 0;
-        }
-        catch (Win32Exception)
-        {
-            return 0;
-        }
     }
 
     private static string Summary(SetupPlan plan) => string.Join("\n", plan.Lines);

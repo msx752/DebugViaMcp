@@ -14,11 +14,17 @@ the `debugviamcp` tool are released together with the same version.
 - One agent at a time per Visual Studio: the first state-changing command (breakpoint, build, start, attach, ...) takes
   it, a second agent gets `in_use`. `vs_release`, a closed connection or Disconnect AI frees it. The status bar and
   `vs_instances` show who holds it.
-- **Extensions → Debugging via MCP → Set Up AI Agent…**: checks the .NET SDK, the `debugviamcp` tool (and that its version
-  matches the extension) and the Claude Code registration, lists what is missing and, after you confirm, installs or
-  updates the tool and registers it (`claude mcp add --scope user`). It never runs anything without your confirmation.
-- **Extensions → Debugging via MCP → Copy MCP Setup Command**: puts the two setup commands (install the tool, register it with
-  Claude Code) on the clipboard, for people who installed only the extension from the Marketplace.
+- The extension carries the MCP server. When Visual Studio starts it copies the server to
+  `%LOCALAPPDATA%\DebugViaMcp\bin\<build>` and writes a launcher, `%LOCALAPPDATA%\DebugViaMcp\debugviamcp.cmd`, whose path
+  never changes. There is no separate tool to install (the server needs the .NET 10 runtime), updates do not touch a
+  server an agent is still running, and uninstalling the extension is never blocked by a running agent.
+- **Extensions → Debugging via MCP → Set Up AI Agent…**: checks the .NET runtime, the installed server and the Claude Code
+  registration, lists what is missing and, after you confirm, registers the launcher (`claude mcp add --scope user`;
+  an older registration is replaced). It never runs anything without your confirmation.
+- **Extensions → Debugging via MCP → Copy MCP Setup Command**: puts the registration command on the clipboard.
+- Visual Studio only: Visual Studio Code is not supported, and the documentation says so.
+- `scripts\reinstall-vsix.ps1` stops a stuck VSIXInstaller after `-InstallerTimeoutSeconds` (default 180) instead of
+  hanging, and refuses to start while another VSIXInstaller runs.
 - The **Log retention (days)** option now also applies to the MCP server's own log files (`mcp-*.log`), not only to the
   extension's logs and the audit trail.
 - `debug_start(project)` starts the named project and leaves the solution's startup project as it was.
