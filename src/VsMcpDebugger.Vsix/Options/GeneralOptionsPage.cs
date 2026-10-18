@@ -14,6 +14,11 @@ public sealed class GeneralOptionsPage : DialogPage
 {
     private const int IdYes = 6;
 
+    // The property grid sorts categories alphabetically. Leading tab characters (not visible) put Permissions first, then
+    // Connection, then Logging.
+    private const string PermissionsCategory = "\t\tPermissions";
+    private const string ConnectionCategory = "\tConnection";
+
     private int _consentTimeoutSeconds = 60;
     private int _logRetentionDays = 7;
     private PermissionLevel _appliedRead = PermissionLevel.Allow;
@@ -32,26 +37,26 @@ public sealed class GeneralOptionsPage : DialogPage
     /// <summary>Raised after every successful Apply/OK.</summary>
     public event EventHandler? AnyApplied;
 
-    [Category("Permissions"), DisplayName("Read"), Description("Status, threads, call stack, variables, side-effect-free evaluation, the current exception, the Output window and the Error List.")]
+    [Category(PermissionsCategory), DisplayName("Read"), Description("Status, threads, call stack, variables, side-effect-free evaluation, the current exception, the Output window and the Error List.")]
     public PermissionLevel Read { get; set; } = PermissionLevel.Allow;
 
-    [Category("Permissions"), DisplayName("Control"), Description("Breakpoints without conditions (set, remove, enable/disable), start, stop, continue, pause, step, run to, and Visual Studio builds.")]
+    [Category(PermissionsCategory), DisplayName("Control"), Description("Breakpoints without conditions (set, remove, enable/disable), start, stop, continue, pause, step, run to, and Visual Studio builds.")]
     public PermissionLevel Control { get; set; } = PermissionLevel.Allow;
 
-    [Category("Permissions"), DisplayName("Mutate"), Description("set_value, evaluation with side effects, breakpoint conditions or tracepoints (set or re-enabled; they run in your program on every hit), and attaching the debugger to a running process. 'Ask' shows an info bar for each request.")]
+    [Category(PermissionsCategory), DisplayName("Mutate"), Description("set_value, evaluation with side effects, breakpoint conditions or tracepoints (set or re-enabled; they run in your program on every hit), and attaching the debugger to a running process. 'Ask' shows an info bar for each request.")]
     public PermissionLevel Mutate { get; set; } = PermissionLevel.Ask;
 
-    [Category("Permissions"), DisplayName("Consent timeout (seconds)"), Description("No answer within this time denies the request (15–300).")]
+    [Category(PermissionsCategory), DisplayName("Consent timeout (seconds)"), Description("No answer within this time denies the request (15–300).")]
     public int ConsentTimeoutSeconds
     {
         get => _consentTimeoutSeconds;
         set => _consentTimeoutSeconds = Math.Max(15, Math.Min(300, value));
     }
 
-    [Category("Connection"), DisplayName("Accept AI connections when Visual Studio starts"), Description("Off: every session starts as if Disconnect AI was chosen.")]
+    [Category(ConnectionCategory), DisplayName("Accept AI connections when Visual Studio starts"), Description("Off: every session starts as if Disconnect AI was chosen.")]
     public bool AcceptConnectionsOnStartup { get; set; } = true;
 
-    [Category("Connection"), DisplayName("Show status bar indicator"), Description("Shows which AI client is connected.")]
+    [Category(ConnectionCategory), DisplayName("Show status bar indicator"), Description("Shows which AI client is connected.")]
     public bool ShowStatusBarIndicator { get; set; } = true;
 
     [Category("Logging"), DisplayName("Log level"), Description("Applies to the extension and to the vsmcpdebugger MCP server (sent when it connects).")]
