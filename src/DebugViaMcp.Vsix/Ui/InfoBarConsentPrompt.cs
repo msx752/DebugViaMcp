@@ -25,7 +25,7 @@ internal sealed class InfoBarConsentPrompt(IAsyncServiceProvider services, Joina
 
         var seconds = ((int)timeout.TotalSeconds).ToString(CultureInfo.InvariantCulture);
         var model = new InfoBarModel(
-            [new InfoBarTextSpan(text + $"   (no answer in {seconds} s = deny)")],
+            [new InfoBarTextSpan("Debugging via MCP: " + text + $"   (no answer in {seconds} s = deny)")],
             [
                 new InfoBarButton("Allow once", ConsentChoice.AllowOnce),
                 new InfoBarButton("Allow for session", ConsentChoice.AllowSession),

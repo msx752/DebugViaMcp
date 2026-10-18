@@ -40,6 +40,7 @@ the `debugviamcp` tool are released together with the same version.
 ### Changed
 - The out-of-date bar says "Debugging via MCP: … is out of date: the built program does not match the sources. Build it now?" and its
   button runs a normal incremental **Build** of that project (it used to clean and rebuild, which a stale output does not need).
+- The consent question bar also starts with "Debugging via MCP:", so both bars show which extension is asking.
 - The product is now called **Debugging via MCP**. The NuGet tool package is `DebugViaMcp` (command `debugviamcp`), the extension
   shows as "Debugging via MCP", and the data folder is `%LOCALAPPDATA%\DebugViaMcp`.
 - The settings moved to Visual Studio's settings experience: **Tools → Options → All Settings → Debugging → Debugging via
