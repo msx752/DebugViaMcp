@@ -21,7 +21,12 @@ skip the VSIX. See the README for `scripts\reinstall-vsix.ps1` while developing.
 - Update `CHANGELOG.md` for user-visible changes. Versions and releases: [docs/releasing.md](docs/releasing.md).
 - Commit messages follow Conventional Commits (`feat(vsix): ...`, `fix: ...`, `docs: ...`).
 
+## Branches
+
+- `develop` is the default branch: work and pull requests go here.
+- `main` is production: it only receives merges from `develop` when a release is cut, and each release is tagged `v<version>` on it.
+
 ## Pull requests
 
-Keep them focused, describe what you ran (tests, and which Visual Studio version if the change touches the extension), and
+Open them against `develop`. Keep them focused, describe what you ran (tests, and which Visual Studio version if the change touches the extension), and
 link the issue. Security problems go through [SECURITY.md](SECURITY.md), not a public issue.

@@ -25,7 +25,7 @@ The extension and the server check each other's version at connection time (`Ver
   `scripts\reinstall-vsix.ps1` (see the README); for a user-visible change bump the version.
 - Every released version has a section in `CHANGELOG.md` titled `## <version> — <name>`. The manifest's `ReleaseNotes`
   is the full GitHub URL of `CHANGELOG.md`: the Marketplace reads that field as a URL, and a bare `CHANGELOG.md` is refused as "already in use by another publisher".
-- Git tags are `v<version>` (for example `v0.4.0`) and point at the commit the VSIX was built from. No tag exists
+- Git tags are `v<version>` (for example `v0.4.0`) and point at the commit on `main` the VSIX was built from. No tag exists
   until the first release.
 
 ## Cutting a release
@@ -36,7 +36,7 @@ The extension and the server check each other's version at connection time (`Ver
    `artifacts\SHA256SUMS.txt` (`artifacts\` is git-ignored; nothing is published).
 4. Install the VSIX in Visual Studio 2022 (17.14+) and in Visual Studio 2026 and run through
    `docs/testing/` once on each.
-5. Commit, then tag the commit: `git tag v<version>` and `git push origin v<version>`.
+5. Commit on `develop`, merge `develop` into `main` (`main` is production), then tag the merge commit on `main`: `git tag v<version>` and `git push origin v<version>`.
 6. Publish `artifacts\DebugViaMcp.vsix` to the Marketplace: upload it at <https://marketplace.visualstudio.com/manage>
    or run
 
