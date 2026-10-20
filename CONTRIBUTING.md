@@ -18,7 +18,7 @@ skip the VSIX. See the README for `scripts\reinstall-vsix.ps1` while developing.
 - Anything that lets the agent change program state must go through the consent gate (see `docs/security.md`). A change
   that weakens a default needs a strong reason in the pull request.
 - Add or update tests with the change; the suite must pass.
-- Update `CHANGELOG.md` for user-visible changes.
+- Update `CHANGELOG.md` for user-visible changes. Versions and releases: [docs/releasing.md](docs/releasing.md).
 - Commit messages follow Conventional Commits (`feat(vsix): ...`, `fix: ...`, `docs: ...`).
 
 ## Pull requests

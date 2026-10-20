@@ -78,7 +78,7 @@ Requires the .NET 10 SDK and Visual Studio 2022 17.14+ or 2026. The VSIX builds 
 | `src/DebugViaMcp.Vsix` | The Visual Studio extension: package, commands, UI, settings (`UnifiedSettings`), `Dte` and `Infrastructure` adapters |
 | `tests/` | One test project per source project (the Vsix.Core tests mirror its folders), `ArchitectureTests` for the dependency rule, and `e2e/` drivers that run against a real Visual Studio |
 | `samples/` | `OrderDemo` and `FaultDemo`, small programs to debug with the agent |
-| `docs/` | `security.md`, `design/` (specifications), `testing/` (manual end-to-end runs), `marketplace/` (listing text, images and the publish manifest) |
+| `docs/` | `security.md`, `releasing.md` (versions and how to cut a release), `design/` (specifications), `testing/` (manual end-to-end runs), `marketplace/` (listing text, images and the publish manifest) |
 | `scripts/` | Build (`build.ps1`), release (`release.ps1`) and development helpers (`reinstall-vsix.ps1`, icon and image generators) |
 
 ## Reinstall the extension while developing
