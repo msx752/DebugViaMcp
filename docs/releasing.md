@@ -44,5 +44,10 @@ The extension and the server check each other's version at connection time (`Ver
 
    (`VsixPublisher.exe` is in `<Visual Studio>\VSSDK\VisualStudioIntegration\Tools\Bin\`.)
 
-The Marketplace publisher is `msx752`; it must match `Identity/@Publisher` in the manifest and `publisher` in
-`docs/marketplace/publishManifest.json`.
+Two different values, easy to mix up:
+
+- `Identity/@Publisher` in the manifest is the **author name** and must equal the publisher's *display name* in the
+  Marketplace (`Mustafa Salih ASLIM`). The upload is refused otherwise.
+- `publisher` in `docs/marketplace/publishManifest.json` is the publisher **ID** (`msx752`).
+
+If the display name changes in the Marketplace, change the manifest to match.
