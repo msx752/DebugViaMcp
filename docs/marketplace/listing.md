@@ -23,10 +23,10 @@ Debugging, Coding (already in `publishManifest.json`)
 
 ## Tags / keywords
 
-debugger, debugging, mcp, model context protocol, ai, agent, claude, claude code, breakpoints, llm,
-visual studio 2026
+debugger, debugging, mcp, ai, agent, claude, claude code, llm, breakpoints
 
-(The manifest `Tags` field holds the first nine; add the rest on the page if it allows more.)
+(The Marketplace allows 80 characters in total for tags, commas included; this list is 66. The manifest `Tags` field
+carries the same words.)
 
 ## Images, in this order
 

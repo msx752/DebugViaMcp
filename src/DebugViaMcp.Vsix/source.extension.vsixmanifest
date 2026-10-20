@@ -10,7 +10,7 @@
     <ReleaseNotes>CHANGELOG.md</ReleaseNotes>
     <Icon>Resources\icon.png</Icon>
     <PreviewImage>Resources\preview.png</PreviewImage>
-    <Tags>debugger;debugging;mcp;model context protocol;ai;agent;claude;claude code;breakpoints</Tags>
+    <Tags>debugger;debugging;mcp;ai;agent;claude;claude code;llm;breakpoints</Tags>
     <Preview>true</Preview>
   </Metadata>
   <Installation>
