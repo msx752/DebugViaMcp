@@ -34,7 +34,7 @@ function Get-RoundedPath([float]$x, [float]$y, [float]$w, [float]$h, [float]$r) 
     return $p
 }
 
-function Add-Box($g, [float]$x, [float]$y, [float]$w, [float]$h, $fill, $line, [string]$title, [string]$sub, $titleColor, $subColor = $null, [float]$titleSize = 19) {
+function Add-Box($g, [float]$x, [float]$y, [float]$w, [float]$h, $fill, $line, [string]$title, [string]$sub, $titleColor, $subColor = $null, [float]$titleSize = 19, [float]$subSize = 13) {
     if ($null -eq $subColor) { $subColor = $grey }
     $path = Get-RoundedPath $x $y $w $h 14
     $g.FillPath((New-Object Drawing.SolidBrush $fill), $path)
@@ -43,7 +43,7 @@ function Add-Box($g, [float]$x, [float]$y, [float]$w, [float]$h, $fill, $line, [
     $fmt.Alignment = 'Center'
     $fmt.LineAlignment = 'Center'
     $titleFont = New-Object Drawing.Font 'Segoe UI Semibold', $titleSize
-    $subFont = New-Object Drawing.Font 'Segoe UI', 13
+    $subFont = New-Object Drawing.Font 'Segoe UI', $subSize
     $titleRect = New-Object Drawing.RectangleF $x, ($y + 10), $w, ($h / 2)
     $subRect = New-Object Drawing.RectangleF ($x + 8), ($y + $h / 2), ($w - 16), ($h / 2 - 8)
     $g.DrawString($title, $titleFont, (New-Object Drawing.SolidBrush $titleColor), $titleRect, $fmt)
@@ -63,53 +63,55 @@ function Add-Arrow($g, [float]$x1, [float]$y1, [float]$x2, [float]$y2, $color) {
     $g.DrawLine($pen, $x1, $y1, $x2, $y2)
 }
 
+# The Marketplace shows these at roughly 60% of their width, so the text is large and there is little of it.
+
 # ---------- 1. How it works ----------
 $c = New-Canvas
 $g = $c.G
 $white = [Drawing.Color]::White
-Add-Text $g 'Let your AI agent debug. You hold the brake.' 0 44 1280 32 $dark 'Segoe UI Semibold' 'Center'
-Add-Text $g 'Claude Code, Codex, Cursor or any MCP client drives the Visual Studio debugger. You approve every change.' 0 100 1280 16 $grey 'Segoe UI' 'Center'
+Add-Text $g 'Let your AI agent debug. You hold the brake.' 0 40 1280 38 $dark 'Segoe UI Semibold' 'Center'
+Add-Text $g 'Claude Code, Codex, Cursor or any MCP client' 0 104 1280 20 $grey 'Segoe UI' 'Center'
 
-Add-Box $g 60 180 320 150 $light $purple 'AI agent' 'Claude Code, Codex, Cursor, any MCP client' $dark $null 22
-Add-Box $g 480 180 320 150 $dark $dark 'Debugging via MCP' 'the extension in Visual Studio asks you before anything changes' $white $white 22
-Add-Box $g 900 180 320 150 $white $red 'Visual Studio debugger' 'your solution, your program' $red $grey 22
-Add-Arrow $g 384 255 474 255 $purple
-Add-Arrow $g 804 255 894 255 $red
+Add-Box $g 50 170 340 170 $light $purple 'AI agent' "asks for a breakpoint,`na step, a value" $dark $null 26 18
+Add-Box $g 470 170 340 170 $dark $dark 'Debugging via MCP' "asks you before`nanything changes" $white $white 24 18
+Add-Box $g 890 170 340 170 $white $red 'Visual Studio' "your debugger,`nyour program" $red $grey 26 18
+Add-Arrow $g 394 255 466 255 $purple
+Add-Arrow $g 814 255 886 255 $red
 
-Add-Text $g 'You decide what the agent may do - in Visual Studio, where the agent cannot change it' 0 372 1280 17 $dark 'Segoe UI Semibold' 'Center'
+Add-Text $g 'You choose what the agent may do' 0 372 1280 24 $dark 'Segoe UI Semibold' 'Center'
 $tiers = @(
-    @('Read', 'status, stack, variables, output', 'Allow', $green),
-    @('Control', 'breakpoints, start, stop, step, build', 'Allow', $green),
-    @('Mutate', 'set_value, side effects, attach', 'Asks you first', $amber))
-$x = 60
+    @('Read', 'status, stack, variables', 'Allow', $green),
+    @('Control', 'breakpoints, step, build', 'Allow', $green),
+    @('Mutate', 'set_value, attach', 'Asks you first', $amber))
+$x = 50
 foreach ($t in $tiers) {
-    Add-Box $g $x 420 360 170 $light $t[3] $t[0] $t[1] $t[3]
-    Add-Text $g $t[2] $x 500 360 15 $t[3] 'Segoe UI Semibold' 'Center'
-    $x += 400
+    Add-Box $g $x 420 360 190 $light $t[3] $t[0] $t[1] $t[3] $null 28 18
+    Add-Text $g $t[2] $x 508 360 20 $t[3] 'Segoe UI Semibold' 'Center'
+    $x += 410
 }
 
-Add-Text $g 'No answer means no.     One click (Disconnect AI) cuts every agent off.     Everything stays on your machine.' 0 636 1280 15 $grey 'Segoe UI' 'Center'
+Add-Text $g 'No answer means no.   One click cuts every agent off.' 0 642 1280 20 $grey 'Segoe UI' 'Center'
 $c.Bitmap.Save((Join-Path $outDir 'how-it-works.png'), [Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $c.Bitmap.Dispose()
 
 # ---------- 2. Several Visual Studios ----------
 $c = New-Canvas
 $g = $c.G
-Add-Text $g 'Several Visual Studios, one agent each' 0 36 1280 30 $dark 'Segoe UI Semibold' 'Center'
-Add-Text $g 'The right Visual Studio is chosen by folder. Only one agent controls a Visual Studio at a time.' 0 88 1280 16 $grey 'Segoe UI' 'Center'
+Add-Text $g 'Several Visual Studios, one agent each' 0 40 1280 38 $dark 'Segoe UI Semibold' 'Center'
+Add-Text $g 'The right one is picked by folder. One agent at a time.' 0 104 1280 20 $grey 'Segoe UI' 'Center'
 
-Add-Box $g 60 190 260 110 $light $purple 'Agent A' 'terminal in the backend folder' $dark
-Add-Box $g 60 400 260 110 $light $purple 'Agent B' 'terminal in the scheduler folder' $dark
-Add-Box $g 520 190 300 110 $dark $dark 'VS - backend API' 'held by Agent A' ([Drawing.Color]::White) ([Drawing.Color]::White)
-Add-Box $g 520 400 300 110 $dark $dark 'VS - scheduler job' 'held by Agent B' ([Drawing.Color]::White) ([Drawing.Color]::White)
-Add-Arrow $g 322 245 516 245 $green
-Add-Arrow $g 322 455 516 455 $green
-Add-Arrow $g 200 402 530 300 $red
-Add-Text $g 'in_use: another agent holds this Visual Studio' 330 318 260 13 $red 'Segoe UI Semibold'
+Add-Box $g 50 190 290 140 $light $purple 'Agent A' 'in the backend folder' $dark $null 26 18
+Add-Box $g 50 420 290 140 $light $purple 'Agent B' 'in the scheduler folder' $dark $null 26 18
+Add-Box $g 470 190 330 140 $dark $dark 'VS: backend API' 'held by Agent A' $white $white 26 18
+Add-Box $g 470 420 330 140 $dark $dark 'VS: scheduler job' 'held by Agent B' $white $white 26 18
+Add-Arrow $g 344 260 466 260 $green
+Add-Arrow $g 344 490 466 490 $green
+Add-Arrow $g 200 418 560 334 $red
+Add-Text $g 'in_use' 380 398 120 22 $red 'Segoe UI Semibold'
 
-Add-Box $g 930 190 300 130 ([Drawing.Color]::White) $purple 'You approve' 'an agent from an unrelated folder asks first - once per connection' $dark
-Add-Box $g 930 400 300 130 ([Drawing.Color]::White) $purple 'Stale build?' 'the agent is told, and Visual Studio offers an optional Build' $dark
-Add-Text $g 'vs_release, closing the terminal or Disconnect AI frees a Visual Studio at once.' 0 640 1280 15 $grey 'Segoe UI' 'Center'
+Add-Box $g 900 190 340 150 $white $purple 'You approve' "an agent from another`nfolder asks first" $dark $null 26 18
+Add-Box $g 900 420 340 150 $white $purple 'Stale build?' "the agent is told;`nyou can Build" $dark $null 26 18
+Add-Text $g 'vs_release or Disconnect AI frees a Visual Studio at once.' 0 642 1280 20 $grey 'Segoe UI' 'Center'
 $c.Bitmap.Save((Join-Path $outDir 'several-visual-studios.png'), [Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $c.Bitmap.Dispose()
 "wrote images to $outDir"
