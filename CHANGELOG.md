@@ -3,6 +3,14 @@
 All notable changes to Debugging via MCP. Versions follow [Semantic Versioning](https://semver.org/); the extension and
 the `debugviamcp` tool are released together with the same version.
 
+## 0.4.1 — First pipeline build (preview)
+
+### Changed
+- No change in behaviour. This is the first version built and tagged by the release pipeline: the VSIX on the Marketplace is
+  the one attached to the GitHub Release, with the same SHA-256.
+- The Marketplace page's release-notes link, tags and author name are fixed in the package.
+- The NuGet tool package is gone; the MCP server travels inside the extension only.
+
 ## 0.4.0 — Several Visual Studios (preview)
 
 ### Added
