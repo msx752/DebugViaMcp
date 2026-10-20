@@ -57,6 +57,8 @@ public sealed class InstanceDiscoveryTests : IDisposable
     public void Protected_process_pid_is_treated_as_stale_not_thrown()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "pid 4 is the Windows System process.");
+        // An elevated process (a CI runner) can read the System process, so it is not "protected" from it.
+        Assert.SkipWhen(IsElevated(), "Only a non-elevated user is shut out of the System process.");
         Assert.False(InstanceDiscovery.IsLive(new InstanceRecord { Pid = 4, StartedAt = DateTimeOffset.UtcNow }));
     }
 
@@ -68,4 +70,8 @@ public sealed class InstanceDiscoveryTests : IDisposable
         Assert.False(InstanceDiscovery.IsLive(new InstanceRecord { Pid = self, StartedAt = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero) }));
         Assert.True(InstanceDiscovery.IsLive(new InstanceRecord { Pid = self, StartedAt = DateTimeOffset.UtcNow.AddMinutes(1) }));
     }
+
+    private static bool IsElevated() =>
+        OperatingSystem.IsWindows() && new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent())
+            .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
 }

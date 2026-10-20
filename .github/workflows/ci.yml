@@ -1,18 +1,36 @@
 name: CI
 
+# Runs on pull requests (develop and main) and on pushes to develop. Merging into main is handled by release.yml.
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-test:
+    name: build-test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      - name: Version is consistent
+        shell: pwsh
+        run: ./scripts/check-version.ps1
       - name: Build and test (without the VSIX)
         shell: pwsh
         run: ./scripts/build.ps1 -Configuration Release -SkipVsix
+      - name: Build the VSIX
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest -prerelease -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          if (-not $msbuild) { throw 'No Visual Studio with MSBuild on the runner.' }
+          & $msbuild src/DebugViaMcp.Vsix/DebugViaMcp.Vsix.csproj /restore /p:Configuration=Release /p:DeployExtension=false /v:minimal -nodeReuse:false
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
