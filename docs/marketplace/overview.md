@@ -32,11 +32,11 @@ variables, and evaluate expressions — while you stay in control.
 - **Consent info bar** — before anything in Mutate (or anything set to Ask) runs, Visual Studio asks in an info bar:
   *Allow once*, *Allow for session* or *Deny*. No answer within the consent timeout (60 s by default, 15–300) means deny.
 - **Audit trail** — every state change is logged with a call id and shown in
-  **View → Output → Debugging via MCP Activity**.
+  **View → Output → Debugging via MCP Audit**.
 - **Disconnect AI** — **Extensions → Debugging via MCP → Disconnect AI** (Ctrl+Alt+Shift+F12) denies pending questions and cuts the agent off at once; **Reconnect AI** lets it back in.
 - **Local only** — a per-user named pipe; no network, no telemetry.
 
-The **Extensions → Debugging via MCP** menu also has **Set Up AI Agent…**, **Show Activity**, **Open Logs Folder** and **Options…**.
+The **Extensions → Debugging via MCP** menu also has **Set Up AI Agent…**, **Show Audit**, **Open Logs Folder** and **Options…**.
 Other settings: accept AI connections when Visual Studio starts, the status bar indicator, log level, the longest wait for a break
 (default 120 s) and for a build (default 600 s), and log retention (default 7 days).
 
@@ -62,13 +62,13 @@ The extension alone does nothing visible: it opens a local connection that an AI
 
    Debugging via MCP works with Visual Studio only for now; Visual Studio Code support is planned.
 
-3. Open your solution in Visual Studio (the Output pane "Debugging via MCP" shows *ready*) and ask, for example: *"Break in OrderService.Submit when total > 1000 and show me the order."*
+3. Open your solution in Visual Studio (the Output pane "Debugging via MCP Log" shows *ready*) and ask, for example: *"Break in OrderService.Submit when total > 1000 and show me the order."*
 
 ## Troubleshooting
 
 | Symptom | What to check |
 |---|---|
-| The agent says no Visual Studio instance is running | Visual Studio must be open with the Debugging via MCP extension installed (Extensions → Manage Extensions → Installed). Open a solution; the Output pane "Debugging via MCP" shows `ready` when it started. |
+| The agent says no Visual Studio instance is running | Visual Studio must be open with the Debugging via MCP extension installed (Extensions → Manage Extensions → Installed). Open a solution; the Output pane "Debugging via MCP Log" shows `ready` when it started. |
 | The agent cannot start the server | The server needs the .NET 10 runtime (`dotnet --list-runtimes`). Start Visual Studio once so the extension installs it, then check that `%LOCALAPPDATA%\DebugViaMcp\debugviamcp.cmd` exists; **Set Up AI Agent…** reports both. |
 | `ai_disabled` | Someone chose Extensions → Debugging via MCP → Disconnect AI. Choose Reconnect AI, then retry. |
 | `version_mismatch` or `unsupported` | Visual Studio still runs an older extension than the server in use (or the reverse). Restart Visual Studio after updating the extension, and restart the agent session. |
@@ -78,6 +78,6 @@ The extension alone does nothing visible: it opens a local connection that an AI
 | `eval` says `Evaluation timed out` | Visual Studio stops an evaluation after about 5 s. Evaluate a smaller expression (`Take(1000)`), or read a field or property. Code that waits for another thread (`Task.Result`, a lock held by a paused thread) cannot finish while the program is stopped. |
 | Uninstalling the extension hangs | The server does not run from the extension folder, so agents cannot block the removal. Close every Visual Studio window and any other VSIXInstaller, then try again. |
 | An out-of-date warning (or Build bar) after editing files outside Visual Studio | Visual Studio notices external edits late, sometimes only when its window is activated. Build in Visual Studio (or call `vs_build`) before debugging; the warning is a hint, it never blocks. With Visual Studio's default option **On Run, when projects are out of date = Always build** (Tools → Options → Projects and Solutions → Build and Run) Visual Studio builds by itself as debugging starts, so the warning and the bar only appear while a program is running, or when that option is Never build / Prompt to build. |
-| Something else | Call the `diag` tool for the server log, and look at View → Output → Debugging via MCP and Debugging via MCP Activity. |
+| Something else | Call the `diag` tool for the server log, and look at View → Output → Debugging via MCP Log and Debugging via MCP Audit. |
 
 Documentation, security model and source: [github.com/msx752/DebugViaMcp](https://github.com/msx752/DebugViaMcp)

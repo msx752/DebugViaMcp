@@ -50,7 +50,7 @@
       <Button guid="guidDebugViaMcpCmdSet" id="ShowActivity" priority="0x0100" type="Button">
         <Parent guid="guidDebugViaMcpCmdSet" id="ViewGroup" />
         <Strings>
-          <ButtonText>Show Activity</ButtonText>
+          <ButtonText>Show Audit</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidDebugViaMcpCmdSet" id="OpenLogsFolder" priority="0x0101" type="Button">

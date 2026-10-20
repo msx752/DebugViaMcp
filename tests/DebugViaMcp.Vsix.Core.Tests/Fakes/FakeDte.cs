@@ -80,7 +80,8 @@ public sealed class FakeDte : IDteFacade
     public List<RawOutputPane> Panes { get; set; } =
     [
         new() { Id = OutputPaneIds.Build, Name = "Build", Lines = 3 },
-        new() { Id = OutputPaneIds.Activity, Name = "Debugging via MCP Activity", Lines = 2 },
+        new() { Id = OutputPaneIds.Log, Name = "Debugging via MCP Log", Lines = 4 },
+        new() { Id = OutputPaneIds.Activity, Name = "Debugging via MCP Audit", Lines = 2 },
     ];
 
     public List<(Guid Pane, int First, int Count)> OutputReads { get; } = [];

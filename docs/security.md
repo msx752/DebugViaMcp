@@ -47,7 +47,7 @@ confirmation first.
 - `output_read` and `errors_list` are **Read** tier. They expose text that build tools, analyzers and your program
   wrote. If your build output can contain secrets, set Read to Ask or Deny. Their content is returned as untrusted
   data, never as instructions.
-- The extension's own Output panes (**Debugging via MCP** and **Debugging via MCP Activity**) are never readable through the
+- The extension's own Output panes (**Debugging via MCP Log** and **Debugging via MCP Audit**) are never readable through the
   bridge, so the agent cannot read the audit trail or be fed by it. The check is by pane GUID.
 - `debug_attach` is **Mutate**: attaching lets Visual Studio read and change the target process's memory. Only
   processes running as your own user (compared by token SID) are offered, and the consent question names the
@@ -95,9 +95,9 @@ With **Ask**, Visual Studio shows an info bar on the main window, for example:
 - Every Control and Mutate call — and every Read call you were asked about — is written to
   `%LOCALAPPDATA%\DebugViaMcp\logs\audit-yyyyMMdd.log` (JSON lines) with its `callId`, client, parameters,
   decision and outcome. The same `callId` appears in the MCP server's log.
-- Each entry also appears in **View → Output → Debugging via MCP Activity**.
+- Each entry also appears in **View → Output → Debugging via MCP Audit**.
 - Values read from your program are never written to any log.
-- The status bar shows which client is connected; click it to open the Activity pane.
+- The status bar shows which client is connected; click it to open the Audit pane.
 
 ### Disconnect AI
 **Extensions → Debugging via MCP → Disconnect AI** (Ctrl+Alt+Shift+F12) immediately:

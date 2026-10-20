@@ -53,7 +53,7 @@ public sealed class DebugViaMcpPackage : AsyncPackage
         var outputWindow = (IVsOutputWindow)(await GetServiceAsync(typeof(SVsOutputWindow)))!;
         var errorList = await GetServiceAsync(typeof(SVsErrorList)) as IErrorList;
         var paneGuid = OutputPaneIds.Log;
-        outputWindow.CreatePane(ref paneGuid, "Debugging via MCP", 1, 1);
+        outputWindow.CreatePane(ref paneGuid, "Debugging via MCP Log", 1, 1);
         outputWindow.GetPane(ref paneGuid, out var pane);
 
         McpSettings mcpSettings;
@@ -71,7 +71,7 @@ public sealed class DebugViaMcpPackage : AsyncPackage
 #pragma warning restore CA1031
         _settings = mcpSettings;
         var activityGuid = ActivityPane.PaneGuid;
-        outputWindow.CreatePane(ref activityGuid, "Debugging via MCP Activity", 1, 1);
+        outputWindow.CreatePane(ref activityGuid, "Debugging via MCP Audit", 1, 1);
         outputWindow.GetPane(ref activityGuid, out var activityPane);
         Activity = new ActivityPane(activityPane, () => { ThreadHelper.ThrowIfNotOnUIThread(); dte.ExecuteCommand("View.Output"); });
 

@@ -67,8 +67,9 @@ public class OutputTests
     }
 
     [Theory]
-    [InlineData("Debugging via MCP Activity")]
-    [InlineData("debugging via mcp activity")]
+    [InlineData("Debugging via MCP Audit")]
+    [InlineData("Debugging via MCP Log")]
+    [InlineData("debugging via mcp audit")]
     public async Task The_extensions_own_panes_are_refused(string name)
     {
         var dte = new FakeDte();
@@ -128,7 +129,7 @@ public class OutputTests
         using var s = new SecurityHarness();
         await s.HandshakeAsync();
 
-        var ex = await Assert.ThrowsAsync<StreamJsonRpc.LocalRpcException>(() => s.Handler.ReadOutputAsync("Debugging via MCP Activity", 10, 0, SecurityHarness.Ctx(), CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<StreamJsonRpc.LocalRpcException>(() => s.Handler.ReadOutputAsync("Debugging via MCP Audit", 10, 0, SecurityHarness.Ctx(), CancellationToken.None));
 
         Assert.Equal(DeniedReasons.Policy, ((BridgeErrorData)ex.ErrorData!).Reason);
     }

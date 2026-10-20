@@ -3,6 +3,13 @@
 All notable changes to Debugging via MCP. Versions follow [Semantic Versioning](https://semver.org/); the extension and
 the `debugviamcp` tool are released together with the same version.
 
+## Unreleased
+
+### Changed
+- The Output panes are named by what they hold: **Debugging via MCP Log** (the technical log, formerly *Debugging via MCP*)
+  and **Debugging via MCP Audit** (what the agent did, formerly *Debugging via MCP Activity*). The menu entry **Show Activity**
+  is now **Show Audit**. The agent still cannot read either pane.
+
 ## 0.4.1 — First pipeline build (preview)
 
 ### Changed

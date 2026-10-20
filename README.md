@@ -24,9 +24,9 @@ It works with **Visual Studio only** (2022 17.14+ and 2026); Visual Studio Code 
 - Diagnostics: `diag` returns the MCP server's recent log lines
 - Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → All Settings → Debugging → Debugging via MCP**; Mutate operations ask in a
   Visual Studio info bar (Allow once / Allow for session / Deny, no answer = deny); every state change is audited
-  (`audit-*.log`, Output → **Debugging via MCP Activity**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
+  (`audit-*.log`, Output → **Debugging via MCP Audit**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
   Debugging via MCP). See [docs/security.md](docs/security.md).
-- Logs: `%LOCALAPPDATA%\DebugViaMcp\logs` and the **Debugging via MCP** Output pane in Visual Studio; every call has a
+- Logs: `%LOCALAPPDATA%\DebugViaMcp\logs` and the **Debugging via MCP Log** Output pane in Visual Studio; every call has a
   `callId` that appears in both the MCP server and Visual Studio logs
 
 ## Install from source (local build)
@@ -52,7 +52,7 @@ folder if you want it gone. Release notes: [CHANGELOG.md](CHANGELOG.md).
 
 | Symptom | What to check |
 |---|---|
-| The agent says no Visual Studio instance is running | Visual Studio must be open with the Debugging via MCP extension installed (Extensions → Manage Extensions → Installed). Open a solution; the Output pane "Debugging via MCP" shows `ready` when it started. |
+| The agent says no Visual Studio instance is running | Visual Studio must be open with the Debugging via MCP extension installed (Extensions → Manage Extensions → Installed). Open a solution; the Output pane "Debugging via MCP Log" shows `ready` when it started. |
 | The agent cannot start the server | The server needs the .NET 10 runtime (`dotnet --list-runtimes`). Start Visual Studio once so the extension installs it, then check that `%LOCALAPPDATA%\DebugViaMcp\debugviamcp.cmd` exists; **Set Up AI Agent…** reports both. |
 | `ai_disabled` | Someone chose Extensions → Debugging via MCP → Disconnect AI. Choose Reconnect AI, then retry. |
 | `version_mismatch` or `unsupported` | Visual Studio still runs an older extension than the server in use (or the reverse). Restart Visual Studio after updating the extension, and restart the agent session. |
@@ -63,7 +63,7 @@ folder if you want it gone. Release notes: [CHANGELOG.md](CHANGELOG.md).
 | Uninstalling the extension hangs | The server does not run from the extension folder, so agents cannot block the removal; close every Visual Studio window and any other VSIXInstaller. For development, `scripts\reinstall-vsix.ps1` stops a stuck installer after 3 minutes (`-InstallerTimeoutSeconds`). |
 | An out-of-date warning (or Build bar) after editing files outside Visual Studio | Visual Studio notices external edits late, sometimes only when its window is activated. Build in Visual Studio (or call `vs_build`) before debugging; the warning is a hint, it never blocks. With Visual Studio's default option **On Run, when projects are out of date = Always build** (Tools → Options → Projects and Solutions → Build and Run) Visual Studio builds by itself as debugging starts, so the warning and the bar only appear while a program is running, or when that option is Never build / Prompt to build. |
 | Visual Studio says the extension is already installed | Same version number: uninstall it first (Extensions → Manage Extensions), restart Visual Studio, then double-click the VSIX again. |
-| Something else | Call the `diag` tool for the server log, and look at View → Output → Debugging via MCP and Debugging via MCP Activity. |
+| Something else | Call the `diag` tool for the server log, and look at View → Output → Debugging via MCP Log and Debugging via MCP Audit. |
 
 ## Build from source
 

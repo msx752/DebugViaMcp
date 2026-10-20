@@ -5,7 +5,7 @@ using DebugViaMcp.Vsix.Core.Abstractions;
 
 namespace DebugViaMcp.Vsix.Logging;
 
-/// <summary>Writes to View → Output → "Debugging via MCP". OutputStringThreadSafe may be called from any thread.</summary>
+/// <summary>Writes to View → Output → "Debugging via MCP Log". OutputStringThreadSafe may be called from any thread.</summary>
 internal sealed class OutputPaneLog(IVsOutputWindowPane pane) : ILog
 {
     public void Info(string message) => Write("INF", message);

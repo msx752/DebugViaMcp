@@ -27,4 +27,4 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: Output of the `diag` tool, or View → Output → Debugging via MCP. Remove anything private.
+      description: Output of the `diag` tool, or View → Output → Debugging via MCP Log. Remove anything private.

@@ -35,7 +35,7 @@ carries the same words.)
 | 1 | `images/how-it-works.png` | Explains the idea and the three permission tiers (schematic, not a screenshot) |
 | 2 | your screenshot of the consent info bar | Shows the "you stay in control" claim — see [screenshots.md](screenshots.md) |
 | 3 | your screenshot of the Options page | Permission tiers |
-| 4 | your screenshot of the Activity pane | The audit trail |
+| 4 | your screenshot of the Audit pane | The audit trail |
 | 5 | `images/several-visual-studios.png` | Several Visual Studios, one agent each (schematic) |
 
 Icon and preview image are inside the VSIX; the gallery images above are uploaded on the page (or linked from the

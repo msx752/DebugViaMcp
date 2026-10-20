@@ -11,8 +11,8 @@ Visual Studio with the Debugging via MCP extension, and answers the consent info
    (`VSIXInstaller.exe /quiet /instanceIds:<id> <vsix>`; uninstall an older build of the same version first with
    `/uninstall:DebugViaMcp.Vsix.6f1d2c3a-9b5e-4c7a-8e21-3f4b5a6c7d8e`).
 3. Open `samples/OrderDemo/OrderDemo.csproj` and make **OrderDemo** the startup project.
-4. Output → **Debugging via MCP** shows `Debugging via MCP 0.1.0 ready (pid …, protocol 2.0)`, and Output →
-   **Debugging via MCP Activity** exists.
+4. Output → **Debugging via MCP Log** shows `Debugging via MCP 0.1.0 ready (pid …, protocol 2.0)`, and Output →
+   **Debugging via MCP Audit** exists.
 
 ## Automated driver
 
@@ -42,7 +42,7 @@ Visual Studio's automation object.
 - `%LOCALAPPDATA%\DebugViaMcp\logs\audit-*.log` — one JSON line per Control/Mutate call, with `callId`
 - `%LOCALAPPDATA%\DebugViaMcp\logs\mcp-*.log` — one entry per tool call, same `callId`, no variable values
 - `%LOCALAPPDATA%\DebugViaMcp\logs\vsix-*.log` — connections, breaks, mode changes
-- Visual Studio Output → **Debugging via MCP** (technical log) and **Debugging via MCP Activity** (audit lines)
+- Visual Studio Output → **Debugging via MCP Log** (technical log) and **Debugging via MCP Audit** (audit lines)
 
 On Windows `%LOCALAPPDATA%` means the user's real profile, even when the shell that starts `debugviamcp`
 redirects `USERPROFILE`/`LOCALAPPDATA`.

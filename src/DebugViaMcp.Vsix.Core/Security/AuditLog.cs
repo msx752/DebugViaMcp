@@ -40,7 +40,7 @@ public static class AuditDecision
     public const string DeniedDisconnected = "denied:disconnected";
 }
 
-/// <summary>Output → "Debugging via MCP Activity" in Visual Studio.</summary>
+/// <summary>Output → "Debugging via MCP Audit" in Visual Studio.</summary>
 public interface IActivitySink
 {
     void Write(string line);
