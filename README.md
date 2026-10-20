@@ -18,7 +18,7 @@ It works with **Visual Studio only** (2022 17.14+ and 2026); Visual Studio Code 
   evaluation with side effects (`eval` with `allowSideEffects`)
 - IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`)
 - Diagnostics: `diag` returns the MCP server's recent log lines
-- Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → Debugging → Debugging via MCP**; Mutate operations ask in a
+- Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → All Settings → Debugging → Debugging via MCP**; Mutate operations ask in a
   Visual Studio info bar (Allow once / Allow for session / Deny, no answer = deny); every state change is audited
   (`audit-*.log`, Output → **Debugging via MCP Activity**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
   Debugging via MCP). See [docs/security.md](docs/security.md).
@@ -53,7 +53,7 @@ folder if you want it gone. Release notes: [CHANGELOG.md](CHANGELOG.md).
 | `ai_disabled` | Someone chose Extensions → Debugging via MCP → Disconnect AI. Choose Reconnect AI, then retry. |
 | `version_mismatch` or `unsupported` | Visual Studio still runs an older extension than the server in use (or the reverse). Restart Visual Studio after updating the extension, and restart the agent session. |
 | `in_use` | Another agent holds that Visual Studio; ask it to call `vs_release`, or use another instance (`vs_instances`). |
-| A consent question ended as `denied` / `timeout` | Visual Studio asks in an info bar at the top of its main window and waits 60 s (Tools → Options → Debugging via MCP → Consent timeout); no answer means deny. When Visual Studio is in the background its taskbar button flashes. Bring it forward, then ask the agent to retry. |
+| A consent question ended as `denied` / `timeout` | Visual Studio asks in an info bar at the top of its main window and waits 60 s (Tools → Options → All Settings → Debugging → Debugging via MCP → Consent timeout); no answer means deny. When Visual Studio is in the background its taskbar button flashes. Bring it forward, then ask the agent to retry. |
 | `eval` says a type or namespace does not exist | The expression evaluator only sees assemblies the program has already loaded. Use the type in the code before the breakpoint (for example call `JsonSerializer.Serialize` once), or evaluate something else. |
 | `eval` says `Evaluation timed out` | Visual Studio stops an evaluation after about 5 s. Evaluate a smaller expression (`Take(1000)`), or read a field or property. Code that waits for another thread (`Task.Result`, a lock held by a paused thread) cannot finish while the program is stopped. |
 | Uninstalling the extension hangs | The server does not run from the extension folder, so agents cannot block the removal; close every Visual Studio window and any other VSIXInstaller. For development, `scripts\reinstall-vsix.ps1` stops a stuck installer after 3 minutes (`-InstallerTimeoutSeconds`). |
