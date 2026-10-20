@@ -23,8 +23,8 @@ The extension and the server check each other's version at connection time (`Ver
   new number (`0.4.0` → `0.4.1`).
 - Visual Studio treats an equal version as "already installed". During development use
   `scripts\reinstall-vsix.ps1` (see the README); for a user-visible change bump the version.
-- Every released version has a section in `CHANGELOG.md` titled `## <version> — <name>`. The changelog is packed
-  into the VSIX and shown as the release notes.
+- Every released version has a section in `CHANGELOG.md` titled `## <version> — <name>`. The manifest's `ReleaseNotes`
+  is the full GitHub URL of `CHANGELOG.md`: the Marketplace reads that field as a URL, and a bare `CHANGELOG.md` is refused as "already in use by another publisher".
 - Git tags are `v<version>` (for example `v0.4.0`) and point at the commit the VSIX was built from. No tag exists
   until the first release.
 
