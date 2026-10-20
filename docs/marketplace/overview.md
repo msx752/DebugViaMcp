@@ -2,6 +2,8 @@
 
 **Let your AI agent debug in Visual Studio, and keep your hand on the brake.**
 
+![How Debugging via MCP works](https://raw.githubusercontent.com/msx752/DebugViaMcp/main/docs/marketplace/images/how-it-works.png)
+
 Ask Claude Code, Codex or Cursor to chase a bug and it can set breakpoints, step through your code, read variables and
 evaluate expressions in the real debugger. Anything that would change your program waits for your OK.
 
@@ -13,8 +15,6 @@ Here is what happens:
    *Allow once*, *Allow for session* or *Deny*.
 2. It starts debugging and waits for the hit.
 3. It reads the call stack and the order, and tells you what it found.
-
-![How Debugging via MCP works](https://raw.githubusercontent.com/msx752/DebugViaMcp/main/docs/marketplace/images/how-it-works.png)
 
 ## Why you'll like it
 
