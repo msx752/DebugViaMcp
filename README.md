@@ -1,11 +1,19 @@
 # Debugging via MCP
 
+[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/msx752.DebugViaMcp?label=Marketplace&logo=visualstudio&include_prereleases)](https://marketplace.visualstudio.com/items?itemName=msx752.DebugViaMcp)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/msx752.DebugViaMcp)](https://marketplace.visualstudio.com/items?itemName=msx752.DebugViaMcp)
+[![CI](https://github.com/msx752/DebugViaMcp/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/msx752/DebugViaMcp/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/msx752/DebugViaMcp?include_prereleases)](https://github.com/msx752/DebugViaMcp/releases)
+[![License: MIT](https://img.shields.io/github/license/msx752/DebugViaMcp)](LICENSE)
+
 Let AI coding agents drive the Visual Studio debugger over the Model Context Protocol (MCP):
 breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 
 It works with **Visual Studio only** (2022 17.14+ and 2026); Visual Studio Code is not supported.
 
-> Status: early development (milestone M3). Not yet published.
+**[Install it from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=msx752.DebugViaMcp)**, or in Visual Studio: **Extensions → Manage Extensions** and search for *Debugging via MCP*.
+
+> Status: preview. The tool set is growing; feedback and issues are welcome.
 
 ## What works today (M3)
 
@@ -25,9 +33,9 @@ It works with **Visual Studio only** (2022 17.14+ and 2026); Visual Studio Code 
 - Logs: `%LOCALAPPDATA%\DebugViaMcp\logs` and the **Debugging via MCP** Output pane in Visual Studio; every call has a
   `callId` that appears in both the MCP server and Visual Studio logs
 
-## Install (local build)
+## Install from source (local build)
 
-1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp.vsix` (nothing is published).
+1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp.vsix` (nothing is published). For a normal install use the Marketplace link above.
 2. Install the extension: double-click `artifacts/DebugViaMcp.vsix` (Visual Studio 2022 17.14+ or 2026).
 3. Start Visual Studio once. The extension carries the MCP server and copies it to `%LOCALAPPDATA%\DebugViaMcp\bin`
    (nothing to install separately; it needs the .NET 10 runtime). Then tell your AI client about it:
