@@ -1,0 +1,30 @@
+name: Bug report
+description: Something does not work as described
+labels: [bug]
+body:
+  - type: input
+    id: vs
+    attributes:
+      label: Visual Studio version
+      placeholder: "2022 17.14.x or 2026 18.x"
+    validations: { required: true }
+  - type: input
+    id: ext
+    attributes:
+      label: Extension version
+    validations: { required: true }
+  - type: input
+    id: client
+    attributes:
+      label: AI client
+      placeholder: Claude Code, Codex, Cursor, ...
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output of the `diag` tool, or View → Output → Debugging via MCP. Remove anything private.
