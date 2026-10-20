@@ -24,7 +24,7 @@ skip the VSIX. See the README for `scripts\reinstall-vsix.ps1` while developing.
 ## Branches
 
 - `develop` is the default branch: work and pull requests go here.
-- `main` is production: it only receives merges from `develop` when a release is cut, and each release is tagged `v<version>` on it.
+- `main` is production and protected: it only changes through a pull request from `develop` (CI must pass). Merging it releases: the pipeline tags `v<version>` and publishes the VSIX (see [docs/releasing.md](docs/releasing.md)).
 
 ## Pull requests
 

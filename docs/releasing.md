@@ -28,21 +28,33 @@ The extension and the server check each other's version at connection time (`Ver
 - Git tags are `v<version>` (for example `v0.4.0`) and point at the commit on `main` the VSIX was built from. No tag exists
   until the first release.
 
+## Branches and the pipeline
+
+- `develop` is the default branch. `main` is production and takes changes only through a pull request from `develop`
+  (direct pushes are blocked, and the `build-test` check must pass).
+- **CI** (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `develop`: version check, build, all
+  tests, and a VSIX build.
+- **Release** (`.github/workflows/release.yml`) runs when something is merged into `main`. It checks the version,
+  builds and tests, tags `v<version>` on the merge commit, and creates a GitHub Release with `DebugViaMcp.vsix` and
+  `SHA256SUMS.txt` (marked pre-release while the manifest has `<Preview>true</Preview>`). The release notes are the
+  version's section of `CHANGELOG.md`. If the tag `v<version>` already exists nothing is released: bump the version.
+- **Marketplace upload** is the last job of the release workflow. It waits for approval of the `marketplace`
+  environment and is skipped unless the repository secret `VS_MARKETPLACE_PAT` exists (Azure DevOps personal access
+  token, scope *Marketplace → Manage*, all accessible organizations).
+- `scripts\check-version.ps1` fails when `VersionPrefix`, the manifest version and the changelog section disagree.
+
 ## Cutting a release
 
-1. Pick the version. Edit it in `Directory.Build.props` and in `source.extension.vsixmanifest`.
-2. Add the `CHANGELOG.md` section; move the listing's "What's new" text in `docs/marketplace/listing.md` along with it.
-3. Build and test: `powershell -File scripts\release.ps1`. It writes `artifacts\DebugViaMcp.vsix` and
-   `artifacts\SHA256SUMS.txt` (`artifacts\` is git-ignored; nothing is published).
-4. Install the VSIX in Visual Studio 2022 (17.14+) and in Visual Studio 2026 and run through
-   `docs/testing/` once on each.
-5. Commit on `develop`, merge `develop` into `main` (`main` is production), then tag the merge commit on `main`: `git tag v<version>` and `git push origin v<version>`.
-6. Publish `artifacts\DebugViaMcp.vsix` to the Marketplace: upload it at <https://marketplace.visualstudio.com/manage>
-   or run
+1. Pick the version. Edit it in `Directory.Build.props` and in `source.extension.vsixmanifest`, add the
+   `CHANGELOG.md` section (and the listing's "What's new" in `docs/marketplace/listing.md`). Merge that into `develop`.
+2. Install a VSIX built from `develop` (`powershell -File scriptselease.ps1`) in Visual Studio 2022 (17.14+) and
+   2026 and run through `docs/testing/` once on each.
+3. Open a pull request `develop` → `main`, wait for CI, merge it. The release workflow does the rest: tag, GitHub
+   Release, and (when enabled) the Marketplace upload after your approval.
+4. Without the PAT, upload `DebugViaMcp.vsix` from the GitHub Release at <https://marketplace.visualstudio.com/manage>.
+   Manually, `VsixPublisher.exe` is in `<Visual Studio>\VSSDK\VisualStudioIntegration\Tools\Bin\`:
 
        VsixPublisher.exe publish -payload artifacts\DebugViaMcp.vsix -publishManifest docs\marketplace\publishManifest.json -personalAccessToken <PAT>
-
-   (`VsixPublisher.exe` is in `<Visual Studio>\VSSDK\VisualStudioIntegration\Tools\Bin\`.)
 
 Two different values, easy to mix up:
 
