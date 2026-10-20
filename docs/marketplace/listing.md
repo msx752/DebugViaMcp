@@ -70,8 +70,9 @@ connection at once; Reconnect AI re-enables it.
 Visual Studio 2022 17.14 and later, including Visual Studio 2026.
 
 **Where is the MCP server?**
-It is a .NET tool: `dotnet tool install -g DebugViaMcp --prerelease`, then
-`claude mcp add debugviamcp -- debugviamcp serve`.
+Inside the extension: when Visual Studio starts it copies the server to `%LOCALAPPDATA%\DebugViaMcp`, so there is no
+separate tool to install (it needs the .NET 10 runtime). Open Extensions → Debugging via MCP → Set Up AI Agent… and
+copy the command shown for your client.
 
 **Two Visual Studios are open. Which one does the agent use?**
 The one whose solution folder matches the folder the agent runs in. If that is ambiguous, the agent is asked to pick
