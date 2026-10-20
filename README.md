@@ -5,7 +5,7 @@
 Let AI coding agents drive the Visual Studio debugger over the Model Context Protocol (MCP):
 breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 
-It works with **Visual Studio only** (2022 17.14+ and 2026); Visual Studio Code is not supported.
+It works with **Visual Studio only** (2022 17.14+ and 2026); Visual Studio Code is not supported yet; support is planned.
 
 **[Install it from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=msx752.DebugViaMcp)**, or in Visual Studio: **Extensions → Manage Extensions** and search for *Debugging via MCP*.
 

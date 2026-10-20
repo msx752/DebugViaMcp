@@ -60,7 +60,7 @@ The extension alone does nothing visible: it opens a local connection that an AI
 
        claude mcp add --scope user debugviamcp -- "%LOCALAPPDATA%\DebugViaMcp\debugviamcp.cmd" serve
 
-   Debugging via MCP works with Visual Studio only, not with Visual Studio Code.
+   Debugging via MCP works with Visual Studio only for now; Visual Studio Code support is planned.
 
 3. Open your solution in Visual Studio (the Output pane "Debugging via MCP" shows *ready*) and ask, for example: *"Break in OrderService.Submit when total > 1000 and show me the order."*
 
