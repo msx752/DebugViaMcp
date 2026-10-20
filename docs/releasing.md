@@ -47,7 +47,7 @@ The extension and the server check each other's version at connection time (`Ver
 
 1. Pick the version. Edit it in `Directory.Build.props` and in `source.extension.vsixmanifest`, add the
    `CHANGELOG.md` section (and the listing's "What's new" in `docs/marketplace/listing.md`). Merge that into `develop`.
-2. Install a VSIX built from `develop` (`powershell -File scriptselease.ps1`) in Visual Studio 2022 (17.14+) and
+2. Install a VSIX built from `develop` (`powershell -File scripts/release.ps1`) in Visual Studio 2022 (17.14+) and
    2026 and run through `docs/testing/` once on each.
 3. Open a pull request `develop` → `main`, wait for CI, merge it. The release workflow does the rest: tag, GitHub
    Release, and (when enabled) the Marketplace upload after your approval.
