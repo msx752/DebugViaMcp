@@ -1,5 +1,11 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
+  - name: Question or idea to talk through
+    url: https://github.com/msx752/DebugViaMcp/discussions
+    about: Ask how something works, or discuss an idea, before opening an issue.
   - name: Security vulnerability
     url: https://github.com/msx752/DebugViaMcp/security/advisories/new
-    about: Report it privately, not as a public issue.
+    about: Report it privately, not as a public issue. See SECURITY.md.
+  - name: Extension page and reviews
+    url: https://marketplace.visualstudio.com/items?itemName=msx752.DebugViaMcp
+    about: The Visual Studio Marketplace page, with its own Q&A and ratings.
