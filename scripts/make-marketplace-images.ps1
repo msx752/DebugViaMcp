@@ -66,32 +66,29 @@ function Add-Arrow($g, [float]$x1, [float]$y1, [float]$x2, [float]$y2, $color) {
 # ---------- 1. How it works ----------
 $c = New-Canvas
 $g = $c.G
-Add-Text $g 'Your AI agent debugs in Visual Studio - you stay in control' 0 36 1280 30 $dark 'Segoe UI Semibold' 'Center'
-Add-Text $g 'Breakpoints, stepping, call stacks, variables and evaluation over the Model Context Protocol' 0 88 1280 16 $grey 'Segoe UI' 'Center'
+$white = [Drawing.Color]::White
+Add-Text $g 'Let your AI agent debug. You hold the brake.' 0 44 1280 32 $dark 'Segoe UI Semibold' 'Center'
+Add-Text $g 'Claude Code, Codex, Cursor or any MCP client drives the Visual Studio debugger. You approve every change.' 0 100 1280 16 $grey 'Segoe UI' 'Center'
 
-Add-Box $g 40 190 220 130 $light $purple 'AI agent' 'Claude Code and other MCP clients' $dark
-Add-Box $g 340 190 230 130 $light $purple 'debugviamcp' 'MCP server inside the extension, stdio' $dark
-Add-Box $g 650 190 250 130 $light $purple 'Local named pipe' 'per user, token + process check' $dark
-Add-Box $g 980 190 260 130 $dark $dark 'Debugging via MCP' 'extension inside Visual Studio' ([Drawing.Color]::White) ([Drawing.Color]::White)
-Add-Arrow $g 262 255 336 255 $purple
-Add-Arrow $g 572 255 646 255 $purple
-Add-Arrow $g 902 255 976 255 $purple
-Add-Arrow $g 1110 322 1110 400 $red
-Add-Box $g 980 402 260 110 ([Drawing.Color]::White) $red 'Visual Studio debugger' 'your solution, your program' $red $grey 16
+Add-Box $g 60 180 320 150 $light $purple 'AI agent' 'Claude Code, Codex, Cursor, any MCP client' $dark $null 22
+Add-Box $g 480 180 320 150 $dark $dark 'Debugging via MCP' 'the extension in Visual Studio asks you before anything changes' $white $white 22
+Add-Box $g 900 180 320 150 $white $red 'Visual Studio debugger' 'your solution, your program' $red $grey 22
+Add-Arrow $g 384 255 474 255 $purple
+Add-Arrow $g 804 255 894 255 $red
 
-Add-Text $g 'The extension decides - the agent cannot change these settings' 40 400 880 17 $dark 'Segoe UI Semibold'
+Add-Text $g 'You decide what the agent may do - in Visual Studio, where the agent cannot change it' 0 372 1280 17 $dark 'Segoe UI Semibold' 'Center'
 $tiers = @(
     @('Read', 'status, stack, variables, output', 'Allow', $green),
-    @('Control', 'breakpoints, start, step, build', 'Allow', $green),
-    @('Mutate', 'set_value, side effects, attach', 'Ask first', $amber))
-$x = 40
+    @('Control', 'breakpoints, start, stop, step, build', 'Allow', $green),
+    @('Mutate', 'set_value, side effects, attach', 'Asks you first', $amber))
+$x = 60
 foreach ($t in $tiers) {
-    Add-Box $g $x 440 280 150 $light $t[3] $t[0] $t[1] $t[3]
-    Add-Text $g $t[2] $x 552 280 14 $t[3] 'Segoe UI Semibold' 'Center'
-    $x += 300
+    Add-Box $g $x 420 360 170 $light $t[3] $t[0] $t[1] $t[3]
+    Add-Text $g $t[2] $x 500 360 15 $t[3] 'Segoe UI Semibold' 'Center'
+    $x += 400
 }
 
-Add-Text $g 'Allow once / Allow for session / Deny - no answer means deny.   Disconnect AI cuts every agent off at once.   Local only, no telemetry.' 0 640 1280 15 $grey 'Segoe UI' 'Center'
+Add-Text $g 'No answer means no.     One click (Disconnect AI) cuts every agent off.     Everything stays on your machine.' 0 636 1280 15 $grey 'Segoe UI' 'Center'
 $c.Bitmap.Save((Join-Path $outDir 'how-it-works.png'), [Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $c.Bitmap.Dispose()
 
