@@ -1,9 +1,6 @@
 # Debugging via MCP
 
 [![Install from the Visual Studio Marketplace](https://img.shields.io/badge/Visual%20Studio%20Marketplace-Install-5C2D91?logo=visualstudio&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=msx752.DebugViaMcp)
-[![CI](https://github.com/msx752/DebugViaMcp/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/msx752/DebugViaMcp/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/msx752/DebugViaMcp?include_prereleases)](https://github.com/msx752/DebugViaMcp/releases)
-[![License: MIT](https://img.shields.io/github/license/msx752/DebugViaMcp)](LICENSE)
 
 Let AI coding agents drive the Visual Studio debugger over the Model Context Protocol (MCP):
 breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
