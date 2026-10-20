@@ -8,7 +8,7 @@ public class DtoRoundTripTests
 {
     private static T RoundTrip<T>(T value) => ProtocolJson.Deserialize<T>(ProtocolJson.Serialize(value!))!;
 
-    /// <summary>Golden test: this exact JSON is what a non-.NET adapter (e.g. the TypeScript VS Code adapter) sees.</summary>
+    /// <summary>Golden test: this exact JSON is what a non-.NET adapter (for example a client written in another language) sees.</summary>
     [Fact]
     public void Wire_format_is_camelCase_with_string_enums_and_no_nulls()
     {

@@ -7,7 +7,6 @@ body:
     attributes:
       value: |
         Tell us the problem first. A request that starts from a real situation is easier to weigh than a request for a specific solution.
-        Visual Studio Code support is planned and does not need a new request.
   - type: textarea
     id: problem
     attributes:

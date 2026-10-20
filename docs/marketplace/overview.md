@@ -34,8 +34,6 @@ Here is what happens:
 
 3. Open your solution (the Output pane **Debugging via MCP Log** says *ready*) and ask your agent for something to debug.
 
-Visual Studio only for now; Visual Studio Code support is planned.
-
 ## You stay in control
 
 | Tier | What it covers | Default |
