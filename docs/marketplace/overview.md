@@ -4,8 +4,6 @@ Let AI coding agents such as **Claude Code** drive the Visual Studio debugger ov
 [Model Context Protocol](https://modelcontextprotocol.io): set breakpoints, start and step, read the call stack and
 variables, and evaluate expressions — while you stay in control.
 
-> Preview: the tool set is growing; feedback is welcome on the repository.
-
 ![How Debugging via MCP works](https://raw.githubusercontent.com/msx752/DebugViaMcp/main/docs/marketplace/images/how-it-works.png)
 
 ## What the agent can do

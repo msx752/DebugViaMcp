@@ -56,6 +56,11 @@ The extension and the server check each other's version at connection time (`Ver
 
        VsixPublisher.exe publish -payload artifacts\DebugViaMcp.vsix -publishManifest docs\marketplace\publishManifest.json -personalAccessToken <PAT>
 
+**No version numbers in `docs/marketplace/overview.md`.** The overview is pasted by hand into the Marketplace page, so it must 
+stay valid across releases: no extension version, no "preview" notice (the Marketplace shows the Preview badge from the manifest 
+flag). Version-specific text belongs in `CHANGELOG.md` and in the "What's new" box of `docs/marketplace/listing.md`; paste the 
+overview again only when its content (tools, settings, steps) changes.
+
 Two different values, easy to mix up:
 
 - `Identity/@Publisher` in the manifest is the **author name** and must equal the publisher's *display name* in the

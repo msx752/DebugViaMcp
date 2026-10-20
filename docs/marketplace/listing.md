@@ -1,4 +1,4 @@
-# Marketplace listing texts (0.4.0 preview)
+# Marketplace listing texts
 
 Copy these into the fields of the Visual Studio Marketplace upload page. The long description is
 [overview.md](overview.md); the extension's own manifest (`source.extension.vsixmanifest`) already carries name,
