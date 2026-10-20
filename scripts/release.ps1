@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Builds the release artifacts locally: VSIX + dotnet tool package + SHA256 checksums in ./artifacts.
+# Builds the release artifacts locally: VSIX + SHA256 checksums in ./artifacts.
 # Publishes nothing. The publish commands are printed at the end for when the maintainer decides to release.
 param([switch]$SkipTests)
 $ErrorActionPreference = 'Stop'
@@ -17,9 +17,6 @@ try {
         if ($LASTEXITCODE) { throw 'tests failed' }
     }
 
-    dotnet pack src/DebugViaMcp.Mcp/DebugViaMcp.Mcp.csproj -c Release --no-build -o $artifacts
-    if ($LASTEXITCODE) { throw 'dotnet pack failed' }
-
     $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
     $msbuild = & $vswhere -latest -prerelease -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
     if (-not $msbuild) { throw 'No Visual Studio with MSBuild found (VS 2022 17.14+ or VS 2026).' }
@@ -36,9 +33,7 @@ try {
     Get-ChildItem $artifacts | ForEach-Object { Write-Host "  $($_.Name)" }
     Write-Host ''
     Write-Host 'Nothing was published. When you decide to release:' -ForegroundColor Yellow
-    Write-Host '  1. Put your Marketplace publisher id into docs/marketplace/publishManifest.json ("publisher").'
-    Write-Host '  2. VsixPublisher.exe publish -payload artifacts\DebugViaMcp.vsix -publishManifest docs\marketplace\publishManifest.json -personalAccessToken <PAT>'
-    Write-Host "  3. dotnet nuget push artifacts\DebugViaMcp.$version.nupkg --source https://api.nuget.org/v3/index.json --api-key <KEY>"
+    Write-Host '  VsixPublisher.exe publish -payload artifacts\DebugViaMcp.vsix -publishManifest docs\marketplace\publishManifest.json -personalAccessToken <PAT>'
     Write-Host '  (VsixPublisher.exe ships with Visual Studio: <VS>\VSSDK\VisualStudioIntegration\Tools\Bin\VsixPublisher.exe)'
 }
 finally {

@@ -5,13 +5,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
-    <!-- One version for the extension and the tool; keep in sync with source.extension.vsixmanifest Identity/@Version. -->
-    <!-- First public release is a preview: the tool is a NuGet prerelease (0.4.0-preview.1); the VSIX carries <Preview>true</Preview>. Drop VersionSuffix for the stable release. -->
+    <!-- One version for the extension and the MCP server it carries; keep in sync with source.extension.vsixmanifest Identity/@Version. -->
+    <!-- First public release is a preview: the VSIX carries <Preview>true</Preview>. Drop VersionSuffix for the stable release. -->
     <VersionPrefix>0.4.0</VersionPrefix>
     <VersionSuffix>preview.1</VersionSuffix>
-    <Authors>Debugging via MCP contributors</Authors>
-    <Copyright>Copyright (c) Debugging via MCP contributors</Copyright>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Mustafa Salih ASLIM</Authors>
+    <Copyright>Copyright (c) Mustafa Salih ASLIM</Copyright>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 </Project>

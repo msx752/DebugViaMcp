@@ -49,7 +49,7 @@ the `debugviamcp` tool are released together with the same version.
 - No out-of-date warning and no Build bar while nothing is running and Visual Studio builds by itself as debugging starts (its option
   **On Run, when projects are out of date** = *Always build*, the default): it would be a false alarm. They stay when a program is running
   (it keeps its old binary) or when that option is *Never build* / *Prompt to build*.
-- The product is now called **Debugging via MCP**. The NuGet tool package is `DebugViaMcp` (command `debugviamcp`), the extension
+- The product is now called **Debugging via MCP**. The MCP server (command `debugviamcp`) travels inside the extension, which
   shows as "Debugging via MCP", and the data folder is `%LOCALAPPDATA%\DebugViaMcp`.
 - The settings moved to Visual Studio's settings experience: **Tools → Options → All Settings → Debugging → Debugging via
   MCP**. The setup window stays in **Extensions → Debugging via MCP** (**Set Up AI Agent…**).

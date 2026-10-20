@@ -3,18 +3,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>DebugViaMcp.Mcp</RootNamespace>
-    <PackAsTool>true</PackAsTool>
-    <ToolCommandName>debugviamcp</ToolCommandName>
-    <PackageId>DebugViaMcp</PackageId>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageIcon>icon.png</PackageIcon>
-    <PackageProjectUrl>https://github.com/msx752/DebugViaMcp</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/msx752/DebugViaMcp</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>mcp;model-context-protocol;visual-studio;debugger;ai;claude;claude-code</PackageTags>
-    <PackageReleaseNotes>See https://github.com/msx752/DebugViaMcp/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Description>MCP server that lets AI agents such as Claude Code drive the Visual Studio debugger. Needs the Debugging via MCP extension in Visual Studio 2022 (17.14+) or 2026.</Description>
+    <Description>MCP server (carried inside the Debugging via MCP extension) that lets AI agents such as Claude Code drive the Visual Studio debugger. Needs the Debugging via MCP extension in Visual Studio 2022 (17.14+) or 2026.</Description>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" />
@@ -31,9 +21,5 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="DebugViaMcp.Mcp.Tests" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="PACKAGE.md" Pack="true" PackagePath="README.md" />
-    <None Include="..\DebugViaMcp.Vsix\Resources\icon.png" Pack="true" PackagePath="icon.png" Visible="false" />
   </ItemGroup>
 </Project>
