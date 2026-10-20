@@ -10,24 +10,35 @@ variables, and evaluate expressions — while you stay in control.
 
 ## What the agent can do
 
-- **Breakpoints** — file/line or function, conditions, hit counts, tracepoints, enable/disable
-- **Several Visual Studios** — one agent each: instance chosen by folder, owner approval for unrelated agents, `vs_release`
-- **Execution** — start, continue, pause, step into/over/out, wait for the next break, run to line, attach to a
-  running process (detach on stop)
-- **Inspection** — threads, call stack, frame selection, the current exception, locals and arguments, drill into members, QuickWatch-style evaluation
-- **IDE state** — Output window panes, the Error List, and Visual Studio builds
-- **Changes** — `set_value` and evaluation with side effects, **only with your approval**
+27 tools, in these groups:
+
+- **Breakpoints** (`bp_set`, `bp_list`, `bp_enable`, `bp_remove`) — file/line or function, conditions, hit counts, tracepoints (log without stopping)
+- **Execution** (`debug_start`, `debug_continue`, `debug_pause`, `debug_step`, `debug_run_to`, `debug_wait`, `debug_stop`, `debug_attach`) — start (the solution's startup project or a named project, which leaves your startup project alone), continue, pause, step into/over/out, run to a line, wait for the next break, attach to a running process (stopping detaches without ending it)
+- **Inspection** (`debug_status`, `threads`, `stack`, `frame_select`, `vars`, `eval`, `exception`) — mode and break reason, threads, call stack, frame selection, locals and arguments with drill-down into members (`order.Lines[2]`), QuickWatch-style evaluation, the current exception with inner exceptions and throw site
+- **IDE state** (`vs_build`, `errors_list`, `output_read`) — Visual Studio builds, the Error List, and the Output window panes (the build and debug panes by name)
+- **Several Visual Studios** (`vs_instances`, `vs_select`, `vs_release`) — one agent each: the instance is chosen by the folder the agent runs in, an agent from an unrelated folder needs the owner's approval, and a second agent gets `in_use` until the first calls `vs_release`
+- **Changes** (`set_value`, `eval` with side effects, breakpoint conditions and tracepoints, `debug_attach`) — **only with your approval**
+- **Diagnostics** (`diag`) — the MCP server's own log
+
+`debug_start`, `debug_attach` and `bp_set` warn when the built program is older than the sources, and Visual Studio offers an optional **Build** bar.
 
 ## You stay in control
 
-- **Permission tiers** — Read, Control and Mutate, each Allow / Ask / Deny, in
+- **Permission tiers** — **Read**, **Control** and **Mutate**, each set to Allow, Ask or Deny in
   **Tools → Options → All Settings → Debugging → Debugging via MCP**. Visual Studio enforces them; the agent cannot change them.
-- **Consent info bar** — before anything changes your program, Visual Studio asks:
-  *Allow once*, *Allow for session* or *Deny*. No answer means deny.
+  - *Read* (default Allow): status, threads, call stack, variables, evaluation without side effects, the current exception, the Output window and the Error List.
+  - *Control* (default Allow): breakpoints without conditions, start, stop, continue, pause, step, run to, and Visual Studio builds.
+  - *Mutate* (default **Ask**): `set_value`, evaluation with side effects, breakpoint conditions and tracepoints (they run in your program on every hit), and attaching to a process.
+- **Consent info bar** — before anything in Mutate (or anything set to Ask) runs, Visual Studio asks in an info bar:
+  *Allow once*, *Allow for session* or *Deny*. No answer within the consent timeout (60 s by default, 15–300) means deny.
 - **Audit trail** — every state change is logged with a call id and shown in
   **View → Output → Debugging via MCP Activity**.
-- **Disconnect AI** — **Extensions → Debugging via MCP → Disconnect AI** (Ctrl+Alt+Shift+F12) cuts the agent off at once.
+- **Disconnect AI** — **Extensions → Debugging via MCP → Disconnect AI** (Ctrl+Alt+Shift+F12) denies pending questions and cuts the agent off at once; **Reconnect AI** lets it back in.
 - **Local only** — a per-user named pipe; no network, no telemetry.
+
+The **Extensions → Debugging via MCP** menu also has **Set Up AI Agent…**, **Show Activity**, **Open Logs Folder** and **Options…**.
+Other settings: accept AI connections when Visual Studio starts, the status bar indicator, log level, the longest wait for a break
+(default 120 s) and for a build (default 600 s), and log retention (default 7 days).
 
 ![Several Visual Studios, one agent each](https://raw.githubusercontent.com/msx752/DebugViaMcp/main/docs/marketplace/images/several-visual-studios.png)
 
