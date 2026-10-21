@@ -326,6 +326,37 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public Task<ProcessInfo[]> ListAttachableAsync(string? processName, CancellationToken ct) =>
         ui.RunAsync(() => AttachCandidates.Filter(dte.LocalProcesses(), processName), ct);
 
+    /// <summary>
+    /// The options that decide whether symbols load, and the breakpoints that are not bound with what may be behind it. The notes only say
+    /// what can be the cause; they never claim one (Visual Studio does not tell why a module has no symbols).
+    /// </summary>
+    public Task<SymbolStatus> GetSymbolStatusAsync(CancellationToken ct) => ui.RunAsync(() =>
+    {
+        var o = dte.DebuggerOptions();
+        var unbound = dte.Breakpoints().Where(b => b.BoundCount == 0 && !_runTo.Owns(IdOf(b))).Select(ToInfo).ToArray();
+        var notes = new List<string>();
+        if (unbound.Length > 0)
+        {
+            if (dte.Mode == DebuggerMode.Design)
+                notes.Add("Breakpoints bind when debugging starts.");
+            else
+            {
+                notes.Add("A breakpoint that stays unbound while debugging means no symbols are loaded for its module, or the line has no executable code. Debug > Windows > Modules shows what is loaded.");
+                if (o.RequireSourceToMatch == true)
+                    notes.Add("'Require source files to exactly match the original version' is on: a file changed since the build does not bind.");
+                if (o.JustMyCode == true)
+                    notes.Add("Just My Code is on: modules that are optimized or have no symbols are skipped.");
+            }
+        }
+
+        return new SymbolStatus
+        {
+            RequireSourceToMatch = o.RequireSourceToMatch, JustMyCode = o.JustMyCode, WarnIfNoSymbols = o.WarnIfNoSymbols,
+            SuppressJitOptimization = o.SuppressJitOptimization, SourceServer = o.SourceServer, SourceServerDiagnostics = o.SourceServerDiagnostics,
+            Unbound = unbound, Notes = notes.ToArray(),
+        };
+    }, ct);
+
     /// <summary>The process name for the consent question; validates mode and target first, so a doomed request never asks.</summary>
     public Task<string> DescribeAttachTargetAsync(int pid, CancellationToken ct) => ui.RunAsync(() => RequireAttachable(pid).Name, ct);
 

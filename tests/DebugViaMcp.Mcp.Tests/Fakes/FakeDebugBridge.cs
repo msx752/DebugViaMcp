@@ -56,6 +56,9 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Func<string, int, RunToResult> OnRunTo { get; set; } = (_, _) => new RunToResult { Seq = 10 };
     public Task<RunToResult> RunToAsync(string file, int line, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add($"RunTo:{file}:{line}"); return Task.FromResult(OnRunTo(file, line)); }
 
+    public Func<SymbolStatus> OnSymbolStatus { get; set; } = () => new SymbolStatus { JustMyCode = true, RequireSourceToMatch = true };
+    public Task<SymbolStatus> GetSymbolStatusAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetSymbolStatus"); return Task.FromResult(OnSymbolStatus()); }
+
     public Func<string?, ProcessInfo[]> OnListAttachable { get; set; } = _ => [new ProcessInfo { Pid = 400, Name = "OrderDemo" }];
     public Task<ProcessInfo[]> ListAttachableAsync(string? processName, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("ListAttachable:" + processName); return Task.FromResult(OnListAttachable(processName)); }
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Attach:" + pid); return Task.FromResult(Seq); }

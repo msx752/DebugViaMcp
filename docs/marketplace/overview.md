@@ -39,7 +39,7 @@ Here is what happens:
 
 | Tier | What it covers | Default |
 |---|---|---|
-| **Read** | status, threads, call stack, variables, evaluation without side effects, the current exception, Output window, Error List | Allow |
+| **Read** | status, threads, call stack, variables, evaluation without side effects, the current exception, the processes you can attach to, symbol status, Output window, Error List | Allow |
 | **Control** | breakpoints without conditions, start, stop, continue, pause, step, run to, Visual Studio builds | Allow |
 | **Mutate** | `set_value`, evaluation with side effects, breakpoint conditions and tracepoints (they run in your program), attaching to a process | **Ask** |
 
@@ -53,12 +53,12 @@ Change them in **Tools → Options → All Settings → Debugging → Debugging 
 
 ## What the agent can do
 
-28 tools in a few groups:
+29 tools in a few groups:
 
 - **Breakpoints:** set, list, enable, remove. File and line or function, conditions, hit counts, tracepoints.
 - **Execution:** start (the startup project or a named one), continue, pause, step, run to a line, wait for the next break, attach to a process (and list the processes it can attach to), stop.
 - **Inspection:** status (with the Call Stack, Locals and exception of a stop in one call), threads, call stack, frame selection, locals and arguments with drill-down (several levels in one call), evaluation, the current exception.
-- **IDE state:** Visual Studio builds, the Error List, Output window panes.
+- **IDE state:** Visual Studio builds, the Error List, Output window panes, and why a breakpoint may not bind (the symbol-related options and the unbound breakpoints).
 - **Changes:** `set_value` and side-effect evaluation, always with your approval.
 - **Several Visual Studios:** list, select, release.
 - **Diagnostics:** the MCP server's own log.

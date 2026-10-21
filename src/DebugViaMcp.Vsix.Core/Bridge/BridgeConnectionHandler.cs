@@ -158,6 +158,9 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         Guard(Operation.ListProcesses, context, () => service.ListAttachableAsync(processName, cancellationToken),
             Request.Of(processName ?? "", ("processName", processName)), null, cancellationToken);
 
+    public Task<SymbolStatus> GetSymbolStatusAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.SymbolStatus, context, () => service.GetSymbolStatusAsync(cancellationToken), null, null, cancellationToken);
+
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken)
     {
         // Set when the question is prepared: the approval covers the process the question named.

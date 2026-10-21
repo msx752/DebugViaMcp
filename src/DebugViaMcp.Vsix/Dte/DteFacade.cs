@@ -350,6 +350,38 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         return null;
     }
 
+    public RawDebuggerOptions DebuggerOptions()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        return new RawDebuggerOptions
+        {
+            RequireSourceToMatch = DebuggingFlag("RequireSourceToMatch"),
+            JustMyCode = DebuggingFlag("EnableJustMyCode"),
+            WarnIfNoSymbols = DebuggingFlag("WarnIfNoSymbols"),
+            SuppressJitOptimization = DebuggingFlag("SuppressJitOptimization"),
+            SourceServer = DebuggingFlag("EnableSourceServer"),
+            SourceServerDiagnostics = DebuggingFlag("PrintSourceServerDiagnostics"),
+        };
+    }
+
+    /// <summary>One boolean of Tools → Options → Debugging → General; null when this Visual Studio does not have it or it is not a boolean.</summary>
+    private bool? DebuggingFlag(string name)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try
+        {
+            return dte.get_Properties("Debugging", "General").Item(name).Value as bool?;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
     public IReadOnlyList<RawProcess> LocalProcesses()
     {
         ThreadHelper.ThrowIfNotOnUIThread();

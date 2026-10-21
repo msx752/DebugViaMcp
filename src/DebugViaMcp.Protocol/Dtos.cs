@@ -126,6 +126,37 @@ public sealed class BreakpointInfo
     public string? BindError { get; set; }
 }
 
+/// <summary>
+/// The debugger options that decide whether symbols load and breakpoints bind (Tools → Options → Debugging → General), and the
+/// breakpoints that are not bound. An option Visual Studio does not report is null.
+/// </summary>
+public sealed class SymbolStatus
+{
+    /// <summary>"Require source files to exactly match the original version".</summary>
+    public bool? RequireSourceToMatch { get; set; }
+
+    /// <summary>"Enable Just My Code".</summary>
+    public bool? JustMyCode { get; set; }
+
+    /// <summary>The automation property <c>WarnIfNoSymbols</c> of Debugging → General.</summary>
+    public bool? WarnIfNoSymbols { get; set; }
+
+    /// <summary>"Suppress JIT optimization on module load (Managed only)".</summary>
+    public bool? SuppressJitOptimization { get; set; }
+
+    /// <summary>"Enable Source Server support".</summary>
+    public bool? SourceServer { get; set; }
+
+    /// <summary>"Print Source Server diagnostic messages to the Output window".</summary>
+    public bool? SourceServerDiagnostics { get; set; }
+
+    /// <summary>Breakpoints that are not bound (in Design mode every breakpoint is pending), with the reason Visual Studio's state allows.</summary>
+    public BreakpointInfo[] Unbound { get; set; } = [];
+
+    /// <summary>What may keep a breakpoint unbound, given the options and the debugger mode; empty when every breakpoint is bound.</summary>
+    public string[] Notes { get; set; } = [];
+}
+
 public sealed class SetBreakpointResult
 {
     public BreakpointInfo Breakpoint { get; set; } = new();

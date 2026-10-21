@@ -429,6 +429,14 @@
     }
   },
   {
+    "Name": "symbol_status",
+    "Description": "Why a breakpoint may not bind: the debugger options that decide whether symbols load (Require source files to exactly match, Just My Code, Source Server, Suppress JIT optimization), and the breakpoints that are not bound, with what can be behind it. An option Visual Studio does not report is left out. It does not say which modules have symbols loaded.",
+    "Schema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
     "Name": "threads",
     "Description": "Threads of the stopped program: id, name, location; isCurrent marks the thread vars and eval use.",
     "Schema": {

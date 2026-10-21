@@ -72,6 +72,9 @@ public sealed class FakeDte : IDteFacade
         new() { Pid = 400, Name = "OrderDemo", OwnedByCurrentUser = true },
     ];
 
+    public RawDebuggerOptions Options { get; set; } = new();
+    public RawDebuggerOptions DebuggerOptions() { Ui(); return Options; }
+
     public IReadOnlyList<RawProcess> LocalProcesses() { Ui(); return Processes; }
     public Action<int>? OnAttach { get; set; }
     public void Attach(int pid) { Ui(); Calls.Add("Attach:" + pid); OnAttach?.Invoke(pid); }

@@ -30,7 +30,7 @@ change it. The values live in your user settings file, so anything that can writ
 
 | Tier | Operations | Default |
 |---|---|---|
-| Read | status, threads, call stack, frame selection, variables, side-effect-free evaluation, the current exception, list breakpoints, Output window, Error List | Allow |
+| Read | status, threads, call stack, frame selection, variables, side-effect-free evaluation, the current exception, list breakpoints, the processes you can attach to, symbol status, Output window, Error List | Allow |
 | Control | breakpoints without conditions (set, remove, enable/disable), start, stop, continue, pause, step, run to, build | Allow |
 | Mutate | `set_value`, `eval` with `allowSideEffects`, breakpoint conditions and tracepoint messages, `debug_attach` | **Ask** |
 

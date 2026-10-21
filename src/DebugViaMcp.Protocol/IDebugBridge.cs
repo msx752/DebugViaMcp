@@ -72,6 +72,9 @@ public interface IDebugBridge
     /// <summary>Protocol 2.2. Out-of-date builds in scope: <paramref name="project"/>, else every project containing <paramref name="file"/>, else the startup project.</summary>
     Task<BuildWarning[]> CheckBuildFreshnessAsync(string? project, string? file, CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>Protocol 2.5. The symbol-related debugger options and the breakpoints that are not bound (tier read).</summary>
+    Task<SymbolStatus> GetSymbolStatusAsync(CallContext context, CancellationToken cancellationToken);
+
     /// <summary>Protocol 2.2. Gives up this connection's hold on the Visual Studio so another agent can use it.</summary>
     Task ReleaseAsync(CallContext context, CancellationToken cancellationToken);
 

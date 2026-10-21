@@ -27,6 +27,33 @@ public class DtoRoundTripTests
     }
 
     [Fact]
+    public void Symbol_status_wire_format_leaves_out_options_it_does_not_know()
+    {
+        Assert.Equal(
+            "{\"justMyCode\":true,\"unbound\":[],\"notes\":[]}",
+            ProtocolJson.Serialize(new SymbolStatus { JustMyCode = true }));
+    }
+
+    [Fact]
+    public void Symbol_status_round_trips()
+    {
+        var original = new SymbolStatus
+        {
+            RequireSourceToMatch = true, SourceServer = false,
+            Unbound = [new BreakpointInfo { Id = "bp-1", File = "A.cs", Line = 3, BindError = "x" }],
+            Notes = ["n"],
+        };
+
+        var copy = RoundTrip(original);
+
+        Assert.Equal(true, copy.RequireSourceToMatch);
+        Assert.Equal(false, copy.SourceServer);
+        Assert.Null(copy.JustMyCode);
+        Assert.Equal(3, copy.Unbound[0].Line);
+        Assert.Equal(["n"], copy.Notes);
+    }
+
+    [Fact]
     public void Permission_set_wire_format()
     {
         Assert.Equal("{\"read\":\"allow\",\"control\":\"allow\",\"mutate\":\"ask\"}", ProtocolJson.Serialize(new PermissionSet()));

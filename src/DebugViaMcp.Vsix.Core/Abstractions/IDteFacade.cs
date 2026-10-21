@@ -53,6 +53,17 @@ public sealed class RawProcess
     public bool OwnedByCurrentUser { get; set; }
 }
 
+/// <summary>Tools → Options → Debugging → General, as Visual Studio's automation reports it. Null: the property is not there.</summary>
+public sealed class RawDebuggerOptions
+{
+    public bool? RequireSourceToMatch { get; set; }
+    public bool? JustMyCode { get; set; }
+    public bool? WarnIfNoSymbols { get; set; }
+    public bool? SuppressJitOptimization { get; set; }
+    public bool? SourceServer { get; set; }
+    public bool? SourceServerDiagnostics { get; set; }
+}
+
 public sealed class RawOutputPane
 {
     public Guid Id { get; set; }
@@ -98,6 +109,9 @@ public interface IDteFacade
     void Break();
     void Stop();
     void Step(StepKind kind);
+
+    /// <summary>The Debugging → General options that decide whether symbols load and breakpoints bind.</summary>
+    RawDebuggerOptions DebuggerOptions();
 
     /// <summary>Debugger.LocalProcesses without Visual Studio itself.</summary>
     IReadOnlyList<RawProcess> LocalProcesses();

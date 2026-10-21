@@ -38,6 +38,7 @@ public class PermissionPolicyTests
     [InlineData(Operation.EnableBreakpointWithExpression, PermissionTier.Mutate)]
     [InlineData(Operation.RunTo, PermissionTier.Control)]
     [InlineData(Operation.ListProcesses, PermissionTier.Read)]
+    [InlineData(Operation.SymbolStatus, PermissionTier.Read)]
     [InlineData(Operation.Attach, PermissionTier.Mutate)]
     [InlineData(Operation.OutputRead, PermissionTier.Read)]
     [InlineData(Operation.ErrorList, PermissionTier.Read)]

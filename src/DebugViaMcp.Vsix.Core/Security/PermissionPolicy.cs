@@ -21,6 +21,9 @@ public enum Operation
 
     RunTo, ListProcesses,
 
+    /// <summary>symbol_status: the symbol-related options and the breakpoints that are not bound.</summary>
+    SymbolStatus,
+
     /// <summary>debug_attach: the debugger can read and change the attached process's memory.</summary>
     Attach,
 
@@ -63,7 +66,7 @@ public static class PermissionPolicy
     {
         Operation.Status or Operation.ListBreakpoints or Operation.Stack or Operation.Variables or Operation.Evaluate
             or Operation.Threads or Operation.FrameSelect or Operation.Exception
-            or Operation.ListProcesses or Operation.OutputRead or Operation.ErrorList
+            or Operation.ListProcesses or Operation.SymbolStatus or Operation.OutputRead or Operation.ErrorList
             or Operation.Connect or Operation.Release or Operation.BuildCheck => PermissionTier.Read,
         Operation.SetBreakpoint or Operation.RemoveBreakpoints or Operation.Start or Operation.Stop
             or Operation.Continue or Operation.Pause or Operation.Step or Operation.EnableBreakpoint
@@ -105,6 +108,7 @@ public static class PermissionPolicy
         Operation.EnableBreakpoint or Operation.EnableBreakpointWithExpression => "bp_enable",
         Operation.RunTo => "debug_run_to",
         Operation.ListProcesses or Operation.Attach => "debug_attach",
+        Operation.SymbolStatus => "symbol_status",
         Operation.OutputRead => "output_read",
         Operation.ErrorList => "errors_list",
         Operation.Build => "vs_build",

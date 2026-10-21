@@ -9,10 +9,11 @@ public class ProtocolInfoTests
     public void Version_is_2_3_and_pipe_prefix_is_stable()
     {
         Assert.Equal(2, ProtocolInfo.Major);
-        Assert.Equal(4, ProtocolInfo.Minor);
+        Assert.Equal(5, ProtocolInfo.Minor);
         Assert.Equal(1, ProtocolInfo.MinorM3);
         Assert.Equal(2, ProtocolInfo.MinorM31);
         Assert.Equal(3, ProtocolInfo.MinorTimeouts);
+        Assert.Equal(5, ProtocolInfo.MinorSymbols);
         Assert.Equal(-32015, (int)BridgeErrorCode.InUse);
         Assert.Equal("in_use", BridgeErrorNames.ToName(BridgeErrorCode.InUse));
         Assert.Equal("debugviamcp-", ProtocolInfo.PipeNamePrefix);
