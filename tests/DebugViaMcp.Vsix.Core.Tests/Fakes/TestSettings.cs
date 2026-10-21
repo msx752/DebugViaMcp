@@ -11,4 +11,5 @@ public sealed class TestSettings : IBridgeSettings
     public int LogRetentionDays { get; set; } = 7;
     public int MaxWaitSeconds { get; set; } = 120;
     public int MaxBuildSeconds { get; set; } = 600;
+    public bool MaskSensitiveValues { get; set; } = true;
 }

@@ -57,6 +57,26 @@ confirmation first.
 - `bp_enable(true)` on a breakpoint with a condition or tracepoint is Mutate for the same reason as `bp_set` with one.
 - `vs_build` is **Control**: it runs your project's build, including any custom MSBuild targets.
 
+### Sensitive values are masked (0.5)
+
+Values of your program travel to the AI agent and its provider. **Mask sensitive values** (Tools → Options → All Settings → Debugging
+→ Debugging via MCP, on by default) hides the ones that look like secrets before they leave Visual Studio:
+
+- **By name:** a string under a name such as `password`, `secret`, `token`, `apiKey`, `credentials`, `connectionString`,
+  `authorization` or `privateKey` (also inside an expression such as `config.Password`).
+- **By shape:** a JWT, `Bearer …`, a PEM private key, a GitHub or AWS key, `Password=…` and similar parts of a
+  connection string, and the password in `https://user:password@host`.
+
+It covers `vars`, `eval`, the arguments in a break, the exception message, stack trace and inner exceptions, and `output_read`.
+A masked value reads `[masked]` and the result carries `masked: true`; Visual Studio still shows you the real value.
+
+This is a heuristic that lowers the chance of a leak. It does not find every secret (a random-looking string under an
+innocent name stays visible) and it can hide a harmless value. Do not rely on it for data you must never share: set Read
+to Ask or Deny for that.
+
+Turning the setting off lets such values reach the agent. Visual Studio asks you to confirm it (also when the value was
+written to the settings file while Visual Studio was closed) and keeps masking until you do. The change is audited.
+
 ### Several agents and several Visual Studios (0.4)
 
 - Approval and the one-agent-at-a-time lease live in the extension, inside each Visual Studio. The MCP server only

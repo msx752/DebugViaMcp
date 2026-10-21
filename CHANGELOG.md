@@ -5,6 +5,13 @@ the `debugviamcp` tool are released together with the same version.
 
 ## Unreleased
 
+### Added
+- **Mask sensitive values** (Tools → Options → All Settings → Debugging → Debugging via MCP, on by default): values that look
+  like secrets (strings under names such as `password` or `token`, JWTs, `Bearer` tokens, PEM private keys, GitHub and AWS keys,
+  `Password=` in connection strings, passwords in URLs) are replaced by `[masked]` before they reach the agent, in `vars`, `eval`,
+  the arguments of a break, exception texts and `output_read`. The result carries `masked: true`. Turning it off asks you to confirm.
+  A heuristic, not a guarantee (see `docs/security.md`).
+
 ### Changed
 - The Output panes are named by what they hold: **Debugging via MCP Log** (the technical log, formerly *Debugging via MCP*)
   and **Debugging via MCP Audit** (what the agent did, formerly *Debugging via MCP Activity*). The menu entry **Show Activity**

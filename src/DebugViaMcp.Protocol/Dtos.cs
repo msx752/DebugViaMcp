@@ -61,6 +61,9 @@ public sealed class VariableInfo
     public string Value { get; set; } = "";
     public bool HasChildren { get; set; }
     public bool Truncated { get; set; }
+
+    /// <summary>True when a secret-looking part of the value was replaced before it left Visual Studio; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
 }
 
 public sealed class BreakSnapshot
@@ -173,6 +176,9 @@ public sealed class ExceptionInfo
     public bool Truncated { get; set; }
     public SourceLocation? ThrowSite { get; set; }
     public InnerExceptionInfo[] Inner { get; set; } = [];
+
+    /// <summary>True when a secret-looking part of the value was replaced before it left Visual Studio; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
 }
 
 public sealed class RunToResult
@@ -209,6 +215,9 @@ public sealed class OutputPage
     public string[] Lines { get; set; } = [];
     public bool Truncated { get; set; }
     public bool HasMore { get; set; }
+
+    /// <summary>True when a secret-looking part of the value was replaced before it left Visual Studio; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
 
     /// <summary>Offset for the next (older) page.</summary>
     public int? NextOffset { get; set; }
@@ -255,6 +264,9 @@ public sealed class EvaluateResult
     public string Value { get; set; } = "";
     public string Type { get; set; } = "";
     public bool Truncated { get; set; }
+
+    /// <summary>True when a secret-looking part of the value was replaced before it left Visual Studio; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
 }
 
 /// <summary>What the user allows per tier (Tools → Options → Debugging → Debugging via MCP). Informational for the client; the VSIX enforces it.</summary>

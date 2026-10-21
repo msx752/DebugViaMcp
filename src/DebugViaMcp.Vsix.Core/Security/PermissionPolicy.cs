@@ -51,6 +51,9 @@ public interface IBridgeSettings
 
     /// <summary>Longest vs_build may wait, in seconds.</summary>
     int MaxBuildSeconds { get; }
+
+    /// <summary>Hide values that look like secrets before they reach the agent. On unless the user turned it off and confirmed.</summary>
+    bool MaskSensitiveValues { get; }
 }
 
 /// <summary>The single tier table (spec §3.1). New operations get their tier here.</summary>

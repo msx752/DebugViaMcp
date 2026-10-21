@@ -87,7 +87,7 @@ public sealed class DebugViaMcpPackage : AsyncPackage
         {
             var seq = new EventSeq();
             var buildPrompt = new InfoBarBuildPrompt(this, JoinableTaskFactory);
-            var service = new DebugBridgeService(new DteFacade(dte, errorList), new JtfUiThread(JoinableTaskFactory), seq, log, vsixVersion, buildPrompt: buildPrompt, vsBuildsOnRun: () => mcpSettings.Applied.VsBuildsOnRun);
+            var service = new DebugBridgeService(new DteFacade(dte, errorList), new JtfUiThread(JoinableTaskFactory), seq, log, vsixVersion, buildPrompt: buildPrompt, vsBuildsOnRun: () => mcpSettings.Applied.VsBuildsOnRun, maskSensitiveValues: () => mcpSettings.Applied.MaskSensitiveValues);
             buildPrompt.OnDismissed = service.BuildBarDismissed;
             var lease = new InstanceLease();
             var broadcaster = new EventBroadcaster(log, lease);
@@ -157,7 +157,31 @@ public sealed class DebugViaMcpPackage : AsyncPackage
                 }
 #pragma warning restore CA1031
             });
+            // "Mask sensitive values" off in the settings (also one written while Visual Studio was closed) counts only after the user confirms it here.
+            mcpSettings.MaskOffRequested += (_, _) => _ = JoinableTaskFactory.RunAsync(async () =>
+            {
+#pragma warning disable CA1031 // A failure here must not leave the confirmation pending forever: it is logged and treated as declined.
+                try
+                {
+                    log.Info("Mask sensitive values is off in the settings: asking the user to confirm it");
+                    await System.Threading.Tasks.Task.Yield();
+                    await JoinableTaskFactory.SwitchToMainThreadAsync();
+                    var answer = VsShellUtilities.ShowMessageBox(this,
+                        "The settings turn off Mask sensitive values: passwords, tokens, keys and connection strings in your program's values would reach the AI agent and its provider. Until you confirm, Debugging via MCP keeps masking them. Turn it off?",
+                        "Debugging via MCP", OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_YESNO, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_SECOND);
+                    log.Info(answer == 6 ? "Mask off confirmed by the user" : "Mask off declined by the user");
+                    if (answer == 6) mcpSettings.ConfirmMaskOff();
+                    else mcpSettings.DeclineMaskOff();
+                }
+                catch (Exception e)
+                {
+                    log.Error("The mask-off confirmation failed", e);
+                    mcpSettings.DeclineMaskOff();
+                }
+#pragma warning restore CA1031
+            });
             mcpSettings.CheckMutateConfirmation();
+            mcpSettings.CheckMaskOffConfirmation();
             // Settings changes arrive on a background thread; the status bar belongs to the UI thread.
             mcpSettings.AnyApplied += (_, _) => _ = JoinableTaskFactory.RunAsync(async () =>
             {

@@ -15,7 +15,7 @@ using DebugViaMcp.Vsix.Core.Support;
 namespace DebugViaMcp.Vsix.Core.Bridge;
 
 /// <summary>Implements the bridge operations on top of <see cref="IDteFacade"/>. Handshake lives in BridgeConnectionHandler.</summary>
-public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IBuildPrompt? buildPrompt = null, Func<bool>? vsBuildsOnRun = null)
+public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IBuildPrompt? buildPrompt = null, Func<bool>? vsBuildsOnRun = null, Func<bool>? maskSensitiveValues = null)
 {
     /// <summary>How long a project's build state is reused: reading it walks the project folder on the UI thread.</summary>
     public const int BuildInfoCacheSeconds = 5;
@@ -46,6 +46,9 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     private bool _attached;
 
     public string VsixVersion => vsixVersion;
+
+    /// <summary>Read on every call, so the Options setting applies at once. On when nothing says otherwise: a secret leaks only if someone chose it.</summary>
+    private bool MaskOn => maskSensitiveValues?.Invoke() ?? true;
 
     /// <summary>Increments on every break: anything read in an earlier break is stale once the program has moved (spec §3.1).</summary>
     public long Epoch => Interlocked.Read(ref _epoch);
@@ -403,14 +406,24 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     {
         var raw = dte.CurrentException(MaxInnerExceptions);
         if (raw is null) return null;
-        var (message, messageCut) = ValueShaper.Truncate(raw.Message);
-        var (trace, traceCut) = raw.StackTrace is null ? ((string?)null, false) : ValueShaper.Truncate(raw.StackTrace, MaxStackTraceLength);
+        var anyMasked = false;
+        string Hide(string? text)
+        {
+            if (!MaskOn) return text ?? "";
+            var hidden = SensitiveValueMask.MaskText(text, out var changed);
+            anyMasked |= changed;
+            return hidden;
+        }
+
+        var (message, messageCut) = ValueShaper.Truncate(Hide(raw.Message));
+        var (trace, traceCut) = raw.StackTrace is null ? ((string?)null, false) : ValueShaper.Truncate(Hide(raw.StackTrace), MaxStackTraceLength);
         var top = dte.Stack(1);
         return new ExceptionInfo
         {
             Type = raw.Type, Message = message, StackTrace = trace, Truncated = messageCut || traceCut,
             ThrowSite = top.Count > 0 ? ToLocation(top[0]) : null,
-            Inner = raw.Inner.Take(MaxInnerExceptions).Select(i => new InnerExceptionInfo { Type = i.Type, Message = ValueShaper.Truncate(i.Message).Value }).ToArray(),
+            Inner = raw.Inner.Take(MaxInnerExceptions).Select(i => new InnerExceptionInfo { Type = i.Type, Message = ValueShaper.Truncate(Hide(i.Message)).Value }).ToArray(),
+            Masked = anyMasked ? true : null,
         };
     }, ct);
 
@@ -423,7 +436,17 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         if (target.Lines is not { } total)
             throw new BridgeException(BridgeErrorCode.Busy, $"The text of the '{target.Name}' pane is not available yet.",
                 "Show it once in Visual Studio's Output window (View → Output), then retry.");
-        return OutputPaging.Page(target.Name, total, tail, offset, (first, count) => dte.OutputLines(target.Id, first, count));
+        var page = OutputPaging.Page(target.Name, total, tail, offset, (first, count) => dte.OutputLines(target.Id, first, count));
+        if (!MaskOn) return page;
+        var anyMasked = false;
+        page.Lines = page.Lines.Select(line =>
+        {
+            var hidden = SensitiveValueMask.MaskText(line, out var changed);
+            anyMasked |= changed;
+            return hidden;
+        }).ToArray();
+        if (anyMasked) page.Masked = true;
+        return page;
     }, ct);
 
     public Task<ErrorListPage> GetErrorListAsync(ErrorSeverity[] severities, int offset, int max, CancellationToken ct) =>
@@ -579,7 +602,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return InBreak(() =>
         {
             RequireUnchanged(expected);
-            return Shape(dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression)));
+            return Shape(expression, dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression)));
         }, ct);
     }
 
@@ -593,7 +616,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return InBreak(() =>
         {
             RequireUnchanged(expected);
-            return Shape(dte.SetValue(expression.Trim(), value.Trim()));
+            return Shape(expression, dte.SetValue(expression.Trim(), value.Trim()));
         }, ct);
     }
 
@@ -624,10 +647,11 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     private static string PositionOf(IReadOnlyList<RawFrame> frames, int index) =>
         frames.Count > index ? $"{frames[index].File}:{frames[index].Line}" : "";
 
-    private static EvaluateResult Shape(EvaluateResult r)
+    private EvaluateResult Shape(string expression, EvaluateResult r)
     {
-        var (value, truncated) = ValueShaper.Truncate(r.Value);
-        return new EvaluateResult { IsValid = r.IsValid, Value = value, Type = r.Type, Truncated = truncated };
+        var masked = MaskOn ? SensitiveValueMask.MaskValue(expression, r.Value) : new MaskedValue(r.Value, false);
+        var (value, truncated) = ValueShaper.Truncate(masked.Value);
+        return new EvaluateResult { IsValid = r.IsValid, Value = value, Type = r.Type, Truncated = truncated, Masked = masked.Masked ? true : null };
     }
 
     /// <summary>Called by the event pump on every break (UI thread): starts a new epoch, then builds the snapshot for it.</summary>
@@ -682,10 +706,11 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     private static string IdOf(RawBreakpoint b) => BreakpointKey.Compute(b.File, b.Line, b.Function, b.Condition);
 
-    private static VariableInfo Shape(VariableInfo v)
+    private VariableInfo Shape(VariableInfo v)
     {
-        var (value, truncated) = ValueShaper.Truncate(v.Value);
-        return new VariableInfo { Name = v.Name, Type = v.Type, Value = value, HasChildren = v.HasChildren, Truncated = truncated || v.Truncated };
+        var masked = MaskOn ? SensitiveValueMask.MaskValue(v.Name, v.Value) : new MaskedValue(v.Value, false);
+        var (value, truncated) = ValueShaper.Truncate(masked.Value);
+        return new VariableInfo { Name = v.Name, Type = v.Type, Value = value, HasChildren = v.HasChildren, Truncated = truncated || v.Truncated, Masked = masked.Masked ? true : null };
     }
 
     private BreakpointInfo ToInfo(RawBreakpoint b) => new()

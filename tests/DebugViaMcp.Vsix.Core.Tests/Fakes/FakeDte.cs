@@ -88,11 +88,13 @@ public sealed class FakeDte : IDteFacade
 
     public IReadOnlyList<RawOutputPane> OutputPanes() { Ui(); return Panes; }
 
+    public Func<int, string>? OutputLineText { get; set; }
+
     public IReadOnlyList<string> OutputLines(Guid pane, int firstLine, int count)
     {
         Ui();
         OutputReads.Add((pane, firstLine, count));
-        return Enumerable.Range(firstLine, count).Select(n => "line " + n).ToList();
+        return Enumerable.Range(firstLine, count).Select(n => OutputLineText?.Invoke(n) ?? "line " + n).ToList();
     }
 
     public List<RawErrorItem> Errors { get; set; } = [];
@@ -230,10 +232,12 @@ public sealed class FakeDte : IDteFacade
         return OnSetValue(expression, value);
     }
 
+    public Func<string, EvaluateResult>? OnEvaluate { get; set; }
+
     public EvaluateResult Evaluate(string expression)
     {
         Ui();
         LastEvaluated = expression;
-        return new EvaluateResult { IsValid = true, Value = new string('v', 3000), Type = "string" };
+        return OnEvaluate?.Invoke(expression) ?? new EvaluateResult { IsValid = true, Value = new string('v', 3000), Type = "string" };
     }
 }

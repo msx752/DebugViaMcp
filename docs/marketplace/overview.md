@@ -22,6 +22,7 @@ Here is what happens:
 - **You decide.** Read, Control and Mutate are each set to Allow, Ask or Deny. By default the agent may look and steer
   freely and has to ask before it changes anything.
 - **Nothing leaves your machine.** A per-user local pipe. No network, no telemetry.
+- **Secrets stay hidden.** Values that look like passwords, tokens or keys are replaced by `[masked]` before the agent sees them (a setting, on by default).
 - **Bring your own agent.** Any MCP client works. A setup window gives you the exact command for Claude Code, Codex and Cursor.
 
 ## Get started
@@ -46,6 +47,7 @@ Change them in **Tools → Options → All Settings → Debugging → Debugging 
 
 - **Consent bar.** A question appears as an info bar in Visual Studio. No answer within the timeout (60 s by default) means *deny*.
 - **Audit trail.** Every state change is logged with a call id in **View → Output → Debugging via MCP Audit** and in a file.
+- **Mask sensitive values.** Passwords, tokens, keys and connection-string secrets in your program's values show as `[masked]` to the agent. It is a heuristic, not a guarantee; turning it off asks you to confirm.
 - **Disconnect AI.** **Extensions → Debugging via MCP → Disconnect AI** (Ctrl+Alt+Shift+F12) denies pending questions and cuts
   every agent off at once. **Reconnect AI** lets them back in.
 
