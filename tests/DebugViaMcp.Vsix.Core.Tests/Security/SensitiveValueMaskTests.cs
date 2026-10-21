@@ -72,6 +72,22 @@ public class SensitiveValueMaskTests
         Assert.Equal(Mask, r.Value);
     }
 
+    /// <summary>A length taken after a call counts characters of the secret (how many a), so only a plain member path is exempt.</summary>
+    [Theory]
+    [InlineData("password.Replace(\"a\", \"\").Length", "6", "int")]
+    [InlineData("password.Trim().Length", "7", "int")]
+    [InlineData("password.Where(c => c == 'a').Count", "1", "int")]
+    [InlineData("config.Password[\"x\"].Length", "7", "int")]
+    [InlineData("(password, 1)", "{(\"hunter2\", 1)}", "System.ValueTuple<string, int>")]
+    [InlineData("new { password }", "{ password = \"hunter2\" }", "AnonymousType")]
+    [InlineData("password.ToCharArray()", "{char[7]}", "char[]")]
+    public void A_length_taken_after_a_call_or_an_index_is_masked(string expression, string value, string type)
+    {
+        var r = SensitiveValueMask.MaskValue(expression, value, type);
+
+        Assert.True(r.Masked);
+    }
+
     [Theory]
     [InlineData("password.Length", "7", "int")]
     [InlineData("credentials.Count", "2", "int")]

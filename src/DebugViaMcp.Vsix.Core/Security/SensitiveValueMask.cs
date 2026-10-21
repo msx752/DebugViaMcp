@@ -118,23 +118,26 @@ public static class SensitiveValueMask
         // The declared type decides first: with a format specifier such as nq the quotes are gone and a secret may start with a brace.
         if (type is not null && (type.EndsWith("string", StringComparison.OrdinalIgnoreCase) || type.EndsWith("char", StringComparison.OrdinalIgnoreCase))) return true;
         if (IsQuotedString(v) || v.StartsWith("'", StringComparison.Ordinal)) return true;
-        if (v.StartsWith("{", StringComparison.Ordinal)) return false;
 
-        // An expression built on the secret (hash, comparison, prefix test) is an oracle for it, whatever type it returns.
+        // An expression built on the secret (hash, comparison, prefix test, a tuple or object holding it) shows or answers for it,
+        // whatever type it returns and even when the display starts with a brace.
         if (IsDerived(name) && !IsLengthOrCount(name)) return true;
+        if (v.StartsWith("{", StringComparison.Ordinal)) return false;
         return name.IndexOf('[') >= 0;
     }
 
-    private const string OperatorCharacters = "=<>!&|?+-*/%^~";
+    /// <summary>What a plain member path (<c>config.Password</c>) never contains: a call, an operator, a literal, a brace, a comma or a space.</summary>
+    private static readonly char[] DerivedCharacters = "(){},\"' =<>!&|?+-*/%^~".ToCharArray();
 
-    private static bool IsDerived(string expression) => expression.IndexOf('(') >= 0 || expression.IndexOfAny(OperatorCharacters.ToCharArray()) >= 0;
+    private static bool IsDerived(string expression) => expression.Trim().IndexOfAny(DerivedCharacters) >= 0;
 
-    /// <summary>How long or how many says little about the secret; with an operator in the expression it could say more (a comparison).</summary>
-    private static bool IsLengthOrCount(string expression)
-    {
-        var e = expression.Trim();
-        return (e.EndsWith(".Length", StringComparison.Ordinal) || e.EndsWith(".Count", StringComparison.Ordinal)) && e.IndexOfAny(OperatorCharacters.ToCharArray()) < 0;
-    }
+    private static readonly Regex MemberLengthOrCount = new(@"^\s*[A-Za-z_@][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*\.(?:Length|Count)\s*$", RegexOptions.CultureInvariant, MatchTimeout);
+
+    /// <summary>
+    /// How long or how many says little about the secret, but only when read straight off a member path. After a call or an index
+    /// (<c>password.Replace("a", "").Length</c>) it counts characters of the secret.
+    /// </summary>
+    private static bool IsLengthOrCount(string expression) => MemberLengthOrCount.IsMatch(expression);
 
     private static bool IsQuotedString(string value)
     {
