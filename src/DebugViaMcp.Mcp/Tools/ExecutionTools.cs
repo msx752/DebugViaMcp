@@ -111,8 +111,34 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
         return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
     });
 
+    public const int ProcessListDefault = 100;
+    public const int ProcessListCap = 300;
+
+    [McpServerTool(Name = "process_list", ReadOnly = true),
+     Description("Lists your processes that debug_attach can attach to (pid and name), by pid. Pass filter (part of the name) to narrow it. Pick a pid from here for debug_attach when several processes share a name.")]
+    public Task<CallToolResult> ProcessList(
+        [Description("Part of the process name, any case; omit for all.")] string? filter = null,
+        [Description("Most processes to return (1-300, 100 by default).")] int max = ProcessListDefault,
+        CancellationToken ct = default) => ToolResponse.RunAsync(connections, "process_list", async ctx =>
+    {
+        var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
+        if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3) is { } unsupported) return unsupported;
+
+        var all = await bridge.ListAttachableAsync(null, ctx, ct).ConfigureAwait(false);
+        var wanted = filter?.Trim();
+        var matches = string.IsNullOrEmpty(wanted) ? all : all.Where(p => p.Name.Contains(wanted, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var limit = Math.Clamp(max, 1, ProcessListCap);
+        var more = matches.Length > limit;
+        return ToolResponse.Ok(new
+        {
+            data = matches.Take(limit), total = matches.Length, hasMore = more ? true : (bool?)null,
+            hint = more ? "More processes match: narrow the list with filter."
+                : matches.Length == 0 ? "No process matches: try a shorter filter, or none. Only your own processes are listed." : null,
+        });
+    });
+
     [McpServerTool(Name = "debug_attach"),
-     Description("Attaches the debugger to a running process of yours, by pid or processName (e.g. FaultDemo). Visual Studio can then read and change that process's memory, so this " + InspectionTools.ConsentNote + " debug_stop detaches without ending the process.")]
+     Description("Attaches the debugger to a running process of yours, by pid or processName (e.g. FaultDemo); process_list shows the candidates. Visual Studio can then read and change that process's memory, so this " + InspectionTools.ConsentNote + " debug_stop detaches without ending the process.")]
     public Task<CallToolResult> Attach(
         [Description("Process id.")] int? pid = null,
         [Description("Process name without .exe; must match exactly one of your processes.")] string? processName = null,

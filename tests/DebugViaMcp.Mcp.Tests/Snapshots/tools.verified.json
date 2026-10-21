@@ -113,7 +113,7 @@
   },
   {
     "Name": "debug_attach",
-    "Description": "Attaches the debugger to a running process of yours, by pid or processName (e.g. FaultDemo). Visual Studio can then read and change that process\u0027s memory, so this Requires the user\u0027s approval in Visual Studio unless they allowed it in settings. If the call returns \u0027denied\u0027, that is the user\u0027s decision: do not retry; ask the user how to proceed. debug_stop detaches without ending the process.",
+    "Description": "Attaches the debugger to a running process of yours, by pid or processName (e.g. FaultDemo); process_list shows the candidates. Visual Studio can then read and change that process\u0027s memory, so this Requires the user\u0027s approval in Visual Studio unless they allowed it in settings. If the call returns \u0027denied\u0027, that is the user\u0027s decision: do not retry; ask the user how to proceed. debug_stop detaches without ending the process.",
     "Schema": {
       "type": "object",
       "properties": {
@@ -360,6 +360,28 @@
           "description": "Skip this many newest lines (paging towards older output).",
           "type": "integer",
           "default": 0
+        }
+      }
+    }
+  },
+  {
+    "Name": "process_list",
+    "Description": "Lists your processes that debug_attach can attach to (pid and name), by pid. Pass filter (part of the name) to narrow it. Pick a pid from here for debug_attach when several processes share a name.",
+    "Schema": {
+      "type": "object",
+      "properties": {
+        "filter": {
+          "description": "Part of the process name, any case; omit for all.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "max": {
+          "description": "Most processes to return (1-300, 100 by default).",
+          "type": "integer",
+          "default": 100
         }
       }
     }

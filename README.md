@@ -16,7 +16,7 @@ It works with Visual Studio 2022 (17.14+) and Visual Studio 2026.
 - Breakpoints: file/line or function, conditions, hit counts, tracepoints, enable/disable (`bp_enable`)
 - Several Visual Studios, one agent each: the right instance is chosen by folder, unrelated agents need your approval,
   and a second agent gets `in_use` while the first holds a Visual Studio
-- Execution: start, continue, pause, step into/over/out, wait for break, run to line, attach to a running process
+- Execution: start, continue, pause, step into/over/out, wait for break, run to line, attach to a running process (`process_list` shows the candidates)
   (detach on stop)
 - Inspection: status (`debug_status` with `detail` adds the top Call Stack frames, Locals and exception of a stop), threads, call stack, frame selection (`frame_select`), the current exception, locals/arguments, drill-down by path or several levels in one call (`vars` with `depth` and `expand`), side-effect-free evaluation, `set_value`, and
   evaluation with side effects (`eval` with `allowSideEffects`)

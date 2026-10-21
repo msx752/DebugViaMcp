@@ -21,6 +21,9 @@ the `debugviamcp` tool are released together with the same version.
   first 30 Locals and the exception (when the break is about one): where you are and what is going on in one call. A part
   Visual Studio cannot read is named under `notes` and the rest still comes.
 
+- **`process_list`** lists your processes that `debug_attach` can attach to (pid and name), with an optional `filter` on part of
+  the name, so the agent can pick a pid when several processes share a name.
+
 ### Changed
 - `debug_start` builds first. A failed build comes back to the agent (read the diagnostics with `errors_list`) instead of
   leaving Visual Studio's "run the last successful build?" dialog open on screen.
