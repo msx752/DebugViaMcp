@@ -251,7 +251,13 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         if (spec.Condition is not null) ExpressionPolicy.RequireNoSideEffects(spec.Condition);
         if (spec.LogMessage is not null)
         {
-            foreach (var placeholder in PathUtil.Placeholders(spec.LogMessage)) ExpressionPolicy.RequireNoSideEffects(placeholder);
+            foreach (var placeholder in PathUtil.Placeholders(spec.LogMessage))
+            {
+                ExpressionPolicy.RequireNoSideEffects(placeholder);
+                if (MaskOn && SensitiveValueMask.NamesSensitiveValue(placeholder))
+                    throw new BridgeException(BridgeErrorCode.InvalidArgument, $"The tracepoint message would print {{{placeholder}}}, which looks sensitive, and \"Mask sensitive values\" is on.",
+                        "Print something else, or turn Mask sensitive values off in Tools → Options → Debugging via MCP if you accept the risk.");
+            }
         }
 
         return absolute;
@@ -388,7 +394,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         {
             ThreadId = threadId ?? dte.CurrentThreadId, Index = index, Epoch = Epoch,
             Location = ToLocation(frame), Source = SourceOf(frame),
-            Args = dte.Variables(VariableScope.Args, 20).Select(Shape).ToArray(),
+            Args = dte.Variables(VariableScope.Args, 20).Select(v => Shape(v, null)).ToArray(),
         };
     }, ct);
 
@@ -581,7 +587,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         var items = path is null
             ? dte.Variables(scope, skip + take)
             : dte.Members(ExpressionPolicy.PrepareSideEffectFree(path), skip + take);
-        return items.Skip(skip).Take(take).Select(Shape).ToArray();
+        return items.Skip(skip).Take(take).Select(v => Shape(v, path)).ToArray();
     }, ct);
 
     public static void ValidateSetValue(string? expression, string? value)
@@ -649,7 +655,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     private EvaluateResult Shape(string expression, EvaluateResult r)
     {
-        var masked = MaskOn ? SensitiveValueMask.MaskValue(expression, r.Value) : new MaskedValue(r.Value, false);
+        var masked = MaskOn ? SensitiveValueMask.MaskValue(expression, r.Value, r.Type) : new MaskedValue(r.Value, false);
         var (value, truncated) = ValueShaper.Truncate(masked.Value);
         return new EvaluateResult { IsValid = r.IsValid, Value = value, Type = r.Type, Truncated = truncated, Masked = masked.Masked ? true : null };
     }
@@ -677,7 +683,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             BreakpointId = lastHit is null ? null : IdOf(lastHit),
             Location = top is null ? null : ToLocation(top),
             Source = top is null ? [] : SourceOf(top),
-            Args = dte.Variables(VariableScope.Args, 20).Select(Shape).ToArray(),
+            Args = dte.Variables(VariableScope.Args, 20).Select(v => Shape(v, null)).ToArray(),
             StackTop = frames.Select(f => f.Line is { } l ? $"{f.Function}:{l}" : f.Function).ToArray(),
             ThreadId = dte.CurrentThreadId,
             Epoch = Epoch,
@@ -706,9 +712,10 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     private static string IdOf(RawBreakpoint b) => BreakpointKey.Compute(b.File, b.Line, b.Function, b.Condition);
 
-    private VariableInfo Shape(VariableInfo v)
+    /// <param name="parent">The path the members were read under: a member of something sensitive is judged by that path too.</param>
+    private VariableInfo Shape(VariableInfo v, string? parent)
     {
-        var masked = MaskOn ? SensitiveValueMask.MaskValue(v.Name, v.Value) : new MaskedValue(v.Value, false);
+        var masked = MaskOn ? SensitiveValueMask.MaskValue(parent is null ? v.Name : parent + "." + v.Name, v.Value, v.Type) : new MaskedValue(v.Value, false);
         var (value, truncated) = ValueShaper.Truncate(masked.Value);
         return new VariableInfo { Name = v.Name, Type = v.Type, Value = value, HasChildren = v.HasChildren, Truncated = truncated || v.Truncated, Masked = masked.Masked ? true : null };
     }

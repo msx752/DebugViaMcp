@@ -29,6 +29,8 @@ public static class SensitiveValueMask
     private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(250);
     private const RegexOptions Options = RegexOptions.CultureInvariant | RegexOptions.IgnoreCase;
 
+    private static readonly Regex UnicodeEscape = new(@"\\u([0-9A-Fa-f]{4})", RegexOptions.CultureInvariant, MatchTimeout);
+
     private static readonly Regex Words = new("[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+", RegexOptions.CultureInvariant, MatchTimeout);
 
     private static readonly HashSet<string> SensitiveWords = new(StringComparer.OrdinalIgnoreCase)
@@ -58,17 +60,20 @@ public static class SensitiveValueMask
 
     private static readonly Regex UrlPassword = new(@"(?<=\b[a-z][a-z0-9+.\-]*://[^/\s:@]+:)[^@\s/]+(?=@)", Options, MatchTimeout);
 
-    /// <summary>For a named value (a variable, a member, an evaluated expression).</summary>
-    public static MaskedValue MaskValue(string? name, string? value)
+    /// <summary>For a named value (a variable, a member, an evaluated expression). <paramref name="type"/> is the debugger's type name, when known.</summary>
+    public static MaskedValue MaskValue(string? name, string? value, string? type = null)
     {
         if (string.IsNullOrEmpty(value)) return new MaskedValue("", false);
 
-        if (IsQuotedString(value!) && IsSensitiveName(name)) return new MaskedValue(Placeholder, true);
+        if (IsSensitiveName(name) && IsReadableSecret(name!, value!, type)) return new MaskedValue(Placeholder, true);
 
         var text = MaskText(value, out var masked);
         if (masked && text.Trim('"') == Placeholder) text = Placeholder;
         return new MaskedValue(text, masked);
     }
+
+    /// <summary>Whether an expression or a path names something sensitive (a word of it does): used to refuse a tracepoint that would print it.</summary>
+    public static bool NamesSensitiveValue(string? expression) => IsSensitiveName(expression);
 
     /// <summary>For free text (an exception message, a stack trace, an Output line): shapes only, there is no name to judge.</summary>
     public static string MaskText(string? text, out bool masked)
@@ -101,6 +106,19 @@ public static class SensitiveValueMask
         return result;
     }
 
+    /// <summary>
+    /// What a sensitive name is worth hiding: a string or a char (quoted or not: a format specifier such as <c>, nq</c> removes the quotes),
+    /// or any scalar read out of an element (<c>password[0]</c>). Numbers, flags, null and objects are not secrets to hide.
+    /// </summary>
+    private static bool IsReadableSecret(string name, string value, string? type)
+    {
+        var v = value.Trim();
+        if (v == "null" || v == "Nothing" || v.StartsWith("{", StringComparison.Ordinal)) return false;
+        if (IsQuotedString(v) || v.StartsWith("'", StringComparison.Ordinal)) return true;
+        if (type is not null && (type.EndsWith("string", StringComparison.OrdinalIgnoreCase) || type.EndsWith("char", StringComparison.OrdinalIgnoreCase))) return true;
+        return name.IndexOf('[') >= 0;
+    }
+
     private static bool IsQuotedString(string value)
     {
         var v = value.TrimStart();
@@ -110,6 +128,9 @@ public static class SensitiveValueMask
     private static bool IsSensitiveName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
+
+        // C# allows unicode escapes inside an identifier (pass\u0077ord): read the name the way the debugger will.
+        name = UnicodeEscape.Replace(name!, m => ((char)Convert.ToInt32(m.Groups[1].Value, 16)).ToString());
 
         var words = new List<string>();
         foreach (Match m in Words.Matches(name!)) words.Add(m.Value.ToLowerInvariant());

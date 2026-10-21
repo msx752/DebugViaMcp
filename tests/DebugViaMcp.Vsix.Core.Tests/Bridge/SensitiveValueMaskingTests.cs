@@ -128,4 +128,49 @@ public class SensitiveValueMaskingTests
         Assert.Equal(Mask, masked[0].Value);
         Assert.Equal("\"hunter2\"", plain[0].Value);
     }
+
+    [Fact]
+    public async Task Members_under_a_sensitive_path_are_masked_whatever_their_own_names()
+    {
+        var (svc, dte) = Create();
+        dte.Locals = [new VariableInfo { Name = "Username", Type = "string", Value = "\"bob\"" }];
+
+        var vars = await svc.GetVariablesAsync(VariableScope.Locals, "credentials", 0, 10, CancellationToken.None);
+
+        Assert.Equal(Mask, vars[0].Value);
+        Assert.True(vars[0].Masked);
+    }
+
+    [Fact]
+    public async Task A_tracepoint_that_would_print_a_sensitive_value_is_refused()
+    {
+        var (svc, _) = Create();
+        var spec = new BreakpointSpec { File = "OrderService.cs", Line = 9, LogMessage = "pw={password}" };
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() => svc.SetBreakpointAsync(spec, CancellationToken.None));
+        var check = await Assert.ThrowsAsync<BridgeException>(() => svc.ValidateBreakpointAsync(spec, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.InvalidArgument, ex.Code);
+        Assert.Equal(BridgeErrorCode.InvalidArgument, check.Code);
+    }
+
+    [Fact]
+    public async Task A_tracepoint_may_print_an_ordinary_value()
+    {
+        var (svc, dte) = Create();
+
+        await svc.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9, LogMessage = "total={total}" }, CancellationToken.None);
+
+        Assert.Single(dte.Bps);
+    }
+
+    [Fact]
+    public async Task A_tracepoint_may_print_a_sensitive_value_when_the_mask_is_off()
+    {
+        var (svc, dte) = Create(() => false);
+
+        await svc.SetBreakpointAsync(new BreakpointSpec { File = "OrderService.cs", Line = 9, LogMessage = "pw={password}" }, CancellationToken.None);
+
+        Assert.Single(dte.Bps);
+    }
 }

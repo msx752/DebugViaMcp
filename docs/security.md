@@ -70,9 +70,15 @@ Values of your program travel to the AI agent and its provider. **Mask sensitive
 It covers `vars`, `eval`, the arguments in a break, the exception message, stack trace and inner exceptions, and `output_read`.
 A masked value reads `[masked]` and the result carries `masked: true`; Visual Studio still shows you the real value.
 
-This is a heuristic that lowers the chance of a leak. It does not find every secret (a random-looking string under an
-innocent name stays visible) and it can hide a harmless value. Do not rely on it for data you must never share: set Read
-to Ask or Deny for that.
+A name counts by its words, so `config.Password`, `password, nq` (a format specifier that drops the quotes), `password[0]` (one
+character), `pass\u0077ord` (a unicode escape in the identifier) and the members of `credentials` are all treated as sensitive.
+A tracepoint (`bp_set` with a message) that would print such a value, for example `{password}`, is refused while the mask is on,
+because its output would reach the agent through `output_read`.
+
+**What it is not.** It is a heuristic that lowers the chance of an accidental leak. It is not a security boundary against an
+agent that is determined, or steered by text inside the program (prompt injection): a secret copied into a variable with an
+innocent name, or learned bit by bit from a yes/no question such as `password == "abc"`, is not stopped. What stops that are the
+permission tiers and the consent questions: set Read to Ask or Deny for data you must never share.
 
 Turning the setting off lets such values reach the agent. Visual Studio asks you to confirm it (also when the value was
 written to the settings file while Visual Studio was closed) and keeps masking until you do. The change is audited.

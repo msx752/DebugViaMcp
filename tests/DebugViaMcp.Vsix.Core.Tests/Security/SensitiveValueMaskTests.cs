@@ -107,4 +107,41 @@ public class SensitiveValueMaskTests
         Assert.Equal("", SensitiveValueMask.MaskText(null, out var masked));
         Assert.False(masked);
     }
+
+    /// <summary>Ways to read a secret out from under its name without the quotes of a string literal.</summary>
+    [Theory]
+    [InlineData("password, nq", "hunter2", "string")]
+    [InlineData("password", "hunter2", "string")]
+    [InlineData("password[0]", "104 'h'", "char")]
+    [InlineData("(int)password[0]", "104", "int")]
+    [InlineData("pass\\u0077ord", "\"hunter2\"", "string")]
+    public void A_secret_read_around_its_quotes_or_name_is_still_masked(string name, string value, string type)
+    {
+        var r = SensitiveValueMask.MaskValue(name, value, type);
+
+        Assert.True(r.Masked);
+        Assert.Equal(Mask, r.Value);
+    }
+
+    [Theory]
+    [InlineData("password.Length", "8", "int")]
+    [InlineData("passwordLength", "8", "int")]
+    [InlineData("hasPassword", "true", "bool")]
+    [InlineData("credentials", "{Demo.Credentials}", "Demo.Credentials")]
+    public void A_number_a_flag_or_an_object_under_a_sensitive_name_is_not_a_secret_to_hide(string name, string value, string type)
+    {
+        var r = SensitiveValueMask.MaskValue(name, value, type);
+
+        Assert.False(r.Masked);
+        Assert.Equal(value, r.Value);
+    }
+
+    [Theory]
+    [InlineData("password", true)]
+    [InlineData("this.options.ApiKey", true)]
+    [InlineData("pass\\u0077ord", true)]
+    [InlineData("total", false)]
+    [InlineData("Tokenizer", false)]
+    public void An_expression_names_a_sensitive_value_when_a_word_of_it_does(string expression, bool expected)
+        => Assert.Equal(expected, SensitiveValueMask.NamesSensitiveValue(expression));
 }
