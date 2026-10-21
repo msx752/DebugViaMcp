@@ -17,7 +17,7 @@ public sealed class BreakpointTools(IConnectionManager connections)
     });
 
     [McpServerTool(Name = "bp_set", Idempotent = true),
-     Description("Sets a breakpoint at file+line or on a function. Optional condition, hit count, or logMessage (tracepoint: logs without stopping). Setting an identical breakpoint returns the existing id. A condition or logMessage runs in the program on every hit, so it " + InspectionTools.ConsentNote)]
+     Description("Sets a breakpoint at file+line or on a function. Optional condition, hit count, or logMessage (tracepoint: logs without stopping). Setting an identical breakpoint returns the existing id. With temporary=true the breakpoint removes itself after the break it causes (bp_list shows it until then). A condition or logMessage runs in the program on every hit, so it " + InspectionTools.ConsentNote)]
     public Task<CallToolResult> Set(
         [Description("Source file, absolute or relative to the solution directory.")] string? file = null,
         [Description("1-based line number; required with file.")] int? line = null,
@@ -27,6 +27,7 @@ public sealed class BreakpointTools(IConnectionManager connections)
         [Description("Hit count threshold; 0 = no hit count.")] int hitCount = 0,
         [Description("'none', 'equal', 'atLeast' or 'multiple'.")] string hitKind = "none",
         [Description("If set, logs this message instead of stopping. {expr} placeholders are evaluated.")] string? logMessage = null,
+        [Description("Remove the breakpoint after the break it causes; for a one-shot stop. Not with logMessage. A breakpoint that already existed is left as it is.")] bool temporary = false,
         CancellationToken ct = default) => ToolResponse.RunAsync(connections, "bp_set", async ctx =>
     {
         var hasFileLine = !string.IsNullOrWhiteSpace(file) && line is > 0;
@@ -52,6 +53,7 @@ public sealed class BreakpointTools(IConnectionManager connections)
             return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "conditionKind must be 'true' or 'changed'; hitKind must be 'none', 'equal', 'atLeast' or 'multiple'.");
 
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
+        if (temporary && ToolResponse.RequireMinor(connections, ProtocolInfo.MinorTemporary) is { } unsupported) return unsupported;
         var warnings = hasFileLine ? await ToolResponse.CheckBuildAsync(connections, bridge, null, file, ctx, ct).ConfigureAwait(false) : [];
         var result = await bridge.SetBreakpointAsync(new BreakpointSpec
         {
@@ -63,8 +65,12 @@ public sealed class BreakpointTools(IConnectionManager connections)
             HitCount = hitCount,
             HitCountKind = hitKindValue.Value,
             LogMessage = string.IsNullOrWhiteSpace(logMessage) ? null : logMessage,
+            Temporary = temporary,
         }, ctx, ct).ConfigureAwait(false);
-        return ToolResponse.OkWithWarnings(result, warnings);
+        object payload = temporary && result.AlreadyExisted
+            ? new { breakpoint = result.Breakpoint, alreadyExisted = true, hint = "This breakpoint already existed, so it was not made temporary and stays after its break. Remove it with bp_remove." }
+            : result;
+        return ToolResponse.OkWithWarnings(payload, warnings);
     });
 
     [McpServerTool(Name = "bp_enable", Idempotent = true),

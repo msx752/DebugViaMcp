@@ -43,6 +43,9 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     private long _epoch;
     private readonly RunToState _runTo = new();
+
+    /// <summary>Ids of the breakpoints that remove themselves after their first break (bp_set temporary). UI thread only.</summary>
+    private readonly HashSet<string> _temporary = new(StringComparer.Ordinal);
     private bool _attached;
 
     public string VsixVersion => vsixVersion;
@@ -205,6 +208,8 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             dte.AddBreakpoint(spec);
             var created = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == key)
                 ?? throw new BridgeException(BridgeErrorCode.Internal, "Visual Studio did not create the breakpoint.");
+            if (spec.Temporary) _temporary.Add(key);
+            else _temporary.Remove(key);   // a breakpoint set again after removal does not inherit the old flag
             log.Info($"Breakpoint {key} set");
             return (new SetBreakpointResult { Breakpoint = ToInfo(created) }, key);
         }, ct).ConfigureAwait(false);
@@ -236,6 +241,8 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         if (spec.Condition is not null) ExpressionPolicy.RequireMutationText(spec.Condition, "condition");
         if (spec.LogMessage is not null) ExpressionPolicy.RequireMutationText(spec.LogMessage, "logMessage");
         if (spec.Function is not null) ExpressionPolicy.RequireMutationText(spec.Function, "function");
+        if (spec.Temporary && spec.LogMessage is not null)
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, "A tracepoint never stops, so it cannot be temporary.", "Drop temporary, or drop logMessage.");
 
         string? absolute = null;
         if (spec.File is not null)
@@ -264,7 +271,12 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     }
 
     public Task<int> RemoveBreakpointsAsync(string? id, bool all, CancellationToken ct) => ui.RunAsync(() =>
-        dte.RemoveBreakpoints(b => all || IdOf(b) == id), ct);
+    {
+        var removed = dte.RemoveBreakpoints(b => all || IdOf(b) == id);
+        if (all) _temporary.Clear();
+        else if (id is not null) _temporary.Remove(id);
+        return removed;
+    }, ct);
 
     public Task<BreakpointInfo?> FindBreakpointAsync(string id, CancellationToken ct) =>
         ui.RunAsync<BreakpointInfo?>(() => dte.Breakpoints().Where(b => IdOf(b) == id).Select(ToInfo).FirstOrDefault(), ct);
@@ -695,10 +707,17 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public BreakSnapshot OnEnterBreak(BreakReason reason)
     {
         Interlocked.Increment(ref _epoch);
+        var byBreakpoint = reason == BreakReason.Breakpoint;
         if (_runTo.TargetId is { } target && reason == BreakReason.Breakpoint && dte.LastHitBreakpoint is { } hit && IdOf(hit) == target)
             reason = BreakReason.RunTo;
         var snapshot = BuildSnapshot(reason);
         ReleaseRunTo(null);   // wherever it stopped, the run-to is over
+        if (byBreakpoint && dte.LastHitBreakpoint is { } hit2 && IdOf(hit2) is var hitId && _temporary.Remove(hitId))
+        {
+            dte.RemoveBreakpoints(b => IdOf(b) == hitId);   // the snapshot above still names it
+            log.Info($"Temporary breakpoint {hitId} removed after its break");
+        }
+
         return snapshot;
     }
 
@@ -758,6 +777,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         Line = b.Line, Function = b.Function, Condition = b.Condition, ConditionKind = b.ConditionKind,
         HitCount = b.HitCount, HitCountKind = b.HitCountKind, LogMessage = b.LogMessage, Enabled = b.Enabled,
         Bound = b.BoundCount > 0,
+        Temporary = _temporary.Contains(IdOf(b)) ? true : null,
         BindError = b.BoundCount > 0 ? null
             : dte.Mode == DebuggerMode.Design ? "Pending: binds when debugging starts."
             : "Will not be hit: no executable code at this location or symbols are not loaded.",

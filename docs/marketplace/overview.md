@@ -55,7 +55,7 @@ Change them in **Tools → Options → All Settings → Debugging → Debugging 
 
 29 tools in a few groups:
 
-- **Breakpoints:** set, list, enable, remove. File and line or function, conditions, hit counts, tracepoints.
+- **Breakpoints:** set, list, enable, remove. File and line or function, conditions, hit counts, tracepoints, and one-shot breakpoints that remove themselves after the first stop.
 - **Execution:** start (the startup project or a named one), continue, pause, step, run to a line, wait for the next break, attach to a process (and list the processes it can attach to), stop.
 - **Inspection:** status (with the Call Stack, Locals and exception of a stop in one call), threads, call stack, frame selection, locals and arguments with drill-down (several levels in one call), evaluation, the current exception.
 - **IDE state:** Visual Studio builds, the Error List, Output window panes, and why a breakpoint may not bind (the symbol-related options and the unbound breakpoints).

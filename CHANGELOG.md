@@ -28,6 +28,9 @@ the `debugviamcp` tool are released together with the same version.
   files to exactly match, Just My Code, Source Server, Suppress JIT optimization), the breakpoints that are not bound, and what
   can be behind it. It does not say which modules have symbols loaded; Visual Studio's automation does not offer the symbol path.
 
+- **`bp_set` with `temporary`.** A one-shot breakpoint: it removes itself after the break it causes, and `bp_list` shows it
+  (`temporary: true`) until then. A breakpoint that already existed is left as it is, and a tracepoint cannot be temporary.
+
 ### Changed
 - `debug_start` builds first. A failed build comes back to the agent (read the diagnostics with `errors_list`) instead of
   leaving Visual Studio's "run the last successful build?" dialog open on screen.

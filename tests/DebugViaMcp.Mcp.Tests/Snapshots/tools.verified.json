@@ -49,7 +49,7 @@
   },
   {
     "Name": "bp_set",
-    "Description": "Sets a breakpoint at file\u002Bline or on a function. Optional condition, hit count, or logMessage (tracepoint: logs without stopping). Setting an identical breakpoint returns the existing id. A condition or logMessage runs in the program on every hit, so it Requires the user\u0027s approval in Visual Studio unless they allowed it in settings. If the call returns \u0027denied\u0027, that is the user\u0027s decision: do not retry; ask the user how to proceed.",
+    "Description": "Sets a breakpoint at file\u002Bline or on a function. Optional condition, hit count, or logMessage (tracepoint: logs without stopping). Setting an identical breakpoint returns the existing id. With temporary=true the breakpoint removes itself after the break it causes (bp_list shows it until then). A condition or logMessage runs in the program on every hit, so it Requires the user\u0027s approval in Visual Studio unless they allowed it in settings. If the call returns \u0027denied\u0027, that is the user\u0027s decision: do not retry; ask the user how to proceed.",
     "Schema": {
       "type": "object",
       "properties": {
@@ -107,6 +107,11 @@
             "null"
           ],
           "default": null
+        },
+        "temporary": {
+          "description": "Remove the breakpoint after the break it causes; for a one-shot stop. Not with logMessage. A breakpoint that already existed is left as it is.",
+          "type": "boolean",
+          "default": false
         }
       }
     }

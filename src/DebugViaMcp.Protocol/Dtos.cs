@@ -108,6 +108,9 @@ public sealed class BreakpointSpec
     public int HitCount { get; set; }
     public HitCountKind HitCountKind { get; set; }
     public string? LogMessage { get; set; }
+
+    /// <summary>Protocol 2.6. The breakpoint removes itself after the break it causes. Only for a breakpoint this request creates.</summary>
+    public bool Temporary { get; set; }
 }
 
 public sealed class BreakpointInfo
@@ -124,6 +127,9 @@ public sealed class BreakpointInfo
     public bool Enabled { get; set; }
     public bool Bound { get; set; }
     public string? BindError { get; set; }
+
+    /// <summary>True while the breakpoint is waiting to remove itself after its first break; omitted otherwise.</summary>
+    public bool? Temporary { get; set; }
 }
 
 /// <summary>
