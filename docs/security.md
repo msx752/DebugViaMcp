@@ -71,7 +71,10 @@ It covers `vars`, `eval`, the arguments in a break, the exception message, stack
 A masked value reads `[masked]` and the result carries `masked: true`; Visual Studio still shows you the real value.
 
 A name counts by its words, so `config.Password`, `password, nq` (a format specifier that drops the quotes), `password[0]` (one
-character), `pass\u0077ord` (a unicode escape in the identifier) and the members of `credentials` are all treated as sensitive.
+character), `pass\u0077ord` (a unicode escape in the identifier, `\U` with eight digits too) and the members of `credentials` are all treated as sensitive.
+An expression built on such a name (`password.GetHashCode()`, `password == "abc"`, `password.StartsWith("a")`) is masked whatever its
+type, because it would tell the agent about the secret one answer at a time; `password.Length` and `credentials.Count` stay readable, as
+do plain numbers and flags under a sensitive name such as `tokenCount` or `hasPassword`.
 A tracepoint (`bp_set` with a message) that would print such a value, for example `{password}`, is refused while the mask is on,
 because its output would reach the agent through `output_read`.
 
