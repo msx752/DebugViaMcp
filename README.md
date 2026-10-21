@@ -20,7 +20,7 @@ It works with Visual Studio 2022 (17.14+) and Visual Studio 2026.
   (detach on stop)
 - Inspection: threads, call stack, frame selection (`frame_select`), the current exception, locals/arguments, drill-down by path, side-effect-free evaluation, `set_value`, and
   evaluation with side effects (`eval` with `allowSideEffects`)
-- IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`)
+- IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`); `debug_start` builds first and returns a failed build (read it with `errors_list`) instead of opening Visual Studio's build-error dialog
 - Diagnostics: `diag` returns the MCP server's recent log lines
 - Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → All Settings → Debugging → Debugging via MCP**; Mutate operations ask in a
   Visual Studio info bar (Allow once / Allow for session / Deny, no answer = deny); every state change is audited

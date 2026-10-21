@@ -63,7 +63,7 @@ Change them in **Tools → Options → All Settings → Debugging → Debugging 
 - **Several Visual Studios:** list, select, release.
 - **Diagnostics:** the MCP server's own log.
 
-It also warns the agent when the built program is older than the sources, and Visual Studio offers an optional **Build** bar.
+It also warns the agent when the built program is older than the sources, and Visual Studio offers an optional **Build** bar. `debug_start` builds first: when the build fails, the agent gets the failure and reads the details with `errors_list`, so no "run the last successful build?" dialog is left on your screen.
 
 ## Several Visual Studios, one agent each
 
