@@ -19,7 +19,8 @@ Let Claude Code and other AI agents debug in Visual Studio: breakpoints, steppin
 
 ## Categories
 
-Debugging, Coding (already in `publishManifest.json`)
+Type: Tools. Categories (1 to 3, from the Marketplace list; there is no *Debugging* category): **Coding**, **Testing**
+(already in `publishManifest.json`). "Debugging" lives in the tags instead.
 
 ## Tags / keywords
 
