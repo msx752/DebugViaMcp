@@ -13,6 +13,8 @@ the `debugviamcp` tool are released together with the same version.
   A tracepoint that would print such a value is refused while it is on. A heuristic against accidental leaks, not a security boundary (see `docs/security.md`).
 
 ### Changed
+- `debug_start` builds first. A failed build comes back to the agent (read the diagnostics with `errors_list`) instead of
+  leaving Visual Studio's "run the last successful build?" dialog open on screen.
 - The Output panes are named by what they hold: **Debugging via MCP Log** (the technical log, formerly *Debugging via MCP*)
   and **Debugging via MCP Audit** (what the agent did, formerly *Debugging via MCP Activity*). The menu entry **Show Activity**
   is now **Show Audit**. The agent still cannot read either pane.

@@ -23,14 +23,32 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
     /// <summary>The wait after a resume command: the tool's own length, never more than the user's limit.</summary>
     private TimeSpan ResumeWait(Session.SessionState session) => waitForBreak < session.MaxWait ? waitForBreak : session.MaxWait;
 
-    [McpServerTool(Name = "debug_start"), Description("Starts debugging the solution's startup project (F5), or the given project when project is set; the solution's startup project is not changed. Waits up to 30 s for the first break. " + InspectionTools.UntrustedNote)]
+    [McpServerTool(Name = "debug_start"), Description("Starts debugging the solution's startup project (F5), or the given project when project is set; the solution's startup project is not changed. Builds first; if the build fails it returns the failure (see errors_list) instead of starting. Waits up to 30 s for the first break. " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Start(
         [Description("Project to start (name or unique name); omit for the solution's startup project.")] string? project = null,
         CancellationToken ct = default) =>
         string.IsNullOrWhiteSpace(project)
-            ? Resume("debug_start", DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", (b, ctx) => b.StartAsync(ctx, ct), ct, check: (b, ctx) => ToolResponse.CheckBuildAsync(connections, b, null, null, ctx, ct))
+            ? Resume("debug_start", DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", (b, ctx) => b.StartAsync(ctx, ct), ct,
+                preBuild: (b, ctx) => BuildBeforeStartAsync(b, null, ctx, ct), check: (b, ctx) => ToolResponse.CheckBuildAsync(connections, b, null, null, ctx, ct))
             : Resume("debug_start", DebuggerMode.Design, "Debugging is already running; use debug_continue or debug_stop.", (b, ctx) => b.StartProjectAsync(project, ctx, ct), ct, ProtocolInfo.MinorM31,
-                check: (b, ctx) => ToolResponse.CheckBuildAsync(connections, b, project, null, ctx, ct));
+                preBuild: (b, ctx) => BuildBeforeStartAsync(b, project, ctx, ct), check: (b, ctx) => ToolResponse.CheckBuildAsync(connections, b, project, null, ctx, ct));
+
+    /// <summary>
+    /// Builds before F5 so a failed build comes back here with its errors. Left to F5, Visual Studio asks "run the last
+    /// successful build?" in a dialog nobody can answer through the tools. Returns the response to give instead of starting, or null to go on.
+    /// An extension without build support (older than the build tools) is started as before.
+    /// </summary>
+    private async Task<CallToolResult?> BuildBeforeStartAsync(IDebugBridge bridge, string? project, CallContext ctx, CancellationToken ct)
+    {
+        if (connections.RemoteProtocolMinor < ProtocolInfo.MinorM3) return null;
+        var wait = Math.Min(120, (int)connections.Session.MaxBuild.TotalSeconds);
+        var r = await bridge.BuildAsync(project, wait, ctx, ct).ConfigureAwait(false);
+        if (r.State == BuildState.Building)
+            return ToolResponse.Ok(new { state = "building", durationMs = r.DurationMs, hint = "The build is still running, so the program was not started. Call vs_build to keep waiting, then debug_start again." });
+        return r.Succeeded
+            ? null
+            : ToolResponse.Error(BridgeErrorCode.Internal, $"Build failed ({r.FailedProjects} project(s)); the program was not started.", "Call errors_list for the diagnostics, fix them, then debug_start again.");
+    }
 
     [McpServerTool(Name = "debug_continue"), Description("Resumes execution (F5) and waits up to 30 s for the next break. " + InspectionTools.UntrustedNote)]
     public Task<CallToolResult> Continue(CancellationToken ct) =>
@@ -142,7 +160,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
     });
 
     private Task<CallToolResult> Resume(string tool, DebuggerMode required, string hint, Func<IDebugBridge, CallContext, Task<long>> command, CancellationToken ct, int requiredMinor = 0,
-        Func<IDebugBridge, CallContext, Task<IReadOnlyList<BuildWarning>>>? check = null) =>
+        Func<IDebugBridge, CallContext, Task<IReadOnlyList<BuildWarning>>>? check = null, Func<IDebugBridge, CallContext, Task<CallToolResult?>>? preBuild = null) =>
         ToolResponse.RunAsync(connections, tool, async ctx =>
         {
             var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
@@ -150,6 +168,8 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
             if (session.Mode != required)
                 return ToolResponse.WrongMode(required, session.Mode, hint);
             if (requiredMinor > 0 && ToolResponse.RequireMinor(connections, requiredMinor) is { } unsupported) return unsupported;
+
+            if (preBuild is not null && await preBuild(bridge, ctx).ConfigureAwait(false) is { } stop) return stop;
 
             var warnings = check is null ? [] : await check(bridge, ctx).ConfigureAwait(false);
             var seq = await session.IssueAsync(() => command(bridge, ctx)).ConfigureAwait(false);
