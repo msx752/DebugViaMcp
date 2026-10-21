@@ -47,18 +47,69 @@ public sealed class SessionTools(IConnectionManager connections)
         return ToolResponse.Ok(new { released = true });
     });
 
-    [McpServerTool(Name = "debug_status", ReadOnly = true), Description("Returns the debugger mode (design, run, break), what the user allows (permissions), and, when stopped, where and why. " + InspectionTools.UntrustedNote)]
-    public Task<CallToolResult> Status(CancellationToken ct) => ToolResponse.RunAsync(connections, "debug_status", async ctx =>
+    public const int DetailFrames = 10;
+    public const int DetailLocals = 30;
+
+    public Task<CallToolResult> Status(CancellationToken ct) => Status(false, ct);
+
+    [McpServerTool(Name = "debug_status", ReadOnly = true), Description("Returns the debugger mode (design, run, break), what the user allows (permissions), and, when stopped, where and why. With detail=true and the program stopped it also returns the top frames of the Call Stack, the Locals (first 30) and the exception, if the break is about one: where you are and what is going on in one call. " + InspectionTools.UntrustedNote)]
+    public Task<CallToolResult> Status(
+        [Description("When stopped: also return the Call Stack (top 10 frames), the Locals and the exception.")] bool detail = false,
+        CancellationToken ct = default) => ToolResponse.RunAsync(connections, "debug_status", async ctx =>
     {
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
         var status = await bridge.GetStatusAsync(ctx, ct).ConfigureAwait(false);
         connections.Session.Sync(status.Mode, status.Seq);
         var restored = connections.Session.TakeConnectionRestored();
+        var more = detail && status.Mode == DebuggerMode.Break ? await ReadDetailAsync(bridge, ctx, ct).ConfigureAwait(false) : null;
         return ToolResponse.Ok(new
         {
             mode = status.Mode, permissions = status.Permissions, snapshot = ToolResponse.Snapshot(status.Snapshot), heldBy = status.LeaseHolder,
+            detail = more,
             connectionRestored = restored ? true : (bool?)null,
             connectionRestoredNote = restored ? "The connection to Visual Studio was lost and re-established: any hold on it and any approval from before are gone, and breakpoints you set earlier may need checking." : null,
         });
     });
+
+    /// <summary>
+    /// The parts of "where am I and what is going on". A part Visual Studio cannot read is named in notes and the rest still comes;
+    /// a refusal by the user (denied, in use, wrong mode) is not one of those and fails the call as it would on its own.
+    /// </summary>
+    private async Task<object> ReadDetailAsync(IDebugBridge bridge, CallContext ctx, CancellationToken ct)
+    {
+        var notes = new List<string>();
+        StackFrameInfo[]? stack = null;
+        VariableInfo[]? locals = null;
+        var localsHasMore = false;
+        ExceptionInfo? exception = null;
+
+        try
+        {
+            stack = connections.RemoteProtocolMinor < ProtocolInfo.MinorM3
+                ? await bridge.GetStackAsync(DetailFrames, ctx, ct).ConfigureAwait(false)
+                : (await bridge.GetThreadStackAsync(null, DetailFrames, ctx, ct).ConfigureAwait(false)).Frames;
+        }
+        catch (McpBridgeException e) when (Readable(e)) { notes.Add("stack: " + e.Message); }
+
+        try
+        {
+            var items = await bridge.GetVariablesAsync(VariableScope.Locals, null, 0, DetailLocals + 1, ctx, ct).ConfigureAwait(false);
+            localsHasMore = items.Length > DetailLocals;
+            locals = items.Take(DetailLocals).ToArray();
+        }
+        catch (McpBridgeException e) when (Readable(e)) { notes.Add("locals: " + e.Message); }
+
+        if (connections.RemoteProtocolMinor >= ProtocolInfo.MinorM3)
+        {
+            try
+            {
+                exception = await bridge.GetExceptionAsync(ctx, ct).ConfigureAwait(false);
+            }
+            catch (McpBridgeException e) when (Readable(e)) { notes.Add("exception: " + e.Message); }
+        }
+
+        return new { stack, locals, localsHasMore = localsHasMore ? true : (bool?)null, exception, notes = notes.Count > 0 ? notes : null };
+    }
+
+    private static bool Readable(McpBridgeException e) => e.Code is BridgeErrorCode.EvalFailed or BridgeErrorCode.InvalidArgument or BridgeErrorCode.NotFound or BridgeErrorCode.Internal;
 }

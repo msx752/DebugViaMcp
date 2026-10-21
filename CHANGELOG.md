@@ -17,6 +17,10 @@ the `debugviamcp` tool are released together with the same version.
   (`childrenTruncated` says there are more) and the answer stays small: what does not fit stays closed, and `hasChildren`
   still says it can be opened with `path`.
 
+- **`debug_status` with `detail`.** Stopped at a break, `detail: true` also returns the top 10 frames of the Call Stack, the
+  first 30 Locals and the exception (when the break is about one): where you are and what is going on in one call. A part
+  Visual Studio cannot read is named under `notes` and the rest still comes.
+
 ### Changed
 - `debug_start` builds first. A failed build comes back to the agent (read the diagnostics with `errors_list`) instead of
   leaving Visual Studio's "run the last successful build?" dialog open on screen.
