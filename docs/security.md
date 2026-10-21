@@ -77,7 +77,7 @@ because its output would reach the agent through `output_read`.
 
 **What it is not.** It is a heuristic that lowers the chance of an accidental leak. It is not a security boundary against an
 agent that is determined, or steered by text inside the program (prompt injection): a secret copied into a variable with an
-innocent name, or learned bit by bit from a yes/no question such as `password == "abc"`, is not stopped. What stops that are the
+innocent name, or learned bit by bit from yes/no questions about a copy under an innocent name, is not stopped. What stops that are the
 permission tiers and the consent questions: set Read to Ask or Deny for data you must never share.
 
 Turning the setting off lets such values reach the agent. Visual Studio asks you to confirm it (also when the value was

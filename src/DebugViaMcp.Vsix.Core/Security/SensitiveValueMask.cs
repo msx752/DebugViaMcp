@@ -29,7 +29,7 @@ public static class SensitiveValueMask
     private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(250);
     private const RegexOptions Options = RegexOptions.CultureInvariant | RegexOptions.IgnoreCase;
 
-    private static readonly Regex UnicodeEscape = new(@"\\u([0-9A-Fa-f]{4})", RegexOptions.CultureInvariant, MatchTimeout);
+    private static readonly Regex UnicodeEscape = new(@"\\u([0-9A-Fa-f]{4})|\\U([0-9A-Fa-f]{8})", RegexOptions.CultureInvariant, MatchTimeout);
 
     private static readonly Regex Words = new("[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+", RegexOptions.CultureInvariant, MatchTimeout);
 
@@ -113,10 +113,27 @@ public static class SensitiveValueMask
     private static bool IsReadableSecret(string name, string value, string? type)
     {
         var v = value.Trim();
-        if (v == "null" || v == "Nothing" || v.StartsWith("{", StringComparison.Ordinal)) return false;
-        if (IsQuotedString(v) || v.StartsWith("'", StringComparison.Ordinal)) return true;
+        if (v == "null" || v == "Nothing") return false;
+
+        // The declared type decides first: with a format specifier such as nq the quotes are gone and a secret may start with a brace.
         if (type is not null && (type.EndsWith("string", StringComparison.OrdinalIgnoreCase) || type.EndsWith("char", StringComparison.OrdinalIgnoreCase))) return true;
+        if (IsQuotedString(v) || v.StartsWith("'", StringComparison.Ordinal)) return true;
+        if (v.StartsWith("{", StringComparison.Ordinal)) return false;
+
+        // An expression built on the secret (hash, comparison, prefix test) is an oracle for it, whatever type it returns.
+        if (IsDerived(name) && !IsLengthOrCount(name)) return true;
         return name.IndexOf('[') >= 0;
+    }
+
+    private const string OperatorCharacters = "=<>!&|?+-*/%^~";
+
+    private static bool IsDerived(string expression) => expression.IndexOf('(') >= 0 || expression.IndexOfAny(OperatorCharacters.ToCharArray()) >= 0;
+
+    /// <summary>How long or how many says little about the secret; with an operator in the expression it could say more (a comparison).</summary>
+    private static bool IsLengthOrCount(string expression)
+    {
+        var e = expression.Trim();
+        return (e.EndsWith(".Length", StringComparison.Ordinal) || e.EndsWith(".Count", StringComparison.Ordinal)) && e.IndexOfAny(OperatorCharacters.ToCharArray()) < 0;
     }
 
     private static bool IsQuotedString(string value)
@@ -125,12 +142,19 @@ public static class SensitiveValueMask
         return v.StartsWith("\"", StringComparison.Ordinal) || v.StartsWith("@\"", StringComparison.Ordinal) || v.StartsWith("$\"", StringComparison.Ordinal);
     }
 
+    /// <summary>\uXXXX and \UXXXXXXXX; an escape that is not a character (a lone surrogate, beyond U+10FFFF) is left as it is.</summary>
+    private static string DecodeEscape(Match m)
+    {
+        var code = Convert.ToInt64(m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value, 16);
+        return code <= 0x10FFFF && (code < 0xD800 || code > 0xDFFF) ? char.ConvertFromUtf32((int)code) : m.Value;
+    }
+
     private static bool IsSensitiveName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
 
         // C# allows unicode escapes inside an identifier (pass\u0077ord): read the name the way the debugger will.
-        name = UnicodeEscape.Replace(name!, m => ((char)Convert.ToInt32(m.Groups[1].Value, 16)).ToString());
+        name = UnicodeEscape.Replace(name!, DecodeEscape);
 
         var words = new List<string>();
         foreach (Match m in Words.Matches(name!)) words.Add(m.Value.ToLowerInvariant());

@@ -34,6 +34,81 @@ public class SensitiveValueMaskTests
     }
 
     [Theory]
+    [InlineData(@"password")]
+    [InlineData(@"pass\U00000077ord")]
+    [InlineData(@"\U00000070assword")]
+    public void A_name_written_with_unicode_escapes_is_read_the_way_the_debugger_reads_it(string name)
+    {
+        var r = SensitiveValueMask.MaskValue(name, "\"hunter2\"");
+
+        Assert.True(r.Masked);
+        Assert.Equal(Mask, r.Value);
+    }
+
+    [Theory]
+    [InlineData(@"pass\UFFFFFFFFord")]
+    [InlineData(@"pass\U0000D800ord")]
+    public void An_escape_that_is_not_a_character_does_not_break_the_name_check(string name)
+    {
+        var r = SensitiveValueMask.MaskValue(name, "\"hello\"");
+
+        Assert.False(r.Masked);
+    }
+
+    /// <summary>The agent can evaluate an expression built on a secret (hash, comparison, prefix test) and learn it a bit at a time.</summary>
+    [Theory]
+    [InlineData("password.GetHashCode()", "1234567", "int")]
+    [InlineData("password == \"hunter2\"", "true", "bool")]
+    [InlineData("password.StartsWith(\"h\")", "true", "bool")]
+    [InlineData("password.IndexOf('h')", "0", "int")]
+    [InlineData("(int)password[0]", "104", "int")]
+    [InlineData("password.Length > 3", "true", "bool")]
+    [InlineData("token != null && token.Length == 7", "true", "bool")]
+    public void A_scalar_derived_from_a_sensitive_name_is_masked(string expression, string value, string type)
+    {
+        var r = SensitiveValueMask.MaskValue(expression, value, type);
+
+        Assert.True(r.Masked);
+        Assert.Equal(Mask, r.Value);
+    }
+
+    [Theory]
+    [InlineData("password.Length", "7", "int")]
+    [InlineData("credentials.Count", "2", "int")]
+    [InlineData("tokenCount", "5", "int")]
+    [InlineData("hasPassword", "true", "bool")]
+    [InlineData("config.MaxTokens", "4096", "int")]
+    public void A_length_a_count_or_a_plain_number_under_a_sensitive_name_stays_readable(string name, string value, string type)
+    {
+        var r = SensitiveValueMask.MaskValue(name, value, type);
+
+        Assert.False(r.Masked);
+        Assert.Equal(value, r.Value);
+    }
+
+    /// <summary>A format specifier such as nq removes the quotes; a secret that starts with a brace must not pass for an object.</summary>
+    [Theory]
+    [InlineData("password", "{hunter2}")]
+    [InlineData("password", "null-but-not-null")]
+    [InlineData("apiKey", "{abc}")]
+    public void A_string_type_decides_before_the_shape_of_the_text(string name, string value)
+    {
+        var r = SensitiveValueMask.MaskValue(name, value, "string");
+
+        Assert.True(r.Masked);
+        Assert.Equal(Mask, r.Value);
+    }
+
+    [Fact]
+    public void A_null_string_under_a_sensitive_name_is_still_shown_as_null()
+    {
+        var r = SensitiveValueMask.MaskValue("password", "null", "string");
+
+        Assert.False(r.Masked);
+        Assert.Equal("null", r.Value);
+    }
+
+    [Theory]
     [InlineData("total", "\"hello\"")]
     [InlineData("orderId", "42")]
     [InlineData("name", "\"Ada\"")]
