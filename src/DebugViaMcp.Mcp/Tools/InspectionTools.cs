@@ -85,7 +85,7 @@ public sealed class InspectionTools(IConnectionManager connections)
             return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "expression is empty.");
         var r = await bridge.EvaluateAsync(expression, allowSideEffects, ctx, ct).ConfigureAwait(false);
         return r.IsValid
-            ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated }, frame = ToolResponse.Frame(connections.Session.Frame) })
+            ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated, masked = r.Masked }, frame = ToolResponse.Frame(connections.Session.Frame) })
             : ToolResponse.Error(BridgeErrorCode.EvalFailed, r.Value, EvalFailureHint(r.Value));
     }, ct);
 
@@ -106,7 +106,7 @@ public sealed class InspectionTools(IConnectionManager connections)
             return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "expression and value are required.");
         var r = await bridge.SetValueAsync(expression, value, ctx, ct).ConfigureAwait(false);
         return r.IsValid
-            ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated }, frame = ToolResponse.Frame(connections.Session.Frame) })
+            ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated, masked = r.Masked }, frame = ToolResponse.Frame(connections.Session.Frame) })
             : ToolResponse.Error(BridgeErrorCode.EvalFailed, r.Value, "Check that the target exists in this frame and the value has a compatible type.");
     }, ct);
 
