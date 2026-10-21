@@ -64,6 +64,12 @@ public sealed class VariableInfo
 
     /// <summary>True when a secret-looking part of the value was replaced before it left Visual Studio; omitted otherwise.</summary>
     public bool? Masked { get; set; }
+
+    /// <summary>Set by the MCP server when <c>vars</c> was asked for a depth above 1: the members read under this one. Never sent by the extension.</summary>
+    public VariableInfo[]? Children { get; set; }
+
+    /// <summary>True when <see cref="Children"/> holds only the first members; omitted otherwise.</summary>
+    public bool? ChildrenTruncated { get; set; }
 }
 
 public sealed class BreakSnapshot

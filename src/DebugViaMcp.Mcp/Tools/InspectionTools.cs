@@ -38,15 +38,15 @@ public sealed class InspectionTools(IConnectionManager connections)
         ToolResponse.RequireMinor(connections, ProtocolInfo.MinorM3)
         ?? ToolResponse.Ok(new { threads = await bridge.GetThreadsAsync(ctx, ct).ConfigureAwait(false) }), ct);
 
-    /// <remarks><paramref name="depth"/> is accepted for forward compatibility; M1 returns one level and the agent drills down with <paramref name="path"/>.</remarks>
     [McpServerTool(Name = "vars", ReadOnly = true),
-     Description("Locals or arguments of the current frame. Use path (e.g. order.Lines[2]) to drill into a member. " + UntrustedNote)]
+     Description("Locals or arguments of the current frame. Use path (e.g. order.Lines[2]) to drill into a member. depth (1-4) opens that many levels in one call (members come under children); expand lists more paths to open in the same call. What does not fit the size limit stays closed (hasChildren says it can be opened). " + UntrustedNote)]
     public Task<CallToolResult> Vars(
         [Description("'locals' or 'args'.")] string scope = "locals",
         [Description("Optional expression path to expand, e.g. order.Lines.")] string? path = null,
-        int depth = 1,
+        [Description("Levels to open under each object: 1 = only the list itself (default), up to 4. Each object shows at most 20 members; childrenTruncated says there are more.")] int depth = 1,
         int maxItems = 50,
         [Description("Index of the first item, for paging through large collections.")] int offset = 0,
+        [Description("More paths to open in the same call, e.g. [\"order.Lines\", \"customer.Address\"] (at most 5); the answer lists them under expanded.")] string[]? expand = null,
         CancellationToken ct = default)
     {
         VariableScope? s = scope switch { "locals" => VariableScope.Locals, "args" => VariableScope.Args, _ => null };
@@ -69,9 +69,38 @@ public sealed class InspectionTools(IConnectionManager connections)
                 budget -= cost;
             }
 
+            var tree = new VariableTree((member, max, token) => bridge.GetVariablesAsync(s.Value, member, 0, max, ctx, token), Math.Max(0, budget));
+            if (depth > 1) await tree.OpenAsync(path, page, depth, ct).ConfigureAwait(false);
+            var expanded = expand is { Length: > 0 } ? await ExpandAsync(tree, expand, Math.Min(limit, VariableTree.MaxExpandItems), ct).ConfigureAwait(false) : null;
+
             var hasMore = items.Length > page.Count;
-            return ToolResponse.Ok(new { data = page, offset = start, hasMore, nextOffset = hasMore ? start + page.Count : (int?)null, frame = ToolResponse.Frame(connections.Session.Frame) });
+            return ToolResponse.Ok(new
+            {
+                data = page, offset = start, hasMore, nextOffset = hasMore ? start + page.Count : (int?)null, expanded,
+                hint = tree.Closed ? "Some members stayed closed to keep the answer small (hasChildren says which); open them with path or expand." : null,
+                frame = ToolResponse.Frame(connections.Session.Frame),
+            });
         }, ct);
+    }
+
+    /// <summary>The members of the named paths, one entry each: items, or why the path could not be read.</summary>
+    private static async Task<List<object>> ExpandAsync(VariableTree tree, string[] paths, int limit, CancellationToken ct)
+    {
+        var result = new List<object>();
+        foreach (var path in paths.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim()).Distinct(StringComparer.Ordinal).Take(VariableTree.MaxExpandPaths))
+        {
+            try
+            {
+                var members = await tree.ReadAsync(path, limit + 1, ct).ConfigureAwait(false);
+                result.Add(new { path, items = members.Take(limit), hasMore = members.Length > limit ? true : (bool?)null });
+            }
+            catch (McpBridgeException e) when (e.Code is BridgeErrorCode.EvalFailed or BridgeErrorCode.InvalidArgument or BridgeErrorCode.NotFound)
+            {
+                result.Add(new { path, error = e.Message });
+            }
+        }
+
+        return result;
     }
 
     [McpServerTool(Name = "eval"),

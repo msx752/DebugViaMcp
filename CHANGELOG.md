@@ -12,6 +12,11 @@ the `debugviamcp` tool are released together with the same version.
   the arguments of a break, exception texts and `output_read`. The result carries `masked: true`. Turning it off asks you to confirm.
   A tracepoint that would print such a value is refused while it is on. A heuristic against accidental leaks, not a security boundary (see `docs/security.md`).
 
+- **`vars` opens several levels in one call.** `depth` (1-4, default 1) puts the members of each object under `children`;
+  `expand` names more paths to open in the same call (listed under `expanded`). Each object shows at most 20 members
+  (`childrenTruncated` says there are more) and the answer stays small: what does not fit stays closed, and `hasChildren`
+  still says it can be opened with `path`.
+
 ### Changed
 - `debug_start` builds first. A failed build comes back to the agent (read the diagnostics with `errors_list`) instead of
   leaving Visual Studio's "run the last successful build?" dialog open on screen.
