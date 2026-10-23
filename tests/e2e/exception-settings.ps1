@@ -26,7 +26,7 @@
   The DebugViaMcp.Mcp.dll the driver talks to (default: the Debug build in this repository).
 
 .PARAMETER ReadyTimeoutSeconds
-  How long to wait for the extension to report ready after Visual Studio started (default 300).
+  How long to wait for the extension to report ready after Visual Studio started (default 120; a dialog in the way is detected after about 6 s).
 
 .EXAMPLE
   powershell -File tests\e2e\exception-settings.ps1 -Phases allow
@@ -34,7 +34,7 @@
 param(
     [ValidateSet('allow', 'deny', 'ask', 'perf')][string[]]$Phases = @('allow', 'deny', 'ask'),
     [string]$McpDll,
-    [int]$ReadyTimeoutSeconds = 300
+    [int]$ReadyTimeoutSeconds = 120
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
@@ -78,6 +78,24 @@ function Write-PermissionSettings([string]$Control, [int]$ConsentSeconds) {
     [IO.File]::WriteAllLines($settingsFile, $new)
 }
 
+# A modal dialog (a project upgrade prompt, a license box) disables Visual Studio's main window and is its enabled popup: the same test the
+# extension's own dialog check uses. Without it a run would wait out the whole timeout for an extension that cannot load behind a dialog.
+Add-Type -Namespace E2e -Name Win -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool IsWindowEnabled(System.IntPtr h);
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern System.IntPtr GetWindow(System.IntPtr h, uint cmd);
+[System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)] public static extern int GetWindowText(System.IntPtr h, System.Text.StringBuilder s, int max);
+'@
+function Get-ModalDialog([System.Diagnostics.Process]$Process) {
+    $Process.Refresh()
+    $main = $Process.MainWindowHandle
+    if ($main -eq [IntPtr]::Zero -or [E2e.Win]::IsWindowEnabled($main)) { return $null }
+    $popup = [E2e.Win]::GetWindow($main, 6)   # GW_ENABLEDPOPUP
+    if ($popup -eq [IntPtr]::Zero) { return '(untitled dialog)' }
+    $title = New-Object System.Text.StringBuilder 256
+    [void][E2e.Win]::GetWindowText($popup, $title, 256)
+    if ($title.Length -gt 0) { $title.ToString() } else { '(untitled dialog)' }
+}
+
 function Stop-OwnVs([int]$ProcessId) {
     $p = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
     if (-not $p) { return }
@@ -105,9 +123,13 @@ try {
         $started.Add($vs.Id)
         try {
             $ready = $null
+            $dialogPolls = 0
             for ($i = 0; $i -lt ($ReadyTimeoutSeconds / 3) -and -not $ready; $i++) {
                 Start-Sleep -Seconds 3
                 if ($vs.HasExited) { throw "Visual Studio exited early (code $($vs.ExitCode))." }
+                $dialog = Get-ModalDialog $vs
+                if ($dialog) { $dialogPolls++ } else { $dialogPolls = 0 }
+                if ($dialogPolls -ge 2) { throw "Visual Studio is waiting behind a dialog: '$dialog'. Nothing can load until someone answers it." }
                 $file = Join-Path $instances "$($vs.Id).json"
                 if (Test-Path $file) { $ready = Get-Content $file -Raw | ConvertFrom-Json }
             }
