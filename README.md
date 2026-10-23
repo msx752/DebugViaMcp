@@ -29,6 +29,11 @@ It works with Visual Studio 2022 (17.14+) and Visual Studio 2026.
 - Logs: `%LOCALAPPDATA%\DebugViaMcp\logs` and the **Debugging via MCP Log** Output pane in Visual Studio; every call has a
   `callId` that appears in both the MCP server and Visual Studio logs
 
+### Languages
+
+Tested with .NET (C#) programs only. The tools go through Visual Studio's own debugger automation, so they are not tied to a language, but
+native C++, Python and JavaScript debugging have not been tried and are not supported yet.
+
 ## Install from source (local build)
 
 1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp.vsix` (nothing is published). For a normal install use the Marketplace link above.
