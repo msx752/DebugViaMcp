@@ -68,12 +68,15 @@ Rules:
   with the existing "update the extension" error from `ToolResponse.RequireMinor`; an older host ignores requests it
   does not know. Tests: a minor-7 extension (fake) receives no exception requests; a minor-7 host-side client round trips
   the unchanged DTOs.
-- Wire protocol docs: `design.md` list of requests and the CHANGELOG entry say which minor added what.
+- The CHANGELOG entry says which minor added what; the request and DTO types in `DebugViaMcp.Protocol` are the contract.
 
 ## Visual Studio side
-- `IDteFacade.ExceptionGroups()` / `SetBreakWhenThrown(group, names, value)`; implemented in `DteFacade` on the UI
-  thread like the other DTE calls, with the same busy and dialog checks as other calls that change state.
-- The reset record lives in the bridge connection handler (per connection), not in `DteFacade`.
+- Narrow reads on `IDteFacade`: `ExceptionGroupNames()`, `ExceptionEntries(group)` (one enumeration returns name and value;
+  looking entries up one by one is a scan each and made a whole group take seconds), `BreakWhenThrown(group, name)` (for a set
+  and a reset only) and `SetBreakWhenThrown(group, name, value)`. Implemented in `DteFacade` on the UI thread like the other DTE
+  calls, with the same busy and dialog checks as other calls that change state.
+- The reset record lives in `ExceptionSettingsEditor`, per owner (connection), weakly held, not in `DteFacade`. A change that
+  could not be put back after a failed set stays in the record, so reset and release can still undo it.
 
 ## Done when
 `exception_list`, `exception_set`, `exception_reset` work against a real Visual Studio (manual list in `docs/testing/`),

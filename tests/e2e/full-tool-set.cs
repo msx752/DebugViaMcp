@@ -14,6 +14,13 @@ var built = args.Length > 0 ? args[0] : Path.GetFullPath("src/DebugViaMcp.Mcp/bi
 // Run a private copy: vs_build may build this very project, and a running server locks its own output files.
 var copy = Path.Combine(Path.GetTempPath(), "debugviamcp-e2e-" + Environment.ProcessId);
 Directory.CreateDirectory(copy);
+// Leave no copy behind (it piles up in %TEMP%): the server has stopped by the time the process exits, also after a failure.
+AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+{
+    try { Directory.Delete(copy, recursive: true); }
+    catch (IOException) { /* still locked: nothing more to do at exit */ }
+    catch (UnauthorizedAccessException) { /* same */ }
+};
 foreach (var f in Directory.GetFiles(Path.GetDirectoryName(built)!)) File.Copy(f, Path.Combine(copy, Path.GetFileName(f)), overwrite: true);
 var server = Path.Combine(copy, Path.GetFileName(built));
 var clicker = Path.GetFullPath("tests/e2e/click-infobar.ps1");
