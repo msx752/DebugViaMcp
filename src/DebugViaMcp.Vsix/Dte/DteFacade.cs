@@ -365,20 +365,33 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         return length > 0 ? new string(title, 0, length) : "";
     }
 
-    private IntPtr _mainWindow;
+    // Read once on the UI thread (this class is built there), so any thread can use it without touching COM.
+    private IntPtr _mainWindow = DteMainWindow(dte);
 
-    /// <summary>The handle never changes while Visual Studio runs; it is read once, then every thread can use it without touching COM.</summary>
+    /// <summary>
+    /// Visual Studio's main window as DTE reports it. The process's "main window" is only the first visible top-level window, which early on can be
+    /// a splash or start window that is gone later: a destroyed handle reads as disabled and would report a dialog that is not there (seen on 17.14).
+    /// </summary>
+    private static IntPtr DteMainWindow(DTE2 dte)
+    {
+#pragma warning disable CA1031 // Without the DTE handle the process's main window is used.
+        try { ThreadHelper.ThrowIfNotOnUIThread(); return dte.MainWindow.HWnd; }
+        catch (Exception) { return IntPtr.Zero; }
+#pragma warning restore CA1031
+    }
+
     private IntPtr MainWindowHandle()
     {
-        if (_mainWindow != IntPtr.Zero) return _mainWindow;
+        if (_mainWindow != IntPtr.Zero && NativeDialog.IsWindow(_mainWindow)) return _mainWindow;
         using var self = System.Diagnostics.Process.GetCurrentProcess();
-        return _mainWindow = self.MainWindowHandle;
+        return _mainWindow = self.MainWindowHandle;   // not cached when it is not a live window: the next call looks again
     }
 
     private static class NativeDialog
     {
         public const uint GW_ENABLEDPOPUP = 6;
 
+        [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hWnd);
         [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
         [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, [Out] char[] text, int maxCount);
