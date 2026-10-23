@@ -148,6 +148,39 @@ public class ExceptionSettingsBridgeTests
     }
 
     [Fact]
+    public async Task Giving_up_the_lease_drops_the_record_so_a_stale_reset_cannot_write()
+    {
+        using var s = Create();
+        await s.HandshakeAsync("claude-code");
+        await s.Handler.SetExceptionSettingsAsync(Clr, NullRef, true, SecurityHarness.Ctx(), CancellationToken.None);
+
+        await s.Handler.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
+        var other = await s.AddConnectionAsync("other-agent");
+        await other.SetExceptionSettingsAsync(Clr, NullRef, false, SecurityHarness.Ctx(), CancellationToken.None);
+        await other.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
+        var stale = await s.Handler.ResetExceptionSettingsAsync(SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Empty(stale.Restored);
+        Assert.False(Value(s, "System.NullReferenceException"));   // the other agent's value stays; the first agent's old record did not undo it
+    }
+
+    [Fact]
+    public async Task Reset_with_nothing_to_restore_neither_asks_nor_takes_the_lease()
+    {
+        using var s = Create();
+        s.Settings.Permissions.Control = PermissionLevel.Ask;
+        await s.HandshakeAsync("claude-code");
+        var other = await s.AddConnectionAsync("other-agent");
+
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+        var result = await s.Handler.ResetExceptionSettingsAsync(SecurityHarness.Ctx(), CancellationToken.None);
+        await other.SetExceptionSettingsAsync(Clr, NullRef, true, SecurityHarness.Ctx(), CancellationToken.None);   // not locked out by the cleanup call
+
+        Assert.Empty(result.Restored);
+        Assert.DoesNotContain(s.Prompt.Texts, t => t.Contains("restore", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Calls_before_the_handshake_are_unauthorized()
     {
         using var s = Create();

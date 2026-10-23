@@ -35,7 +35,7 @@ public sealed class ExceptionSettingsTools(IConnectionManager connections)
     });
 
     [McpServerTool(Name = "exception_set", Idempotent = true),
-     Description("Turns Break When Thrown on or off for exceptions in Visual Studio's Exception Settings, so the debugger stops where they are thrown. Names are exact and case-sensitive (find them with exception_list); all names are checked first and nothing changes if one is unknown. This changes a Visual Studio setting, not the program; call exception_reset when you are done to put back what you changed. The user is asked first unless they allowed it in Options.")]
+     Description("Turns Break When Thrown on or off for exceptions in Visual Studio's Exception Settings, so the debugger stops where they are thrown. Names are exact and case-sensitive (find them with exception_list); all names are checked first and nothing changes if one is unknown. This changes a Visual Studio setting, not the program; call exception_reset when you are done to put back what you changed. Depending on the user's Options (Control tools are allowed by default) the user may be asked first.")]
     public Task<CallToolResult> ExceptionSet(
         [Description("Group name exactly as Visual Studio shows it, for example 'Common Language Runtime Exceptions'.")] string group,
         [Description("Exact exception names, for example System.NullReferenceException (at most 50).")] string[] names,

@@ -181,9 +181,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             cancellationToken);
     }
 
-    public Task<ExceptionResetResult> ResetExceptionSettingsAsync(CallContext context, CancellationToken cancellationToken) =>
-        Guard(Operation.ResetExceptionSettings, context, () => service.ResetExceptionSettingsAsync(this, cancellationToken), null,
-            async () => ConsentText.ExceptionReset(_client, await service.PendingExceptionChangesAsync(this).ConfigureAwait(false)), cancellationToken);
+    public async Task<ExceptionResetResult> ResetExceptionSettingsAsync(CallContext context, CancellationToken cancellationToken)
+    {
+        // Nothing recorded: the call only says so, which is a read. It asks no question and takes no lease, so a cleanup call
+        // of an agent that changed nothing never locks the other agents out.
+        var nothing = _authenticated && await service.PendingExceptionChangesAsync(this).ConfigureAwait(false) == 0;
+        return await Guard(nothing ? Operation.ListExceptionSettings : Operation.ResetExceptionSettings, context,
+            () => service.ResetExceptionSettingsAsync(this, cancellationToken), null,
+            nothing ? null : async () => ConsentText.ExceptionReset(_client, await service.PendingExceptionChangesAsync(this).ConfigureAwait(false)),
+            cancellationToken).ConfigureAwait(false);
+    }
 
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken)
     {
@@ -475,8 +482,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
     private void ReleaseLease()
     {
-        if (security.Lease.Release(_connectionId)) AuditLease("released");
+        if (!security.Lease.Release(_connectionId)) return;
+        AuditLease("released");
+        // What this agent changed in Exception Settings is no longer its to undo: the next agent starts from what it finds.
+        ForgetExceptionSettings();
     }
+
+    private void ForgetExceptionSettings() =>
+        _ = service.ReleaseExceptionSettingsAsync(this).ContinueWith(
+            t => log.Warn($"Forgetting the Exception Settings changed by '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
 
     private void AuditLease(string outcome) =>
         security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "lease", Outcome = outcome, Summary = outcome });
@@ -571,9 +586,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         _ = service.ReleaseRunToAsync(this).ContinueWith(
             t => log.Warn($"Removing the run-to breakpoint of '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
-        _ = service.ReleaseExceptionSettingsAsync(this).ContinueWith(
-            t => log.Warn($"Forgetting the Exception Settings changed by '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
-            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        ForgetExceptionSettings();
         if (_authenticated)
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "disconnect", Outcome = "ok", Summary = _client });
     }
