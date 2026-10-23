@@ -39,9 +39,11 @@ Here is what happens:
 
 | Tier | What it covers | Default |
 |---|---|---|
-| **Read** | status, threads, call stack, variables, evaluation without side effects, the current exception, the processes you can attach to, symbol status, Output window, Error List | Allow |
-| **Control** | breakpoints without conditions, start, stop, continue, pause, step, run to, Visual Studio builds | Allow |
-| **Mutate** | `set_value`, evaluation with side effects, breakpoint conditions and tracepoints (they run in your program), attaching to a process | **Ask** |
+| **Read** | Looking only: status, call stack, variables, the current exception, Output window, Error List | Allow |
+| **Control** | Steering the debugger: breakpoints without conditions, start, stop, step, builds, Exception Settings | Allow |
+| **Mutate** | Anything that runs code in or changes your program: `set_value`, evaluation with side effects, conditions and tracepoints, attaching to a process | **Ask** |
+
+The exact list for each tier is in the [security model](https://github.com/msx752/DebugViaMcp/blob/main/docs/security.md).
 
 Change them in **Tools → Options → All Settings → Debugging → Debugging via MCP**. Visual Studio enforces them; the agent cannot.
 
@@ -53,18 +55,11 @@ Change them in **Tools → Options → All Settings → Debugging → Debugging 
 
 ## What the agent can do
 
-32 tools in a few groups:
+Breakpoints (conditions, hit counts, tracepoints), start, step, run to a line, attach to a process, call stack, locals with drill-down,
+evaluation, the current exception, Visual Studio builds and the Error List, Output window panes, which exceptions the debugger stops on, and
+more than one Visual Studio at a time. Nothing that changes your program happens without your approval.
 
-- **Breakpoints:** set, list, enable, remove. File and line or function, conditions, hit counts, tracepoints, and one-shot breakpoints that remove themselves after the first stop.
-- **Execution:** start (the startup project or a named one), continue, pause, step, run to a line, wait for the next break, attach to a process (and list the processes it can attach to), stop.
-- **Inspection:** status (with the Call Stack, Locals and exception of a stop in one call), threads, call stack, frame selection, locals and arguments with drill-down (several levels in one call), evaluation, the current exception.
-- **IDE state:** Visual Studio builds, the Error List, Output window panes, and why a breakpoint may not bind (the symbol-related options and the unbound breakpoints).
-- **Exception settings:** list which exceptions the debugger stops on when they are thrown, turn that on or off for named exceptions, and put back what the agent changed.
-- **Changes:** `set_value` and side-effect evaluation, always with your approval.
-- **Several Visual Studios:** list, select, release.
-- **Diagnostics:** the MCP server's own log.
-
-It also warns the agent when the built program is older than the sources, and Visual Studio offers an optional **Build** bar. `debug_start` builds first: when the build fails, the agent gets the failure and reads the details with `errors_list`, so no "run the last successful build?" dialog is left on your screen.
+The full list of tools, with what each one does, is in the [README](https://github.com/msx752/DebugViaMcp/blob/main/README.md#what-it-can-do). New tools appear there first.
 
 ## Several Visual Studios, one agent each
 
@@ -79,14 +74,10 @@ unrelated folder needs your approval once, and a second agent gets `in_use` unti
 |---|---|
 | The agent says no Visual Studio instance is running | Visual Studio must be open with a solution loaded and this extension installed. The **Debugging via MCP Log** pane shows `ready` when it started. |
 | The agent cannot start the server | Check the .NET 10 runtime (`dotnet --list-runtimes`), start Visual Studio once so the extension installs the server, and confirm `%LOCALAPPDATA%\DebugViaMcp\debugviamcp.cmd` exists. **Set Up AI Agent…** reports both. |
-| `ai_disabled` | Someone chose Disconnect AI. Choose Reconnect AI, then retry. |
-| `version_mismatch` or `unsupported` | Visual Studio runs an older extension than the server in use, or the reverse. Restart Visual Studio after updating, and restart the agent session. |
-| `in_use` | Another agent holds that Visual Studio. Ask it to call `vs_release`, or use another instance (`vs_instances`). |
-| A consent question ended as `denied` or `timeout` | Visual Studio asks in an info bar at the top of its main window and waits for the consent timeout (Tools → Options → All Settings → Debugging → Debugging via MCP). No answer means deny. Its taskbar button flashes when it is in the background. |
-| `eval` says a type or namespace does not exist | The evaluator only sees assemblies the program has already loaded. Use the type in the code before the breakpoint, or evaluate something else. |
-| `eval` says `Evaluation timed out` | Visual Studio stops an evaluation after about 5 s. Evaluate something smaller (`Take(1000)`) or read a field. Code that waits for another thread cannot finish while the program is stopped. |
-| An out-of-date warning after editing files outside Visual Studio | Visual Studio notices external edits late. Build in Visual Studio (or call `vs_build`) before debugging. The warning is a hint and never blocks. |
-| Uninstalling the extension hangs | Close every Visual Studio window and any other VSIXInstaller, then try again. A running agent does not block removal. |
-| Something else | Call the `diag` tool for the server log, and look at **Debugging via MCP Log** and **Debugging via MCP Audit** in View → Output. |
+| A consent question ended as `denied` or `timeout` | Visual Studio asks in an info bar at the top of its main window and waits for the consent timeout. No answer means deny. |
 
-Documentation, security model and source: [github.com/msx752/DebugViaMcp](https://github.com/msx752/DebugViaMcp)
+Error codes (`in_use`, `ai_disabled`, `version_mismatch`), `eval` limits, update and uninstall problems are in the
+[README troubleshooting table](https://github.com/msx752/DebugViaMcp/blob/main/README.md#troubleshooting). For anything else call the `diag` tool and look at
+**Debugging via MCP Log** and **Debugging via MCP Audit** in View → Output.
+
+Documentation: [README](https://github.com/msx752/DebugViaMcp/blob/main/README.md) · [security model](https://github.com/msx752/DebugViaMcp/blob/main/docs/security.md) · [release notes](https://github.com/msx752/DebugViaMcp/blob/main/CHANGELOG.md) · source: [github.com/msx752/DebugViaMcp](https://github.com/msx752/DebugViaMcp)

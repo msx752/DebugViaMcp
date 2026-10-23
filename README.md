@@ -11,7 +11,7 @@ It works with Visual Studio 2022 (17.14+) and Visual Studio 2026.
 
 > Status: preview. The tool set is growing; feedback and issues are welcome.
 
-## What works today (M3)
+## What it can do
 
 - Breakpoints: file/line or function, conditions, hit counts, tracepoints, one-shot breakpoints (`temporary`), enable/disable (`bp_enable`)
 - Several Visual Studios, one agent each: the right instance is chosen by folder, unrelated agents need your approval,
