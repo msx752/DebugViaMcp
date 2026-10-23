@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -161,15 +162,28 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     public Task<SymbolStatus> GetSymbolStatusAsync(CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.SymbolStatus, context, () => service.GetSymbolStatusAsync(cancellationToken), null, null, cancellationToken);
 
-    // Task 4 replaces these with the guarded implementations.
     public Task<ExceptionSettingsPage> ListExceptionSettingsAsync(string? group, string? filter, bool onlyEnabled, int limit, CallContext context, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+        Guard(Operation.ListExceptionSettings, context, () => service.ListExceptionSettingsAsync(group, filter, onlyEnabled, limit, cancellationToken),
+            Request.Of(group ?? "all groups", ("group", group), ("filter", filter), ("onlyEnabled", onlyEnabled ? "true" : "false"), ("limit", limit.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
 
-    public Task<ExceptionSetResult> SetExceptionSettingsAsync(string group, string[] names, bool breakWhenThrown, CallContext context, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+    public Task<ExceptionSetResult> SetExceptionSettingsAsync(string group, string[] names, bool breakWhenThrown, CallContext context, CancellationToken cancellationToken)
+    {
+        var joined = string.Join(", ", names ?? []);
+        return Guard(Operation.SetExceptionSettings, context, () => service.SetExceptionSettingsAsync(this, group, names!, breakWhenThrown, cancellationToken),
+            Request.Of($"{group}: {joined} → {(breakWhenThrown ? "on" : "off")}", ("group", group), ("names", joined), ("breakWhenThrown", breakWhenThrown ? "true" : "false")),
+            async () =>
+            {
+                // Validates first, so a request that would fail anyway never asks. Lists what changes; when nothing does, what was named.
+                var plan = await service.PlanExceptionSettingsAsync(group, names!, breakWhenThrown, cancellationToken).ConfigureAwait(false);
+                var changing = plan.Changes.Where(c => c.Changed).Select(c => c.Name).ToList();
+                return ConsentText.ExceptionSettings(_client, plan.Group, changing.Count > 0 ? changing : plan.Changes.Select(c => c.Name).ToList(), breakWhenThrown);
+            },
+            cancellationToken);
+    }
 
     public Task<ExceptionResetResult> ResetExceptionSettingsAsync(CallContext context, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+        Guard(Operation.ResetExceptionSettings, context, () => service.ResetExceptionSettingsAsync(this, cancellationToken), null,
+            async () => ConsentText.ExceptionReset(_client, await service.PendingExceptionChangesAsync(this).ConfigureAwait(false)), cancellationToken);
 
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken)
     {
@@ -556,6 +570,9 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         _approvalGate.Dispose();
         _ = service.ReleaseRunToAsync(this).ContinueWith(
             t => log.Warn($"Removing the run-to breakpoint of '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        _ = service.ReleaseExceptionSettingsAsync(this).ContinueWith(
+            t => log.Warn($"Forgetting the Exception Settings changed by '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         if (_authenticated)
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "disconnect", Outcome = "ok", Summary = _client });
