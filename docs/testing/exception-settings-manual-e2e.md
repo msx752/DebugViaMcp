@@ -23,5 +23,14 @@ the main window).
 | 14 | The agent changes an exception, then disconnects (or calls `vs_release`) without calling `exception_reset` | The exception is back at its first value in the Exception Settings window at once; the Output pane "Debugging via MCP Log" shows no error |
 | 15 | Old extension (protocol 2.7) with the new server | The three tools answer `unsupported` and say to update the extension |
 
+## Driver
+
+    dotnet run tests/e2e/exception-settings.cs -- <repo>\src\DebugViaMcp.Mcp\bin\Debug\net10.0\DebugViaMcp.Mcp.dll
+
+Needs the repository's solution open in Visual Studio with this extension, and a temporary `samples/FaultDemo/Properties/launchSettings.json`
+with `"commandLineArgs":"crash 15"` (see the header of the driver). It covers rows 1, 3, 4, 5, 6, 8, 10 and 14 without answering any question.
+
 ## Run record
-(empty)
+- 2026-10-23, Visual Studio 2026 (18.x), dev build 0.4.1 (protocol 2.8), Control = Allow: `tests/e2e/exception-settings.cs` 17 of 17 checks passed
+  (list, misspelled name with suggestion and no change, set, stop at the caught `ArgumentException`, reset, the unhandled exception still stops,
+  `vs_release` puts a forgotten change back). Rows 2, 7, 9 (stopped at a breakpoint), 11, 12, 13 and 15 not run.
