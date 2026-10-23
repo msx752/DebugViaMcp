@@ -281,6 +281,41 @@ public class ExceptionSettingsTests
         Assert.Equal(0, await svc.PendingExceptionChangesAsync(owner));
     }
 
+    /// <summary>The rollback itself can fail; what stayed changed must still be undoable (reset, release), not forgotten.</summary>
+    [Fact]
+    public async Task A_change_that_could_not_be_put_back_stays_recorded_for_the_owner()
+    {
+        var (svc, dte) = Create();
+        var owner = new object();
+        dte.FailSetBreakWhenThrownFor = "System.TimeoutException";
+        dte.FailSetBreakWhenThrownOffFor = "System.IO.IOException";
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.SetExceptionSettingsAsync(owner, Clr, ["System.IO.IOException", "System.TimeoutException"], true, CancellationToken.None));
+
+        Assert.True(Value(dte, Clr, "System.IO.IOException"));   // the put-back failed
+        Assert.Equal(1, await svc.PendingExceptionChangesAsync(owner));
+
+        dte.FailSetBreakWhenThrownOffFor = null;
+        await svc.ResetExceptionSettingsAsync(owner, CancellationToken.None);
+        Assert.False(Value(dte, Clr, "System.IO.IOException"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task A_null_or_blank_name_is_an_invalid_argument_and_nothing_is_changed(string? bad)
+    {
+        var (svc, dte) = Create();
+
+        var ex = await Assert.ThrowsAsync<BridgeException>(() =>
+            svc.SetExceptionSettingsAsync(new object(), Clr, ["System.IO.IOException", bad!], true, CancellationToken.None));
+
+        Assert.Equal(BridgeErrorCode.InvalidArgument, ex.Code);
+        Assert.DoesNotContain(dte.Calls, c => c.StartsWith("SetBreakWhenThrown", StringComparison.Ordinal));
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static async Task<WeakReference> SetFromAnOwnerThatIsDropped(DebugBridgeService svc)
     {

@@ -55,6 +55,9 @@ internal sealed class ExceptionSettingsEditor(IDteFacade dte)
         if (names is null || names.Length == 0)
             throw new BridgeException(BridgeErrorCode.InvalidArgument, "names is empty.", "Give the exact exception names, for example System.NullReferenceException.");
 
+        if (names.Any(string.IsNullOrWhiteSpace))
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, "names contains an empty entry.", "Give the exact exception names, for example System.NullReferenceException. Nothing was changed.");
+
         var groupName = RequireGroup(dte.ExceptionGroupNames(), group);
         var wanted = names.Distinct(StringComparer.Ordinal).ToArray();
         var current = new Dictionary<string, bool>(StringComparer.Ordinal);
@@ -94,19 +97,24 @@ internal sealed class ExceptionSettingsEditor(IDteFacade dte)
             foreach (var change in Enumerable.Reverse(written))
             {
                 try { dte.SetBreakWhenThrown(group, change.Name, change.Previous); }
-                catch { /* best effort: the failure being reported is the first one */ }
+                catch { Remember(owner, group, change); }   // could not be put back: keep it undoable (reset, release) instead of forgetting it
             }
 
             throw;
         }
 #pragma warning restore CA1031
 
-        var record = _changed.GetOrCreateValue(owner);
-        foreach (var change in written)
-            if (!record.Any(o => o.Group == group && o.Name == change.Name))
-                record.Add(new Original(group, change.Name, change.Previous));
+        foreach (var change in written) Remember(owner, group, change);
 
         return plan;
+    }
+
+    /// <summary>Keeps the first value of a setting an owner changed; a second change of the same setting does not replace it.</summary>
+    private void Remember(object owner, string group, ExceptionChange change)
+    {
+        var record = _changed.GetOrCreateValue(owner);
+        if (!record.Any(o => o.Group == group && o.Name == change.Name))
+            record.Add(new Original(group, change.Name, change.Previous));
     }
 
     public int Pending(object owner) => _changed.TryGetValue(owner, out var record) ? record.Count : 0;

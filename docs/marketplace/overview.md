@@ -45,7 +45,7 @@ Here is what happens:
 
 The exact list for each tier is in the [security model](https://github.com/msx752/DebugViaMcp/blob/main/docs/security.md).
 
-Change them in **Tools → Options → All Settings → Debugging → Debugging via MCP**. Visual Studio enforces them; the agent cannot.
+Change them in **Tools → Options → All Settings → Debugging → Debugging via MCP** (Visual Studio 2022: **Tools → Options → Debugging via MCP → General**). Visual Studio enforces them; the agent cannot.
 
 - **Consent bar.** A question appears as an info bar in Visual Studio. No answer within the timeout (60 s by default) means *deny*.
 - **Audit trail.** Every state change is logged with a call id in **View → Output → Debugging via MCP Audit** and in a file.

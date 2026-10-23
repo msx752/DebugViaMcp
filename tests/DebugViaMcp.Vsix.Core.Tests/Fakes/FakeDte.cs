@@ -85,6 +85,8 @@ public sealed class FakeDte : IDteFacade
 
     /// <summary>Makes switching Break When Thrown on for this name fail, to test a write that stops halfway.</summary>
     public string? FailSetBreakWhenThrownFor { get; set; }
+    /// <summary>Makes switching Break When Thrown off for this name fail, to test a write that cannot be put back.</summary>
+    public string? FailSetBreakWhenThrownOffFor { get; set; }
     /// <summary>What reading Exception Settings costs in Visual Studio: entries read by enumerating a group, and values read one by one by name.</summary>
     public int EntryReads { get; private set; }
     public int ValueReads { get; private set; }
@@ -110,6 +112,7 @@ public sealed class FakeDte : IDteFacade
     {
         Ui();
         if (name == FailSetBreakWhenThrownFor && value) throw new InvalidOperationException("Exception Settings write failed.");
+        if (name == FailSetBreakWhenThrownOffFor && !value) throw new InvalidOperationException("Exception Settings write failed.");
         var setting = ExceptionGroupsData.FirstOrDefault(g => g.Name == group)?.Settings.FirstOrDefault(s => s.Name == name)
             ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No exception '{name}' in '{group}'.");
         Calls.Add($"SetBreakWhenThrown:{group}:{name}:{value}");

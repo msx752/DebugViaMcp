@@ -16,6 +16,7 @@
     - the permission values in Visual Studio's settings.json (backed up byte for byte and restored),
     - samples/FaultDemo/Properties/launchSettings.json ("crash 15"), removed again (an existing one is restored),
     - the Visual Studio it started and a FaultDemo it may have left running (only processes it started itself).
+  A phase that cannot run (a dialog in the way, the extension not ready) leaves one screenshot, %TEMP%\debugviamcp-failure-<phase>.png; the path is printed.
   It refuses to run while any devenv.exe is running: close your Visual Studio first, as scripts/reinstall-vsix.ps1 does.
   The installed extension must be the build under test: run scripts/reinstall-vsix.ps1 -Build first.
 
@@ -96,6 +97,23 @@ function Get-ModalDialog([System.Diagnostics.Process]$Process) {
     if ($title.Length -gt 0) { $title.ToString() } else { '(untitled dialog)' }
 }
 
+# Only when a phase could not run: what is on the screen is the quickest way to see why (a dialog, a start window). One file per phase, overwritten
+# by the next failure; the path is printed and the file is the only thing this script leaves behind on purpose.
+function Save-FailureScreenshot([string]$Phase) {
+    try {
+        Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+        $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
+        $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bitmap.Size)
+        $file = Join-Path ([IO.Path]::GetTempPath()) "debugviamcp-failure-$Phase.png"
+        $bitmap.Save($file)
+        $graphics.Dispose(); $bitmap.Dispose()
+        Write-Host "screenshot of the screen at the failure: $file (delete it when you have looked)" -ForegroundColor Yellow
+    }
+    catch { Write-Host "(no screenshot: $($_.Exception.Message))" }
+}
+
 function Stop-OwnVs([int]$ProcessId) {
     $p = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
     if (-not $p) { return }
@@ -143,6 +161,7 @@ try {
         }
         catch {
             Write-Host "phase $phase could not run: $($_.Exception.Message)" -ForegroundColor Red
+            Save-FailureScreenshot $phase
             $results[$phase] = -1
         }
         finally {

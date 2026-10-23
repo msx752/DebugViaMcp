@@ -35,7 +35,7 @@ The extension and the server check each other's version at connection time (`Ver
 - **CI** (`.github/workflows/ci.yml`) runs on every pull request (not on plain pushes: a Windows runner counts double against the free minutes, so check a push to `develop` locally with `scripts/build.ps1`): version check, build, all
   tests, and a VSIX build.
 - **Release** (`.github/workflows/release.yml`) runs when something is merged into `main`. It checks the version,
-  builds and tests, tags `v<version>` on the merge commit, and creates a GitHub Release with `DebugViaMcp.vsix` and
+  builds and tests, tags `v<version>` on the merge commit, and creates a GitHub Release with `DebugViaMcp-<version>.vsix` and
   `SHA256SUMS.txt` (marked pre-release while the manifest has `<Preview>true</Preview>`). The release notes are the
   version's section of `CHANGELOG.md`. If the tag `v<version>` already exists nothing is released: bump the version.
 - **Marketplace upload** is the last job of the release workflow. It waits for approval of the `marketplace`
@@ -51,10 +51,10 @@ The extension and the server check each other's version at connection time (`Ver
    2026 and run through `docs/testing/` once on each.
 3. Open a pull request `develop` → `main`, wait for CI, merge it. The release workflow does the rest: tag, GitHub
    Release, and (when enabled) the Marketplace upload after your approval.
-4. Without the PAT, upload `DebugViaMcp.vsix` from the GitHub Release at <https://marketplace.visualstudio.com/manage>.
+4. Without the PAT, upload `DebugViaMcp-<version>.vsix` from the GitHub Release at <https://marketplace.visualstudio.com/manage>.
    Manually, `VsixPublisher.exe` is in `<Visual Studio>\VSSDK\VisualStudioIntegration\Tools\Bin\`:
 
-       VsixPublisher.exe publish -payload artifacts\DebugViaMcp.vsix -publishManifest docs\marketplace\publishManifest.json -personalAccessToken <PAT>
+       VsixPublisher.exe publish -payload artifacts\DebugViaMcp-<version>.vsix -publishManifest docs\marketplace\publishManifest.json -personalAccessToken <PAT>
 
 **No version numbers in `docs/marketplace/overview.md`.** The overview is pasted by hand into the Marketplace page, so it must 
 stay valid across releases: no extension version, no "preview" notice (the Marketplace shows the Preview badge from the manifest 

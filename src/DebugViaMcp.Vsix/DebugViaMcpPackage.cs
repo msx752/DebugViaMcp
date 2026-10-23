@@ -30,6 +30,7 @@ namespace DebugViaMcp.Vsix;
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideAutoLoad(UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideMenuResource("Menus.ctmenu", 1)]
+[ProvideOptionPage(typeof(McpOptionsPage), "Debugging via MCP", "General", 0, 0, true)]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Fields are released in Dispose(bool), which VS invokes through Package.Close.")]
 public sealed class DebugViaMcpPackage : AsyncPackage
 {
@@ -70,6 +71,10 @@ public sealed class DebugViaMcpPackage : AsyncPackage
         }
 #pragma warning restore CA1031
         _settings = mcpSettings;
+        // Visual Studio 2022 17.14 delivers no values for the All Settings page: its Options page stands in (ignored once the service delivers values).
+        var optionsPage = (McpOptionsPage)GetDialogPage(typeof(McpOptionsPage));
+        mcpSettings.UseClassic(optionsPage.ToValues(), announce: false);
+        optionsPage.Applied += (_, _) => mcpSettings.UseClassic(optionsPage.ToValues(), announce: true);
         var activityGuid = ActivityPane.PaneGuid;
         outputWindow.CreatePane(ref activityGuid, "Debugging via MCP Audit", 1, 1);
         outputWindow.GetPane(ref activityGuid, out var activityPane);

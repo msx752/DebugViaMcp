@@ -58,7 +58,7 @@ jobs:
         run: |
           $v = '${{ steps.version.outputs.version }}'
           $preview = Select-String -Path src/DebugViaMcp.Vsix/source.extension.vsixmanifest -Pattern '<Preview>true</Preview>' -Quiet
-          $args = @("v$v", 'artifacts/DebugViaMcp.vsix', 'artifacts/SHA256SUMS.txt', '--target', $env:GITHUB_SHA, '--title', "Debugging via MCP $v", '--notes-file', 'release-notes.md')
+          $args = @("v$v", "artifacts/DebugViaMcp-$v.vsix", 'artifacts/SHA256SUMS.txt', '--target', $env:GITHUB_SHA, '--title', "Debugging via MCP $v", '--notes-file', 'release-notes.md')
           if ($preview) { $args += '--prerelease' }
           gh release create @args
       - uses: actions/upload-artifact@v4
@@ -90,5 +90,5 @@ jobs:
           $vs = & $vswhere -latest -prerelease -products * -property installationPath
           $tool = Join-Path $vs 'VSSDK\VisualStudioIntegration\Tools\Bin\VsixPublisher.exe'
           if (-not (Test-Path $tool)) { throw "VsixPublisher.exe not found at $tool" }
-          & $tool publish -payload artifacts\DebugViaMcp.vsix -publishManifest docs\marketplace\publishManifest.json -personalAccessToken $env:PAT
+          & $tool publish -payload (Get-ChildItem artifacts\DebugViaMcp-*.vsix).FullName -publishManifest docs\marketplace\publishManifest.json -personalAccessToken $env:PAT
           if ($LASTEXITCODE) { exit $LASTEXITCODE }

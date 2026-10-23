@@ -3,6 +3,25 @@
 All notable changes to Debugging via MCP. Versions follow [Semantic Versioning](https://semver.org/); the extension and
 the `debugviamcp` tool are released together with the same version.
 
+## 0.6.0 — Settings on Visual Studio 2022 (preview)
+
+### Added
+- **An Options page for Visual Studio 2022 (17.14).** Visual Studio 2022 does not show the extension's page in All Settings, so
+  there was no way to change the permission tiers, the consent timeout, masking, the limits or the log level there. They are now in
+  **Tools → Options → Debugging via MCP → General** and take effect when you press OK. In Visual Studio 2026 the settings stay in
+  Tools → Options → All Settings → Debugging → Debugging via MCP, and the new page is not used there.
+
+### Fixed
+- **Visual Studio 2022: calls failed with `busy` for a dialog that was not there.** The extension read Visual Studio's main window once
+  and kept it; when that window was gone, every call that moves the program reported a dialog. The window is now taken from Visual
+  Studio's own automation object and looked up again when it is no longer valid.
+- `exception_set` with an empty name in `names` is refused before anything is written.
+- When `exception_set` stopped halfway and putting back what it had written failed too, that change was forgotten. It now stays
+  recorded, so `exception_reset` and the release when the agent disconnects can still undo it.
+
+### Changed
+- The file attached to a GitHub Release carries the version: `DebugViaMcp-<version>.vsix`.
+
 ## 0.5.0 — Exception settings (preview)
 
 ### Added

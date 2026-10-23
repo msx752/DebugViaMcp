@@ -13,6 +13,13 @@ var scenario = args[1];
 // Run a private copy: the server must not lock its own output files.
 var copy = Path.Combine(Path.GetTempPath(), "debugviamcp-check-" + Environment.ProcessId);
 Directory.CreateDirectory(copy);
+// Leave no copy behind (it piles up in %TEMP%): the server has stopped by the time the process exits, also after a failure.
+AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+{
+    try { Directory.Delete(copy, recursive: true); }
+    catch (IOException) { /* still locked: nothing more to do at exit */ }
+    catch (UnauthorizedAccessException) { /* same */ }
+};
 foreach (var f in Directory.GetFiles(Path.GetDirectoryName(built)!)) File.Copy(f, Path.Combine(copy, Path.GetFileName(f)), overwrite: true);
 
 await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions

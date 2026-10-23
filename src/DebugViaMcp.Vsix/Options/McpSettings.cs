@@ -32,6 +32,8 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
 
     private readonly object _gate = new();
     private readonly Dictionary<string, string> _raw = new();
+    private Dictionary<string, string> _classic = new();
+    private bool _unifiedDelivered;
     private bool _mutateAllowConfirmed;
     private bool _confirmPending;
     private bool _maskOffConfirmed;
@@ -184,7 +186,23 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
         lock (_gate)
         {
             foreach (var result in results.Where(r => r.IsSuccess && r.Value is not null)) _raw[result.Moniker] = Unquote(result.Value!.Data);
+            if (results.Any(r => r.IsSuccess && r.Value is not null && r.Moniker.StartsWith(Prefix, StringComparison.Ordinal))) _unifiedDelivered = true;
             ReadSummary = string.Join("; ", results.Select(r => $"{(r.Moniker.StartsWith(Prefix, StringComparison.Ordinal) ? r.Moniker.Substring(Prefix.Length) : r.Moniker)}={r.ResultCode}:{r.Value?.Data}"));
+        }
+
+        Recompute(announce);
+    }
+
+    /// <summary>
+    /// Values of the Tools → Options page. They count only while the settings service delivers none of ours (Visual Studio 2022 17.14 without the
+    /// All Settings page); once it does, All Settings is the one place and these are ignored.
+    /// </summary>
+    public void UseClassic(IReadOnlyDictionary<string, string> values, bool announce)
+    {
+        lock (_gate)
+        {
+            _classic = values.ToDictionary(kv => Prefix + kv.Key, kv => kv.Value);
+            if (!_unifiedDelivered) ReadSummary = "Options page: " + string.Join("; ", values.Select(kv => kv.Key + "=" + kv.Value));
         }
 
         Recompute(announce);
@@ -285,14 +303,21 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
 
     private PermissionLevel Level(string moniker, PermissionLevel fallback) => Enum(moniker, fallback);
 
+    /// <summary>A value of the settings service; failing that, of the Options page while the service delivers none of ours.</summary>
+    private bool TryGet(string moniker, out string? text)
+    {
+        if (_raw.TryGetValue(moniker, out text)) return true;
+        return !_unifiedDelivered && _classic.TryGetValue(moniker, out text);
+    }
+
     private T Enum<T>(string moniker, T fallback) where T : struct =>
-        _raw.TryGetValue(moniker, out var text) && System.Enum.TryParse<T>(text, ignoreCase: true, out var value) && System.Enum.IsDefined(typeof(T), value) ? value : fallback;
+        TryGet(moniker, out var text) && System.Enum.TryParse<T>(text, ignoreCase: true, out var value) && System.Enum.IsDefined(typeof(T), value) ? value : fallback;
 
     private bool Bool(string moniker, bool fallback) =>
-        _raw.TryGetValue(moniker, out var text) && bool.TryParse(text, out var value) ? value : fallback;
+        TryGet(moniker, out var text) && bool.TryParse(text, out var value) ? value : fallback;
 
     private int Int(string moniker, int fallback, int min, int max) =>
-        _raw.TryGetValue(moniker, out var text) && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+        TryGet(moniker, out var text) && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
             ? Math.Max(min, Math.Min(max, value))
             : fallback;
 }

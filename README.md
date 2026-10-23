@@ -22,7 +22,8 @@ It works with Visual Studio 2022 (17.14+) and Visual Studio 2026.
   evaluation with side effects (`eval` with `allowSideEffects`)
 - IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`), why a breakpoint may not bind (`symbol_status`), which exceptions the debugger stops on when thrown (`exception_list`, `exception_set`, `exception_reset`); `debug_start` builds first and returns a failed build (read it with `errors_list`) instead of opening Visual Studio's build-error dialog
 - Diagnostics: `diag` returns the MCP server's recent log lines
-- Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → All Settings → Debugging → Debugging via MCP**; Mutate operations ask in a
+- Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → All Settings → Debugging → Debugging via MCP** (Visual Studio 2022 17.14 has no All Settings page for
+  extensions: there it is **Tools → Options → Debugging via MCP → General**); Mutate operations ask in a
   Visual Studio info bar (Allow once / Allow for session / Deny, no answer = deny); every state change is audited
   (`audit-*.log`, Output → **Debugging via MCP Audit**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
   Debugging via MCP). See [docs/security.md](docs/security.md).
@@ -43,8 +44,8 @@ Tested with .NET (C#) programs only. Native C++, Python and JavaScript (and mixe
 
 ## Install from source (local build)
 
-1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp.vsix` (nothing is published). For a normal install use the Marketplace link above.
-2. Install the extension: double-click `artifacts/DebugViaMcp.vsix` (Visual Studio 2022 17.14+ or 2026).
+1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp-<version>.vsix` (nothing is published). For a normal install use the Marketplace link above.
+2. Install the extension: double-click `artifacts/DebugViaMcp-<version>.vsix` (Visual Studio 2022 17.14+ or 2026).
 3. Start Visual Studio once. The extension carries the MCP server and copies it to `%LOCALAPPDATA%\DebugViaMcp\bin`
    (nothing to install separately; it needs the .NET 10 runtime). Then tell your AI client about it:
    **Extensions → Debugging via MCP → Set Up AI Agent…** checks the .NET runtime and the installed server, and shows a
