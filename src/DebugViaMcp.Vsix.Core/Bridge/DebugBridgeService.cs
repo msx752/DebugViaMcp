@@ -384,6 +384,26 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         };
     }, ct);
 
+    private readonly ExceptionSettingsEditor _exceptions = new(dte);
+
+    public Task<ExceptionSettingsPage> ListExceptionSettingsAsync(string? group, string? filter, bool onlyEnabled, int limit, CancellationToken ct) =>
+        ui.RunAsync(() => _exceptions.List(group, filter, onlyEnabled, limit), ct);
+
+    /// <summary>What a set would change, or the reason it cannot; writes nothing, so the consent question is only asked for a request that can succeed.</summary>
+    public Task<ExceptionSetResult> PlanExceptionSettingsAsync(string group, string[] names, bool breakWhenThrown, CancellationToken ct) =>
+        ui.RunAsync(() => _exceptions.Plan(group, names, breakWhenThrown), ct);
+
+    /// <param name="owner">The connection; <see cref="ResetExceptionSettingsAsync"/> puts back what this owner changed.</param>
+    public Task<ExceptionSetResult> SetExceptionSettingsAsync(object owner, string group, string[] names, bool breakWhenThrown, CancellationToken ct) =>
+        ui.RunAsync(() => _exceptions.Set(owner, group, names, breakWhenThrown), ct);
+
+    public Task<int> PendingExceptionChangesAsync(object owner) => ui.RunAsync(() => _exceptions.Pending(owner), CancellationToken.None);
+
+    public Task<ExceptionResetResult> ResetExceptionSettingsAsync(object owner, CancellationToken ct) =>
+        ui.RunAsync(() => _exceptions.Reset(owner), ct);
+
+    public Task ReleaseExceptionSettingsAsync(object owner) => ui.RunAsync(() => { _exceptions.Release(owner); return true; }, CancellationToken.None);
+
     /// <summary>The process name for the consent question; validates mode and target first, so a doomed request never asks.</summary>
     public Task<string> DescribeAttachTargetAsync(int pid, CancellationToken ct) => ui.RunAsync(() => RequireAttachable(pid).Name, ct);
 

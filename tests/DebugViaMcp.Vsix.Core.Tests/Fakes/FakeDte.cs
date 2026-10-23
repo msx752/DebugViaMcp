@@ -82,10 +82,14 @@ public sealed class FakeDte : IDteFacade
 
     public IReadOnlyList<RawProcess> LocalProcesses() { Ui(); return Processes; }
     public List<RawExceptionGroup> ExceptionGroupsData { get; } = [];
+
+    /// <summary>Makes switching Break When Thrown on for this name fail, to test a write that stops halfway.</summary>
+    public string? FailSetBreakWhenThrownFor { get; set; }
     public IReadOnlyList<RawExceptionGroup> ExceptionGroups() { Ui(); return ExceptionGroupsData; }
     public void SetBreakWhenThrown(string group, string name, bool value)
     {
         Ui();
+        if (name == FailSetBreakWhenThrownFor && value) throw new InvalidOperationException("Exception Settings write failed.");
         var setting = ExceptionGroupsData.FirstOrDefault(g => g.Name == group)?.Settings.FirstOrDefault(s => s.Name == name)
             ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No exception '{name}' in '{group}'.");
         Calls.Add($"SetBreakWhenThrown:{group}:{name}:{value}");
