@@ -9,7 +9,7 @@ using DebugViaMcp.Protocol;
 namespace DebugViaMcp.Vsix.Options;
 
 /// <summary>
-/// Tools → Options → Debugging → Debugging via MCP, for Visual Studio versions without the All Settings page (2022 17.14 has no way to show
+/// Tools → Options → Debugging via MCP → General, for Visual Studio versions without the All Settings page (2022 17.14 has no way to show
 /// registration.json unless a preview feature is on). The extension reads these values only when the settings service delivers none of its
 /// own; where All Settings exists, that page is the one to use.
 /// </summary>

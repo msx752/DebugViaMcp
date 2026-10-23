@@ -23,7 +23,7 @@ It works with Visual Studio 2022 (17.14+) and Visual Studio 2026.
 - IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`), why a breakpoint may not bind (`symbol_status`), which exceptions the debugger stops on when thrown (`exception_list`, `exception_set`, `exception_reset`); `debug_start` builds first and returns a failed build (read it with `errors_list`) instead of opening Visual Studio's build-error dialog
 - Diagnostics: `diag` returns the MCP server's recent log lines
 - Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → All Settings → Debugging → Debugging via MCP** (Visual Studio 2022 17.14 has no All Settings page for
-  extensions: there it is **Tools → Options → Debugging → Debugging via MCP**); Mutate operations ask in a
+  extensions: there it is **Tools → Options → Debugging via MCP → General**); Mutate operations ask in a
   Visual Studio info bar (Allow once / Allow for session / Deny, no answer = deny); every state change is audited
   (`audit-*.log`, Output → **Debugging via MCP Audit**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
   Debugging via MCP). See [docs/security.md](docs/security.md).

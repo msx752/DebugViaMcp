@@ -58,7 +58,7 @@ Any MCP client can use the `debugviamcp` server. It is tested with Claude Code.
 **Can the agent change my program without asking?**
 Not by default. Reading and debugging control are allowed; anything that changes program state (`set_value`,
 evaluation with side effects, attaching, breakpoint conditions that run code) asks you first. You can set each tier
-to Allow, Ask or Deny in Tools → Options → All Settings → Debugging → Debugging via MCP (Visual Studio 2022: Tools → Options → Debugging → Debugging via MCP). No answer means deny.
+to Allow, Ask or Deny in Tools → Options → All Settings → Debugging → Debugging via MCP (Visual Studio 2022: Tools → Options → Debugging via MCP → General). No answer means deny.
 
 **Is anything sent over the network?**
 No. The extension and the tool talk over a per-user local named pipe. There is no telemetry.

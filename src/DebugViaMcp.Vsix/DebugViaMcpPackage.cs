@@ -30,7 +30,7 @@ namespace DebugViaMcp.Vsix;
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideAutoLoad(UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideMenuResource("Menus.ctmenu", 1)]
-[ProvideOptionPage(typeof(McpOptionsPage), "Debugging", "Debugging via MCP", 0, 0, true)]
+[ProvideOptionPage(typeof(McpOptionsPage), "Debugging via MCP", "General", 0, 0, true)]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Fields are released in Dispose(bool), which VS invokes through Package.Close.")]
 public sealed class DebugViaMcpPackage : AsyncPackage
 {
