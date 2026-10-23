@@ -32,7 +32,7 @@ The extension and the server check each other's version at connection time (`Ver
 
 - `develop` is the default branch. `main` is production and takes changes only through a pull request from `develop`
   (direct pushes are blocked, and the `build-test` check must pass).
-- **CI** (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `develop`: version check, build, all
+- **CI** (`.github/workflows/ci.yml`) runs on every pull request (not on plain pushes: a Windows runner counts double against the free minutes, so check a push to `develop` locally with `scripts/build.ps1`): version check, build, all
   tests, and a VSIX build.
 - **Release** (`.github/workflows/release.yml`) runs when something is merged into `main`. It checks the version,
   builds and tests, tags `v<version>` on the merge commit, and creates a GitHub Release with `DebugViaMcp.vsix` and
