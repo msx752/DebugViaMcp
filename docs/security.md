@@ -24,7 +24,7 @@ Out of scope: malicious processes running as the same user. They can already con
 
 ### Permission tiers
 Every request belongs to a tier. Each tier is set to **Allow**, **Ask** or **Deny** in
-**Tools → Options → All Settings → Debugging → Debugging via MCP**, and Visual Studio enforces it — no tool call can
+**Tools → Options → All Settings → Debugging → Debugging via MCP** (Visual Studio 2022 17.14: **Tools → Options → Debugging → Debugging via MCP**), and Visual Studio enforces it — no tool call can
 change it. The values live in your user settings file, so anything that can write that file can edit them; a stored
 **Mutate = Allow** therefore counts only after you confirm it in a dialog (also at startup), and Ask is enforced until then.
 
