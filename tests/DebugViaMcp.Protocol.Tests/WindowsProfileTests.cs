@@ -29,13 +29,21 @@ public class WindowsProfileTests
         psi.Environment["USERPROFILE"] = fake;
         psi.Environment["LOCALAPPDATA"] = Path.Combine(fake, "AppData", "Local");
 
-        using var child = Process.Start(psi)!;
-        var output = (await child.StandardOutput.ReadToEndAsync()).Trim();
-        var error = await child.StandardError.ReadToEndAsync();
-        await child.WaitForExitAsync();
+        try
+        {
+            using var child = Process.Start(psi)!;
+            var output = (await child.StandardOutput.ReadToEndAsync()).Trim();
+            var error = await child.StandardError.ReadToEndAsync();
+            await child.WaitForExitAsync();
 
-        Assert.True(child.ExitCode == 0, error);
-        Assert.DoesNotContain("debugviamcp-fake-profile", output, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(WindowsProfile.LocalAppData(), output, ignoreCase: true);
+            Assert.True(child.ExitCode == 0, error);
+            Assert.DoesNotContain("debugviamcp-fake-profile", output, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(WindowsProfile.LocalAppData(), output, ignoreCase: true);
+        }
+        finally
+        {
+            // PowerShell creates its per-user folders under the fake profile it was given.
+            if (Directory.Exists(fake)) Directory.Delete(fake, recursive: true);
+        }
     }
 }
