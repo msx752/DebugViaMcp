@@ -124,8 +124,16 @@ internal sealed class ExceptionSettingsEditor(IDteFacade dte)
         return new ExceptionResetResult { Restored = restored.ToArray() };
     }
 
-    /// <summary>Forgets what an owner changed, without writing (the settings go back to the user's when Visual Studio restarts).</summary>
-    public void Release(object owner) => _changed.Remove(owner);
+    /// <summary>
+    /// Puts back what an owner changed and forgets it, for when the owner's hold on Visual Studio ends: the agent that is gone cannot
+    /// call <c>exception_reset</c>, and the user should find their settings as they were. A failing write is thrown to the caller to log;
+    /// the record is gone either way, so a later owner never undoes this one's changes.
+    /// </summary>
+    public void Release(object owner)
+    {
+        try { Reset(owner); }
+        finally { _changed.Remove(owner); }
+    }
 
     private static RawExceptionGroup FindGroup(IReadOnlyList<RawExceptionGroup> groups, string name) =>
         groups.FirstOrDefault(g => string.Equals(g.Name, name, StringComparison.Ordinal))

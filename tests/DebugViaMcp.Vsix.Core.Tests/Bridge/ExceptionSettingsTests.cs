@@ -242,16 +242,28 @@ public class ExceptionSettingsTests
     }
 
     [Fact]
-    public async Task Release_drops_the_record_without_writing()
+    public async Task Release_puts_back_what_the_owner_changed_and_forgets_it()
     {
         var (svc, dte) = Create();
         var owner = new object();
-        await svc.SetExceptionSettingsAsync(owner, Clr, ["System.IO.IOException"], true, CancellationToken.None);
+        await svc.SetExceptionSettingsAsync(owner, Clr, ["System.IO.IOException", "System.TimeoutException"], true, CancellationToken.None);
 
         await svc.ReleaseExceptionSettingsAsync(owner);
 
-        Assert.True(Value(dte, Clr, "System.IO.IOException"));
+        Assert.False(Value(dte, Clr, "System.IO.IOException"));
+        Assert.False(Value(dte, Clr, "System.TimeoutException"));
+        Assert.Equal(0, await svc.PendingExceptionChangesAsync(owner));
         Assert.Empty((await svc.ResetExceptionSettingsAsync(owner, CancellationToken.None)).Restored);
+    }
+
+    [Fact]
+    public async Task Release_of_an_owner_that_changed_nothing_writes_nothing()
+    {
+        var (svc, dte) = Create();
+
+        await svc.ReleaseExceptionSettingsAsync(new object());
+
+        Assert.DoesNotContain(dte.Calls, c => c.StartsWith("SetBreakWhenThrown", StringComparison.Ordinal));
     }
 
     [Fact]

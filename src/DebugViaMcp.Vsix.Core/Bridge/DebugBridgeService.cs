@@ -402,6 +402,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     public Task<ExceptionResetResult> ResetExceptionSettingsAsync(object owner, CancellationToken ct) =>
         ui.RunAsync(() => _exceptions.Reset(owner), ct);
 
+    /// <summary>Puts back what the owner changed and forgets it (the owner's hold on Visual Studio ended).</summary>
     public Task ReleaseExceptionSettingsAsync(object owner) => ui.RunAsync(() => { _exceptions.Release(owner); return true; }, CancellationToken.None);
 
     /// <summary>The process name for the consent question; validates mode and target first, so a doomed request never asks.</summary>

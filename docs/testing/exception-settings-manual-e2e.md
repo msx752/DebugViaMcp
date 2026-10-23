@@ -1,8 +1,9 @@
 # Manual end-to-end: `exception_list`, `exception_set`, `exception_reset`
 
 Needs a Visual Studio with the extension, the sample `samples/OrderDemo` and an agent connected. **Not yet run** (written with the feature).
-What was tried with Visual Studio's automation alone (spike): reading and writing Break When Thrown in design mode, an unknown name
-(`0x8002000B`), and that a change did not survive closing and reopening Visual Studio through `DTE.Quit()`.
+What was tried with Visual Studio's automation alone (spike): reading and writing Break When Thrown in design mode and while an attached
+program runs, an unknown name (`0x8002000B`), and that a change did not survive closing and reopening Visual Studio (`DTE.Quit()` and closing
+the main window).
 
 | # | Do | Expect |
 |---|---|---|
@@ -14,12 +15,12 @@ What was tried with Visual Studio's automation alone (spike): reading and writin
 | 6 | `exception_set` with one real and one misspelled name | An error naming the misspelled one with close names; the real one did not change |
 | 7 | `exception_set` with a name without its namespace (`TimeoutException`) | An error that offers `System.TimeoutException` |
 | 8 | Debug `OrderDemo` and let it throw the exception set in 4 | The debugger stops at the throw, not at the catch; `exception` describes it |
-| 9 | While the program is running, `exception_set` another exception | It works (the open check "write during a debug session": record the result here) |
+| 9 | While the program is running (F5), then again stopped at a breakpoint, `exception_set` another exception | Works in both; running was checked by script (attached program), the stopped case was not |
 | 10 | `exception_reset` | Only the exceptions the agent changed return to their first value; a row you changed yourself in between stays |
 | 11 | Options: Control = Ask, then `exception_set` | The question names the group and the exceptions; Deny leaves everything unchanged |
 | 12 | Options: Control = Deny | `exception_set` and `exception_reset` are refused; `exception_list` (Read) still works |
 | 13 | Another agent holds this Visual Studio | `exception_list` and `exception_set` answer `in_use` (a read never takes the hold, but it is refused while another agent has it) |
-| 14 | The agent disconnects without calling `exception_reset`; close Visual Studio normally and open it again (the open check "normal close": record the result here) | Note whether the changed exception is still on |
+| 14 | The agent changes an exception, then disconnects (or calls `vs_release`) without calling `exception_reset` | The exception is back at its first value in the Exception Settings window at once; the Output pane "Debugging via MCP Log" shows no error |
 | 15 | Old extension (protocol 2.7) with the new server | The three tools answer `unsupported` and say to update the extension |
 
 ## Run record

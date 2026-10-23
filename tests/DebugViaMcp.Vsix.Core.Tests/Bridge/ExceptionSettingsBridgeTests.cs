@@ -133,7 +133,7 @@ public class ExceptionSettingsBridgeTests
     }
 
     [Fact]
-    public async Task A_closed_connection_leaves_no_record_for_the_next_one()
+    public async Task A_closed_connection_puts_back_what_it_changed()
     {
         using var s = Create();
         await s.HandshakeAsync("claude-code");
@@ -144,24 +144,25 @@ public class ExceptionSettingsBridgeTests
         var result = await s.Handler.ResetExceptionSettingsAsync(SecurityHarness.Ctx(), CancellationToken.None);
 
         Assert.Empty(result.Restored);
-        Assert.True(Value(s, "System.NullReferenceException"));   // the record is dropped, not applied: settings return to the user's when Visual Studio restarts
+        Assert.False(Value(s, "System.NullReferenceException"));   // put back when the connection ended, so nothing is left for the next agent to undo
     }
 
     [Fact]
-    public async Task Giving_up_the_lease_drops_the_record_so_a_stale_reset_cannot_write()
+    public async Task Giving_up_the_lease_puts_the_settings_back_so_a_stale_reset_cannot_write()
     {
         using var s = Create();
         await s.HandshakeAsync("claude-code");
         await s.Handler.SetExceptionSettingsAsync(Clr, NullRef, true, SecurityHarness.Ctx(), CancellationToken.None);
 
         await s.Handler.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
+        Assert.False(Value(s, "System.NullReferenceException"));   // back at the user's value as soon as the lease ends
         var other = await s.AddConnectionAsync("other-agent");
-        await other.SetExceptionSettingsAsync(Clr, NullRef, false, SecurityHarness.Ctx(), CancellationToken.None);
+        await other.SetExceptionSettingsAsync(Clr, NullRef, true, SecurityHarness.Ctx(), CancellationToken.None);
         await other.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
         var stale = await s.Handler.ResetExceptionSettingsAsync(SecurityHarness.Ctx(), CancellationToken.None);
 
         Assert.Empty(stale.Restored);
-        Assert.False(Value(s, "System.NullReferenceException"));   // the other agent's value stays; the first agent's old record did not undo it
+        Assert.False(Value(s, "System.NullReferenceException"));   // the other agent's change was put back when it let go; the first agent's old record changed nothing
     }
 
     [Fact]

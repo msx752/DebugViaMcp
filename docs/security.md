@@ -55,7 +55,7 @@ confirmation first.
 - Visual Studio itself (`devenv`) and the `debugviamcp` server are never offered as attach targets: another
   Visual Studio instance holds its own pipe token and your sources.
 - `bp_enable(true)` on a breakpoint with a condition or tracepoint is Mutate for the same reason as `bp_set` with one.
-- `exception_set` and `exception_reset` are **Control**: they change a setting of Visual Studio (which exceptions it stops on), not the program. Only what the agent changed is put back; your own settings are never reset.
+- `exception_set` and `exception_reset` are **Control**: they change a setting of Visual Studio (which exceptions it stops on), not the program. Only what the agent changed is put back, by `exception_reset` or automatically when the agent lets go or disconnects; your own settings are never reset.
 - `vs_build` is **Control**: it runs your project's build, including any custom MSBuild targets.
 
 ### Sensitive values are masked (0.5)

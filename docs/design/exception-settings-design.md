@@ -24,8 +24,13 @@ by hand. The agent can already read the current exception (`debug_exception`); i
   once on the next read. Works in design mode (no debug session).
 - `ExceptionSetting.Code` throws in groups that do not support codes; never read it there (`SupportsExceptionCodes`).
 - A name that does not exist fails with `0x8002000B` (invalid index); we translate it to a clear error.
-- A change did **not** survive closing (through `DTE.Quit()`) and reopening Visual Studio. Untested: a normal close,
-  and writing while a debug session is running (do this in the first implementation task and record the result here).
+- A change did **not** survive closing and reopening Visual Studio, whether closed through `DTE.Quit()` or by closing the main window
+  (checked with no solution loaded). Settings are therefore per Visual Studio session.
+- Writing while the debugger is attached and the program **runs** (`dbgRunMode`) works: set, read back, set back. In **break mode**
+  the write was not tried: Visual Studio answered `RPC_E_CALL_REJECTED` right after `Break All`. The extension runs on the UI thread
+  and retries nothing, so in break mode treat it as untested until the manual list (row 9) is run.
+- Opening the sample project through `Solution.Open(csproj)` from a script failed (`E_ABORT`), so no run was started from Visual Studio itself;
+  the program was started outside and attached.
 
 ## Tools
 All names in Visual Studio's words (Exception Settings, Break When Thrown).
@@ -44,7 +49,11 @@ Rules:
 - The first change of a setting records its original value. A second change keeps the first original. `exception_reset`
   writes the originals back and clears the record. *My call:* reset covers only what the agent changed, never
   `ExceptionGroups.ResetAll()`, which would also undo the user's own settings.
-- The record is dropped when the lease ends or the extension unloads; settings are not persistent anyway (see spike).
+- When this connection's hold on Visual Studio ends (`vs_release`, the connection closes, Disconnect AI), the settings it changed are put back
+  at once and the record is dropped, so an agent that never calls `exception_reset` leaves nothing behind. A failing write is only logged;
+  the record is dropped either way, so a later agent never undoes this one's changes. (The user chose this over only dropping the record.)
+- `exception_reset` with nothing recorded is a read: it asks no question and takes no lease, so a cleanup call never locks other agents out.
+- Reads are refused with `in_use` while another agent holds the lease, like every read; only `exception_set` and `exception_reset` (with something to put back) take it.
 - Control tier: the user's consent prompt says which exceptions in which group change and to what
   ("Break When Thrown on: System.NullReferenceException"). Every call writes an audit line with its `callId`.
 - Reads obey the existing output masking and size caps; a `truncated` answer says how to narrow it (`filter`, `group`).
@@ -69,7 +78,7 @@ Rules:
 ## Done when
 `exception_list`, `exception_set`, `exception_reset` work against a real Visual Studio (manual list in `docs/testing/`),
 unit tests cover: pagination and truncation, all-or-nothing, unknown name and group, unchanged value, second change keeps
-the first original, reset restores, reset after lease loss, the consent text, minor-7 fallback. README and Marketplace
+the first original, reset restores, the lease ending (release, close, disconnect) puts the settings back, an empty reset takes no lease, the consent text, minor-7 fallback. README and Marketplace
 overview tool lists updated, CHANGELOG under Unreleased.
 
 ## Left to the builder

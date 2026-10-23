@@ -484,13 +484,13 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     {
         if (!security.Lease.Release(_connectionId)) return;
         AuditLease("released");
-        // What this agent changed in Exception Settings is no longer its to undo: the next agent starts from what it finds.
-        ForgetExceptionSettings();
+        // The agent can no longer call exception_reset: put its Exception Settings changes back now.
+        RestoreExceptionSettings();
     }
 
-    private void ForgetExceptionSettings() =>
+    private void RestoreExceptionSettings() =>
         _ = service.ReleaseExceptionSettingsAsync(this).ContinueWith(
-            t => log.Warn($"Forgetting the Exception Settings changed by '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
+            t => log.Warn($"Putting back the Exception Settings changed by '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
 
     private void AuditLease(string outcome) =>
@@ -586,7 +586,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         _ = service.ReleaseRunToAsync(this).ContinueWith(
             t => log.Warn($"Removing the run-to breakpoint of '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
-        ForgetExceptionSettings();
+        RestoreExceptionSettings();
         if (_authenticated)
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "disconnect", Outcome = "ok", Summary = _client });
     }
