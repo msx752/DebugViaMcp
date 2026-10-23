@@ -75,6 +75,15 @@ public interface IDebugBridge
     /// <summary>Protocol 2.5. The symbol-related debugger options and the breakpoints that are not bound (tier read).</summary>
     Task<SymbolStatus> GetSymbolStatusAsync(CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>Protocol 2.8. Break When Thrown per exception (tier read). Without <paramref name="group"/> every group is listed.</summary>
+    Task<ExceptionSettingsPage> ListExceptionSettingsAsync(string? group, string? filter, bool onlyEnabled, int limit, CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>Protocol 2.8. Sets Break When Thrown of exact names in one group, all or none (tier control). The result carries each previous value.</summary>
+    Task<ExceptionSetResult> SetExceptionSettingsAsync(string group, string[] names, bool breakWhenThrown, CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>Protocol 2.8. Restores what this connection changed with <see cref="SetExceptionSettingsAsync"/> (tier control).</summary>
+    Task<ExceptionResetResult> ResetExceptionSettingsAsync(CallContext context, CancellationToken cancellationToken);
+
     /// <summary>Protocol 2.2. Gives up this connection's hold on the Visual Studio so another agent can use it.</summary>
     Task ReleaseAsync(CallContext context, CancellationToken cancellationToken);
 

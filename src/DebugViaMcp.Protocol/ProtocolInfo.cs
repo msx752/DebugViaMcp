@@ -7,7 +7,7 @@ namespace DebugViaMcp.Protocol;
 public static class ProtocolInfo
 {
     public const int Major = 2;
-    public const int Minor = 7;
+    public const int Minor = 8;
 
     /// <summary>First minor with the M3 requests (threads, frame_select, exception, bp_enable, run_to, attach, output, error list, build) and frame events.</summary>
     public const int MinorM3 = 1;
@@ -29,6 +29,9 @@ public static class ProtocolInfo
 
     /// <summary>First minor whose status can name the dialog Visual Studio is waiting on, and whose calls that move the program fail with <c>busy</c> while one is open.</summary>
     public const int MinorDialog = 7;
+
+    /// <summary>First minor with the <c>ListExceptionSettings</c>, <c>SetExceptionSettings</c> and <c>ResetExceptionSettings</c> requests (Break When Thrown per exception).</summary>
+    public const int MinorExceptionSettings = 8;
 
     public const string PipeNamePrefix = "debugviamcp-";
 }

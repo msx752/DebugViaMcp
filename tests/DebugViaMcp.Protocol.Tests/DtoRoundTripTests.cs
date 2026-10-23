@@ -54,6 +54,48 @@ public class DtoRoundTripTests
     }
 
     [Fact]
+    public void Exception_settings_wire_format()
+    {
+        Assert.Equal(
+            "{\"group\":\"CLR\",\"changes\":[{\"name\":\"A\",\"previous\":false,\"current\":true,\"changed\":true}]}",
+            ProtocolJson.Serialize(new ExceptionSetResult
+            {
+                Group = "CLR", Changes = [new ExceptionChange { Name = "A", Previous = false, Current = true, Changed = true }],
+            }));
+        Assert.Equal(
+            "{\"groups\":[{\"name\":\"CLR\",\"settings\":[{\"name\":\"A\",\"breakWhenThrown\":true}],\"total\":1,\"truncated\":false}]}",
+            ProtocolJson.Serialize(new ExceptionSettingsPage
+            {
+                Groups = [new ExceptionGroupInfo { Name = "CLR", Settings = [new ExceptionSettingInfo { Name = "A", BreakWhenThrown = true }], Total = 1 }],
+            }));
+        Assert.Equal(
+            "{\"restored\":[]}",
+            ProtocolJson.Serialize(new ExceptionResetResult()));
+    }
+
+    [Fact]
+    public void Exception_settings_round_trip()
+    {
+        var copy = RoundTrip(new ExceptionResetResult
+        {
+            Restored = [new ExceptionChange { Name = "CLR/A", Previous = true, Current = false, Changed = true }],
+        });
+
+        Assert.Equal("CLR/A", copy.Restored[0].Name);
+        Assert.True(copy.Restored[0].Previous);
+        Assert.False(copy.Restored[0].Current);
+    }
+
+    [Fact]
+    public void A_minor_7_payload_still_deserializes()
+    {
+        var old = ProtocolJson.Deserialize<SymbolStatus>("{\"justMyCode\":true,\"unbound\":[],\"notes\":[]}")!;
+
+        Assert.Equal(true, old.JustMyCode);
+        Assert.Empty(old.Notes);
+    }
+
+    [Fact]
     public void Permission_set_wire_format()
     {
         Assert.Equal("{\"read\":\"allow\",\"control\":\"allow\",\"mutate\":\"ask\"}", ProtocolJson.Serialize(new PermissionSet()));

@@ -166,6 +166,53 @@ public sealed class SymbolStatus
     public string[] Notes { get; set; } = [];
 }
 
+/// <summary>One entry of Debug → Windows → Exception Settings.</summary>
+public sealed class ExceptionSettingInfo
+{
+    public string Name { get; set; } = "";
+    public bool BreakWhenThrown { get; set; }
+}
+
+/// <summary>One group of Exception Settings (for example "Common Language Runtime Exceptions") with the entries that were asked for.</summary>
+public sealed class ExceptionGroupInfo
+{
+    public string Name { get; set; } = "";
+    public ExceptionSettingInfo[] Settings { get; set; } = [];
+
+    /// <summary>Entries of the group that match the request, before the limit was applied.</summary>
+    public int Total { get; set; }
+
+    public bool Truncated { get; set; }
+}
+
+public sealed class ExceptionSettingsPage
+{
+    public ExceptionGroupInfo[] Groups { get; set; } = [];
+}
+
+/// <summary>Break When Thrown of one exception before and after a change.</summary>
+public sealed class ExceptionChange
+{
+    /// <summary>The exception name; <c>group/name</c> in a reset result, which can span groups.</summary>
+    public string Name { get; set; } = "";
+    public bool Previous { get; set; }
+    public bool Current { get; set; }
+
+    /// <summary>False when the exception already had the requested value.</summary>
+    public bool Changed { get; set; }
+}
+
+public sealed class ExceptionSetResult
+{
+    public string Group { get; set; } = "";
+    public ExceptionChange[] Changes { get; set; } = [];
+}
+
+public sealed class ExceptionResetResult
+{
+    public ExceptionChange[] Restored { get; set; } = [];
+}
+
 public sealed class SetBreakpointResult
 {
     public BreakpointInfo Breakpoint { get; set; } = new();
