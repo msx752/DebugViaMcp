@@ -52,6 +52,36 @@ public class InspectionToolsTests
         Assert.Equal("42", json.GetProperty("data").GetProperty("value").GetString());
     }
 
+    [Fact]
+    public async Task Eval_says_when_a_value_was_masked()
+    {
+        var bridge = new FakeDebugBridge { OnEvaluate = _ => new EvaluateResult { IsValid = true, Value = "[masked]", Type = "string", Masked = true } };
+        var tools = new InspectionTools(new FakeConnectionManager(bridge));
+
+        var data = Json(await tools.Eval("password", ct: CancellationToken.None)).GetProperty("data");
+
+        Assert.True(data.GetProperty("masked").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Eval_leaves_masked_out_for_an_ordinary_value()
+    {
+        var tools = new InspectionTools(new FakeConnectionManager(new FakeDebugBridge()));
+        var data = Json(await tools.Eval("x", ct: CancellationToken.None)).GetProperty("data");
+        Assert.False(data.TryGetProperty("masked", out _));
+    }
+
+    [Fact]
+    public async Task SetValue_says_when_the_echoed_value_was_masked()
+    {
+        var bridge = new FakeDebugBridge { OnSetValue = (_, _) => new EvaluateResult { IsValid = true, Value = "[masked]", Type = "string", Masked = true } };
+        var tools = new InspectionTools(new FakeConnectionManager(bridge));
+
+        var data = Json(await tools.SetValue("password", "\"x\"", CancellationToken.None)).GetProperty("data");
+
+        Assert.True(data.GetProperty("masked").GetBoolean());
+    }
+
     private static VariableInfo[] Items(int count, int valueLength) =>
         Enumerable.Range(0, count).Select(i => new VariableInfo { Name = "v" + i, Type = "string", Value = new string('x', valueLength) }).ToArray();
 

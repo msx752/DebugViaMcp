@@ -1,11 +1,11 @@
 name: CI
 
-# Runs on pull requests (develop and main) and on pushes to develop. Merging into main is handled by release.yml.
+# Runs on pull requests only (develop and main): a Windows runner counts double against the free minutes, and a push to a branch
+# with an open pull request would run the same build twice. Pushes to develop are checked locally with scripts/build.ps1.
+# Merging into main is handled by release.yml.
 on:
   pull_request:
     branches: [develop, main]
-  push:
-    branches: [develop]
 
 concurrency:
   group: ci-${{ github.ref }}

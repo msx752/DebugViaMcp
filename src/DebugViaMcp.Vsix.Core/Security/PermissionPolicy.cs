@@ -21,6 +21,18 @@ public enum Operation
 
     RunTo, ListProcesses,
 
+    /// <summary>symbol_status: the symbol-related options and the breakpoints that are not bound.</summary>
+    SymbolStatus,
+
+    /// <summary>exception_list: Break When Thrown per exception.</summary>
+    ListExceptionSettings,
+
+    /// <summary>exception_set: changes Break When Thrown of named exceptions (a setting of Visual Studio, not of the program).</summary>
+    SetExceptionSettings,
+
+    /// <summary>exception_reset: puts back what exception_set changed.</summary>
+    ResetExceptionSettings,
+
     /// <summary>debug_attach: the debugger can read and change the attached process's memory.</summary>
     Attach,
 
@@ -51,6 +63,9 @@ public interface IBridgeSettings
 
     /// <summary>Longest vs_build may wait, in seconds.</summary>
     int MaxBuildSeconds { get; }
+
+    /// <summary>Hide values that look like secrets before they reach the agent. On unless the user turned it off and confirmed.</summary>
+    bool MaskSensitiveValues { get; }
 }
 
 /// <summary>The single tier table (spec §3.1). New operations get their tier here.</summary>
@@ -60,11 +75,11 @@ public static class PermissionPolicy
     {
         Operation.Status or Operation.ListBreakpoints or Operation.Stack or Operation.Variables or Operation.Evaluate
             or Operation.Threads or Operation.FrameSelect or Operation.Exception
-            or Operation.ListProcesses or Operation.OutputRead or Operation.ErrorList
+            or Operation.ListProcesses or Operation.SymbolStatus or Operation.ListExceptionSettings or Operation.OutputRead or Operation.ErrorList
             or Operation.Connect or Operation.Release or Operation.BuildCheck => PermissionTier.Read,
         Operation.SetBreakpoint or Operation.RemoveBreakpoints or Operation.Start or Operation.Stop
             or Operation.Continue or Operation.Pause or Operation.Step or Operation.EnableBreakpoint
-            or Operation.RunTo or Operation.Build => PermissionTier.Control,
+            or Operation.RunTo or Operation.Build or Operation.SetExceptionSettings or Operation.ResetExceptionSettings => PermissionTier.Control,
         Operation.EvaluateWithSideEffects or Operation.SetValue or Operation.SetBreakpointWithExpression
             or Operation.EnableBreakpointWithExpression or Operation.Attach => PermissionTier.Mutate,
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Operation has no tier."),
@@ -102,6 +117,10 @@ public static class PermissionPolicy
         Operation.EnableBreakpoint or Operation.EnableBreakpointWithExpression => "bp_enable",
         Operation.RunTo => "debug_run_to",
         Operation.ListProcesses or Operation.Attach => "debug_attach",
+        Operation.SymbolStatus => "symbol_status",
+        Operation.ListExceptionSettings => "exception_list",
+        Operation.SetExceptionSettings => "exception_set",
+        Operation.ResetExceptionSettings => "exception_reset",
         Operation.OutputRead => "output_read",
         Operation.ErrorList => "errors_list",
         Operation.Build => "vs_build",

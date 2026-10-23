@@ -134,4 +134,37 @@ public sealed class McpServerDeployerTests : IDisposable
 
         Assert.Equal(before, File.ReadAllText(launcher));
     }
+
+    [Fact]
+    public void A_pointer_file_that_a_launcher_is_reading_never_fails_the_deploy()
+    {
+        MakeBundle("server v1");
+        Deployer().Deploy();
+        var first = CurrentBuild();
+        using var reading = File.Open(Path.Combine(Root, "bin", "current.txt"), FileMode.Open, FileAccess.Read, FileShare.None);
+
+        MakeBundle("server v2");
+        var launcher = Deployer().Deploy();   // must not throw: the user is not to see an "in use" error
+
+        Assert.Equal(Path.Combine(Root, "debugviamcp.cmd"), launcher);
+        reading.Dispose();
+        Assert.Equal(first, CurrentBuild());   // the old server keeps working until the next start points at the new one
+        Deployer().Deploy();
+        Assert.NotEqual(first, CurrentBuild());
+    }
+
+    [Fact]
+    public void Deploying_twice_in_a_row_allocates_only_a_small_buffer_for_hashing()
+    {
+        MakeBundle();
+        Deployer().Deploy();
+        var big = new string('x', 6 * 1024 * 1024);
+        File.WriteAllText(Path.Combine(Bundle, McpServerDeployer.MainAssembly), big);   // a large assembly, as the real one
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        _ = McpServerDeployer.BuildName(Bundle);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(allocated < 1024 * 1024, $"hashing a 6 MB assembly allocated {allocated} bytes");
+    }
 }

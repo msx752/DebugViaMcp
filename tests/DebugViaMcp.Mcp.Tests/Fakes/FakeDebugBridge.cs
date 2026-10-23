@@ -56,6 +56,24 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Func<string, int, RunToResult> OnRunTo { get; set; } = (_, _) => new RunToResult { Seq = 10 };
     public Task<RunToResult> RunToAsync(string file, int line, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add($"RunTo:{file}:{line}"); return Task.FromResult(OnRunTo(file, line)); }
 
+    public Func<SymbolStatus> OnSymbolStatus { get; set; } = () => new SymbolStatus { JustMyCode = true, RequireSourceToMatch = true };
+    public Task<SymbolStatus> GetSymbolStatusAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("GetSymbolStatus"); return Task.FromResult(OnSymbolStatus()); }
+
+    public Func<string?, string?, bool, int, ExceptionSettingsPage> OnListExceptionSettings { get; set; } = (_, _, _, _) => new ExceptionSettingsPage();
+    public Task<ExceptionSettingsPage> ListExceptionSettingsAsync(string? group, string? filter, bool onlyEnabled, int limit, CallContext context, CancellationToken cancellationToken)
+    { CallIds.Add(context.CallId); Calls.Add($"ListExceptionSettings:{group}:{filter}:{onlyEnabled}:{limit}"); return Task.FromResult(OnListExceptionSettings(group, filter, onlyEnabled, limit)); }
+
+    public Func<string, string[], bool, ExceptionSetResult> OnSetExceptionSettings { get; set; } = (group, names, value) => new ExceptionSetResult
+    {
+        Group = group, Changes = names.Select(n => new ExceptionChange { Name = n, Previous = !value, Current = value, Changed = true }).ToArray(),
+    };
+    public Task<ExceptionSetResult> SetExceptionSettingsAsync(string group, string[] names, bool breakWhenThrown, CallContext context, CancellationToken cancellationToken)
+    { CallIds.Add(context.CallId); Calls.Add($"SetExceptionSettings:{group}:{string.Join(",", names)}:{breakWhenThrown}"); return Task.FromResult(OnSetExceptionSettings(group, names, breakWhenThrown)); }
+
+    public Func<ExceptionResetResult> OnResetExceptionSettings { get; set; } = () => new ExceptionResetResult();
+    public Task<ExceptionResetResult> ResetExceptionSettingsAsync(CallContext context, CancellationToken cancellationToken)
+    { CallIds.Add(context.CallId); Calls.Add("ResetExceptionSettings"); return Task.FromResult(OnResetExceptionSettings()); }
+
     public Func<string?, ProcessInfo[]> OnListAttachable { get; set; } = _ => [new ProcessInfo { Pid = 400, Name = "OrderDemo" }];
     public Task<ProcessInfo[]> ListAttachableAsync(string? processName, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("ListAttachable:" + processName); return Task.FromResult(OnListAttachable(processName)); }
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("Attach:" + pid); return Task.FromResult(Seq); }

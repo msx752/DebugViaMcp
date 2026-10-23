@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft — awaiting review |
 | **Date** | 2026-10-11 |
-| **Scope** | v1: .NET (C#) debugging in Visual Studio 2022 (17.14+) and Visual Studio 2026 on Windows (x64, arm64 — including Windows VMs on Apple silicon). Follow-up milestone: a VS Code adapter (C# Dev Kit) for macOS, Linux and Windows, speaking the same protocol |
+| **Scope** | v1: .NET (C#) debugging in Visual Studio 2022 (17.14+) and Visual Studio 2026 on Windows (x64, arm64 — including Windows VMs on Apple silicon). |
 | **License** | MIT |
 
 ## 1. Purpose
@@ -23,8 +23,7 @@ expressions like QuickWatch, and — with user consent — change values.
 
 ### Non-goals (v1)
 - Native C++, Python, JavaScript or mixed-mode debugging (the protocol must not preclude them).
-- The VS Code adapter itself (milestone M5, separate spec). v1 must, however, keep the protocol and
-  the MCP host platform- and language-neutral so that adapter needs no change to them (§2.4).
+- v1 keeps the protocol and the MCP host platform- and language-neutral (§2.4).
 - Visual Studio for Mac (retired by Microsoft on 2024-08-31).
 - Remote machines, HTTP/SSE transport, multi-user scenarios.
 - Editing source code, building, or running tests — other tools already do that.
@@ -80,12 +79,12 @@ Enforced by `DebugViaMcp.ArchitectureTests` (assembly-reference checks) in CI.
 
 ### 2.4 Cross-platform and multi-IDE readiness
 An IDE adapter is anything that implements `IDebugBridge` behind a pipe and writes an instance
-file. The VSIX is the first; a VS Code extension (TypeScript, `vscode.debug` API) is planned (M5).
-To keep that adapter free of changes to Protocol or Mcp:
+file. The VSIX is the first.
+To keep another adapter free of changes to Protocol or Mcp:
 
 - **Wire format is language-neutral and fixed:** JSON-RPC 2.0 with `Content-Length` header framing
   (StreamJsonRpc `HeaderDelimitedMessageHandler` + `JsonMessageFormatter`, compatible with
-  `vscode-jsonrpc`); camelCase property names; enums as camelCase strings; ISO-8601 dates; nulls
+  common JSON-RPC libraries); camelCase property names; enums as camelCase strings; ISO-8601 dates; nulls
   omitted. Defined once in `ProtocolJson` and locked by a golden-JSON test. No MessagePack.
 - **Instance files** use the same JSON conventions.
 - **DebugViaMcp home** (instances, logs):
@@ -354,12 +353,11 @@ debugviamcp doctor
   - ADR-004 `mutate` defaults to Ask
   - ADR-005 Variable values not logged by default
   - ADR-006 v1 scope: .NET only, VS 2022 + 2026
-  - ADR-007 Language-neutral wire format and per-OS home (prepares the VS Code adapter)
-  - ADR-008 macOS via a VS Code adapter (Visual Studio for Mac is retired)
+  - ADR-007 Language-neutral wire format and per-OS home
 
 ## 13. Phase 2 backlog (beyond the debugger)
 
-Captured on 2026-10-11; not part of M1–M5. Each group gets its own spec before work starts. Guiding rule: add a
+Captured on 2026-10-11; not part of M1–M4. Each group gets its own spec before work starts. Guiding rule: add a
 tool only where Visual Studio knows something the agent cannot get from the file system and CLI alone.
 
 **Code navigation (Roslyn via `VisualStudioWorkspace`, tier `read`)**
@@ -390,4 +388,3 @@ already edits files itself; Debugging via MCP stays a read/inspect/debug surface
 | One VSIX targeting VS 2022 and 2026 | Install target range `[17.0, 19.0)`; E2E on both before release |
 | Name availability (`DebugViaMcp` on NuGet / Marketplace) | Check before first package; fallback names: `DebugPilot`, `vs-debug-bridge` |
 | `debug_start` on solutions with multiple startup projects | v1 uses VS's configured startup; `project` parameter selects a single one |
-| VS Code debug API differs from DTE (e.g. no first-class conditional "when changed", evaluation contexts) | M5 spec maps each tool; unsupported options return `invalid_argument` with an explanation rather than being ignored |

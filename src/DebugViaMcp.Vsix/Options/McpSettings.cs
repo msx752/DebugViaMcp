@@ -23,17 +23,19 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
     private const string Read = Prefix + "read", Control = Prefix + "control", Mutate = Prefix + "mutate";
     private const string ConsentTimeout = Prefix + "consentTimeoutSeconds", AcceptOnStartup = Prefix + "acceptConnectionsOnStartup";
     private const string StatusBar = Prefix + "showStatusBarIndicator", LogLevel = Prefix + "logLevel", LogRetention = Prefix + "logRetentionDays";
-    private const string MaxWait = Prefix + "maxWaitSeconds", MaxBuild = Prefix + "maxBuildSeconds";
+    private const string MaxWait = Prefix + "maxWaitSeconds", MaxBuild = Prefix + "maxBuildSeconds", MaskSensitive = Prefix + "maskSensitiveValues";
 
     /// <summary>Visual Studio's own option (Projects and Solutions > Build and Run > On Run, when projects are out of date): alwaysBuild, neverBuild or promptToBuild.</summary>
     private const string OnRunWhenOutOfDate = "projectsAndSolutions.buildAndRun.onRunWhenOutOfDate";
 
-    private static readonly string[] Monikers = [Read, Control, Mutate, ConsentTimeout, AcceptOnStartup, StatusBar, LogLevel, LogRetention, MaxWait, MaxBuild, OnRunWhenOutOfDate];
+    private static readonly string[] Monikers = [Read, Control, Mutate, ConsentTimeout, AcceptOnStartup, StatusBar, LogLevel, LogRetention, MaxWait, MaxBuild, MaskSensitive, OnRunWhenOutOfDate];
 
     private readonly object _gate = new();
     private readonly Dictionary<string, string> _raw = new();
     private bool _mutateAllowConfirmed;
     private bool _confirmPending;
+    private bool _maskOffConfirmed;
+    private bool _maskOffPending;
     private IUnifiedSettingsService? _proxy;
     private IDisposable? _subscription;
     private bool _subscriptionLost;
@@ -94,6 +96,7 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
         {
             _subscriptionLost = true;
             _mutateAllowConfirmed = false;
+            _maskOffConfirmed = false;
         }
 
         Recompute(announce: false);
@@ -149,6 +152,30 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
         lock (_gate) _confirmPending = false;
     }
 
+    /// <summary>Raised on a background thread when the settings turn "Mask sensitive values" off and the user has not confirmed it yet; until then values stay masked.</summary>
+    public event EventHandler? MaskOffRequested;
+
+    /// <summary>The user confirmed turning the mask off: enforce it for as long as the setting stays off.</summary>
+    public void ConfirmMaskOff()
+    {
+        lock (_gate)
+        {
+            _maskOffConfirmed = true;
+            _maskOffPending = false;
+        }
+
+        Recompute(announce: true);
+    }
+
+    /// <summary>The user declined: keep masking until the setting is changed again.</summary>
+    public void DeclineMaskOff()
+    {
+        lock (_gate) _maskOffPending = false;
+    }
+
+    /// <summary>Asks for confirmation when the stored settings already have the mask off (call once the handler is attached).</summary>
+    public void CheckMaskOffConfirmation() => RaiseMaskOffRequestIfNeeded();
+
     /// <summary>Asks for confirmation when the stored settings already say Mutate = Allow (call once the handler is attached).</summary>
     public void CheckMutateConfirmation() => RaiseMutateAllowRequestIfNeeded();
 
@@ -174,6 +201,7 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
             if (next.Permissions.Read != before.Read) changes.Add($"Read: {before.Read} → {next.Permissions.Read}");
             if (next.Permissions.Control != before.Control) changes.Add($"Control: {before.Control} → {next.Permissions.Control}");
             if (next.Permissions.Mutate != before.Mutate) changes.Add($"Mutate: {before.Mutate} → {next.Permissions.Mutate}");
+            if (next.MaskSensitiveValues != _applied.MaskSensitiveValues) changes.Add($"Mask sensitive values: {(_applied.MaskSensitiveValues ? "on" : "off")} → {(next.MaskSensitiveValues ? "on" : "off")}");
             _applied = next;
             if (announce && changes.Count > 0) summary = "Settings changed: " + string.Join(", ", changes);
         }
@@ -181,6 +209,7 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
         if (summary is not null) PermissionsChanged?.Invoke(this, summary);
         if (announce) AnyApplied?.Invoke(this, EventArgs.Empty);
         if (announce) RaiseMutateAllowRequestIfNeeded();
+        if (announce) RaiseMaskOffRequestIfNeeded();
     }
 
     private void RaiseMutateAllowRequestIfNeeded()
@@ -196,6 +225,31 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
         }
 
         handler(this, EventArgs.Empty);
+    }
+
+    private void RaiseMaskOffRequestIfNeeded()
+    {
+        var handler = MaskOffRequested;
+        if (handler is null) return;
+        lock (_gate)
+        {
+            if (Bool(MaskSensitive, true) || _maskOffConfirmed || _maskOffPending || _subscriptionLost) return;
+            _maskOffPending = true;
+        }
+
+        handler(this, EventArgs.Empty);
+    }
+
+    /// <summary>The mask as enforced: a stored off counts only after the user confirmed it; until then values stay masked.</summary>
+    private bool EffectiveMask()
+    {
+        if (Bool(MaskSensitive, true))
+        {
+            _maskOffConfirmed = false;
+            return true;
+        }
+
+        return !_maskOffConfirmed;
     }
 
     /// <summary>Mutate as enforced: a stored Allow counts only after the user confirmed it; otherwise the previous level, or Ask.</summary>
@@ -222,7 +276,8 @@ internal sealed class McpSettings : IObserver<SettingsUpdate>, IDisposable
         Int(LogRetention, 7, 1, 90),
         Int(MaxWait, 120, 5, 600),
         Int(MaxBuild, 600, 30, 1800),
-        _raw.TryGetValue(OnRunWhenOutOfDate, out var onRun) && string.Equals(onRun, "alwaysBuild", StringComparison.OrdinalIgnoreCase));
+        _raw.TryGetValue(OnRunWhenOutOfDate, out var onRun) && string.Equals(onRun, "alwaysBuild", StringComparison.OrdinalIgnoreCase),
+        EffectiveMask());
 
     /// <summary>String settings come back JSON-encoded ("Deny" with its quotes).</summary>
     private static string Unquote(string? data) =>

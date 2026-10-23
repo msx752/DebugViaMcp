@@ -53,6 +53,17 @@ public sealed class RawProcess
     public bool OwnedByCurrentUser { get; set; }
 }
 
+/// <summary>Tools → Options → Debugging → General, as Visual Studio's automation reports it. Null: the property is not there.</summary>
+public sealed class RawDebuggerOptions
+{
+    public bool? RequireSourceToMatch { get; set; }
+    public bool? JustMyCode { get; set; }
+    public bool? WarnIfNoSymbols { get; set; }
+    public bool? SuppressJitOptimization { get; set; }
+    public bool? SourceServer { get; set; }
+    public bool? SourceServerDiagnostics { get; set; }
+}
+
 public sealed class RawOutputPane
 {
     public Guid Id { get; set; }
@@ -81,6 +92,19 @@ public sealed class RawErrorItem
 }
 
 /// <summary>Everything the bridge needs from Visual Studio. All members must be called on the UI thread.</summary>
+/// <summary>One row of Exception Settings as Visual Studio reports it.</summary>
+public readonly struct ExceptionEntry
+{
+    public ExceptionEntry(string name, bool breakWhenThrown)
+    {
+        Name = name;
+        BreakWhenThrown = breakWhenThrown;
+    }
+
+    public string Name { get; }
+    public bool BreakWhenThrown { get; }
+}
+
 public interface IDteFacade
 {
     string VsVersion { get; }
@@ -98,6 +122,33 @@ public interface IDteFacade
     void Break();
     void Stop();
     void Step(StepKind kind);
+
+    /// <summary>The Debugging → General options that decide whether symbols load and breakpoints bind.</summary>
+    RawDebuggerOptions DebuggerOptions();
+
+    /// <summary>
+    /// Title of the modal dialog Visual Studio is blocked on; empty when it has no title; null when no dialog is open.
+    /// Safe to call from any thread (it only asks Windows about the main window), so checking costs no UI-thread hop.
+    /// </summary>
+    string? ModalDialogTitle();
+
+    // Exception Settings. Every read is an automation call (the CLR group alone has hundreds of entries), so a request reads only what it needs.
+
+    /// <summary>Names of the groups, in Visual Studio's order (a handful of calls).</summary>
+    IReadOnlyList<string> ExceptionGroupNames();
+
+    /// <summary>
+    /// Every entry of one group with its value, read in one enumeration (a few automation calls per entry, about 0.1 s for the CLR group).
+    /// Looking entries up one by one by name is far slower for a whole group (the lookup itself is a scan), so listing uses this.
+    /// Throws a not-found <c>BridgeException</c> for an unknown group.
+    /// </summary>
+    IReadOnlyList<ExceptionEntry> ExceptionEntries(string group);
+
+    /// <summary>Break When Thrown of one entry by name (two calls); null when the group or the entry does not exist. For a few names, not for a whole group.</summary>
+    bool? BreakWhenThrown(string group, string name);
+
+    /// <summary>Sets Break When Thrown of one entry. Throws a not-found <c>BridgeException</c> for an unknown group or name.</summary>
+    void SetBreakWhenThrown(string group, string name, bool value);
 
     /// <summary>Debugger.LocalProcesses without Visual Studio itself.</summary>
     IReadOnlyList<RawProcess> LocalProcesses();

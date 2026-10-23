@@ -24,12 +24,13 @@ internal sealed class OptionsBridgeSettings(McpSettings settings) : IBridgeSetti
     public int LogRetentionDays => settings.Applied.LogRetentionDays;
     public int MaxWaitSeconds => settings.Applied.MaxWaitSeconds;
     public int MaxBuildSeconds => settings.Applied.MaxBuildSeconds;
+    public bool MaskSensitiveValues => settings.Applied.MaskSensitiveValues;
 }
 
 /// <summary>Immutable copy of the applied Options values.</summary>
-internal sealed class AppliedSettings(PermissionSet permissions, TimeSpan consentTimeout, bool acceptConnectionsOnStartup, bool showStatusBarIndicator, LogVerbosity logLevel, int logRetentionDays, int maxWaitSeconds, int maxBuildSeconds, bool vsBuildsOnRun)
+internal sealed class AppliedSettings(PermissionSet permissions, TimeSpan consentTimeout, bool acceptConnectionsOnStartup, bool showStatusBarIndicator, LogVerbosity logLevel, int logRetentionDays, int maxWaitSeconds, int maxBuildSeconds, bool vsBuildsOnRun, bool maskSensitiveValues)
 {
-    public static readonly AppliedSettings Defaults = new(new PermissionSet(), TimeSpan.FromSeconds(60), true, true, LogVerbosity.Information, 7, 120, 600, false);
+    public static readonly AppliedSettings Defaults = new(new PermissionSet(), TimeSpan.FromSeconds(60), true, true, LogVerbosity.Information, 7, 120, 600, false, true);
 
     public PermissionSet Permissions { get; } = permissions;
     public TimeSpan ConsentTimeout { get; } = consentTimeout;
@@ -42,4 +43,7 @@ internal sealed class AppliedSettings(PermissionSet permissions, TimeSpan consen
 
     /// <summary>True when Visual Studio builds an out-of-date project itself as debugging starts (its On Run option is "Always build"); false when it is not, or not known.</summary>
     public bool VsBuildsOnRun { get; } = vsBuildsOnRun;
+
+    /// <summary>What the bridge enforces: false only after the user confirmed turning the mask off.</summary>
+    public bool MaskSensitiveValues { get; } = maskSensitiveValues;
 }

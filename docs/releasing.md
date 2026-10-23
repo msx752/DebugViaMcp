@@ -32,7 +32,7 @@ The extension and the server check each other's version at connection time (`Ver
 
 - `develop` is the default branch. `main` is production and takes changes only through a pull request from `develop`
   (direct pushes are blocked, and the `build-test` check must pass).
-- **CI** (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `develop`: version check, build, all
+- **CI** (`.github/workflows/ci.yml`) runs on every pull request (not on plain pushes: a Windows runner counts double against the free minutes, so check a push to `develop` locally with `scripts/build.ps1`): version check, build, all
   tests, and a VSIX build.
 - **Release** (`.github/workflows/release.yml`) runs when something is merged into `main`. It checks the version,
   builds and tests, tags `v<version>` on the merge commit, and creates a GitHub Release with `DebugViaMcp.vsix` and
@@ -47,7 +47,7 @@ The extension and the server check each other's version at connection time (`Ver
 
 1. Pick the version. Edit it in `Directory.Build.props` and in `source.extension.vsixmanifest`, add the
    `CHANGELOG.md` section (and the listing's "What's new" in `docs/marketplace/listing.md`). Merge that into `develop`.
-2. Install a VSIX built from `develop` (`powershell -File scriptselease.ps1`) in Visual Studio 2022 (17.14+) and
+2. Install a VSIX built from `develop` (`powershell -File scripts/release.ps1`) in Visual Studio 2022 (17.14+) and
    2026 and run through `docs/testing/` once on each.
 3. Open a pull request `develop` → `main`, wait for CI, merge it. The release workflow does the rest: tag, GitHub
    Release, and (when enabled) the Marketplace upload after your approval.
@@ -55,6 +55,11 @@ The extension and the server check each other's version at connection time (`Ver
    Manually, `VsixPublisher.exe` is in `<Visual Studio>\VSSDK\VisualStudioIntegration\Tools\Bin\`:
 
        VsixPublisher.exe publish -payload artifacts\DebugViaMcp.vsix -publishManifest docs\marketplace\publishManifest.json -personalAccessToken <PAT>
+
+**No version numbers in `docs/marketplace/overview.md`.** The overview is pasted by hand into the Marketplace page, so it must 
+stay valid across releases: no extension version, no "preview" notice (the Marketplace shows the Preview badge from the manifest 
+flag). Version-specific text belongs in `CHANGELOG.md` and in the "What's new" box of `docs/marketplace/listing.md`; paste the 
+overview again only when its content (tools, settings, steps) changes.
 
 Two different values, easy to mix up:
 

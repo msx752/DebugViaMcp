@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest an idea or an improvement
+title: "[Feature]: "
+labels: [enhancement, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us the problem first. A request that starts from a real situation is easier to weigh than a request for a specific solution.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do, and what gets in the way?
+      placeholder: "When I debug ..., the agent cannot ..."
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to happen?
+      description: Your idea of the solution, if you have one.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried or considered instead?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Debugging tools (breakpoints, stepping, variables, evaluation)
+        - Safety (permissions, consent, audit)
+        - Visual Studio integration (UI, settings, menus)
+        - Setup and AI clients
+        - Documentation
+        - Other
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: If this lets an agent change something, I thought about how the user stays in control (consent, permission tier).

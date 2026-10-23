@@ -3,6 +3,54 @@
 All notable changes to Debugging via MCP. Versions follow [Semantic Versioning](https://semver.org/); the extension and
 the `debugviamcp` tool are released together with the same version.
 
+## 0.5.0 — Exception settings (preview)
+
+### Added
+- **Exception settings: `exception_list`, `exception_set`, `exception_reset`.** The agent can see which exceptions Visual Studio stops
+  on when they are thrown (Debug → Windows → Exception Settings) and turn *Break When Thrown* on or off for named exceptions,
+  so a debugging session stops where the exception is thrown instead of where it is caught. A call checks every name first and
+  changes nothing when one is unknown (it offers close names). `exception_reset` puts back only what the agent changed, and Visual Studio puts it back by itself when the agent lets go or disconnects. These are
+  Control tools: they ask like the other Control tools when you set that in Options. Needs the extension and the `debugviamcp`
+  server of the same release (protocol 2.8); an older extension answers that it must be updated.
+
+- **Mask sensitive values** (Tools → Options → All Settings → Debugging → Debugging via MCP, on by default): values that look
+  like secrets (strings under names such as `password` or `token`, JWTs, `Bearer` tokens, PEM private keys, GitHub and AWS keys,
+  `Password=` in connection strings, passwords in URLs) are replaced by `[masked]` before they reach the agent, in `vars`, `eval`,
+  the arguments of a break, exception texts and `output_read`. The result carries `masked: true`. Turning it off asks you to confirm.
+  A tracepoint that would print such a value is refused while it is on. A heuristic against accidental leaks, not a security boundary (see `docs/security.md`).
+
+- **`vars` opens several levels in one call.** `depth` (1-4, default 1) puts the members of each object under `children`;
+  `expand` names more paths to open in the same call (listed under `expanded`). Each object shows at most 20 members
+  (`childrenTruncated` says there are more) and the answer stays small: what does not fit stays closed, and `hasChildren`
+  still says it can be opened with `path`.
+
+- **`debug_status` with `detail`.** Stopped at a break, `detail: true` also returns the top 10 frames of the Call Stack, the
+  first 30 Locals and the exception (when the break is about one): where you are and what is going on in one call. A part
+  Visual Studio cannot read is named under `notes` and the rest still comes.
+
+- **`process_list`** lists your processes that `debug_attach` can attach to (pid and name), with an optional `filter` on part of
+  the name, so the agent can pick a pid when several processes share a name.
+
+- **`symbol_status`** says why a breakpoint may not bind: the debugger options that decide whether symbols load (Require source
+  files to exactly match, Just My Code, Source Server, Suppress JIT optimization), the breakpoints that are not bound, and what
+  can be behind it. It does not say which modules have symbols loaded; Visual Studio's automation does not offer the symbol path.
+
+- **`bp_set` with `temporary`.** A one-shot breakpoint: it removes itself after the break it causes, and `bp_list` shows it
+  (`temporary: true`) until then. A breakpoint that already existed is left as it is, and a tracepoint cannot be temporary.
+
+- **A dialog Visual Studio waits on is named, not waited for.** When a modal dialog is open (for example the Hot Reload
+  "changes not supported" question), `debug_status` returns its title under `dialog`, and every call that would move the
+  program, build or change a value fails at once with `busy` and says which dialog to answer. Reads keep working. The check
+  asks Windows about the main window only, so it costs no pause on Visual Studio's UI thread, and each held-back call is
+  logged with its call id.
+
+### Changed
+- `debug_start` builds first. A failed build comes back to the agent (read the diagnostics with `errors_list`) instead of
+  leaving Visual Studio's "run the last successful build?" dialog open on screen.
+- The Output panes are named by what they hold: **Debugging via MCP Log** (the technical log, formerly *Debugging via MCP*)
+  and **Debugging via MCP Audit** (what the agent did, formerly *Debugging via MCP Activity*). The menu entry **Show Activity**
+  is now **Show Audit**. The agent still cannot read either pane.
+
 ## 0.4.1 — First pipeline build (preview)
 
 ### Changed

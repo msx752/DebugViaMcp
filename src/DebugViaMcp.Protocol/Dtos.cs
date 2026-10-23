@@ -61,6 +61,15 @@ public sealed class VariableInfo
     public string Value { get; set; } = "";
     public bool HasChildren { get; set; }
     public bool Truncated { get; set; }
+
+    /// <summary>True when a secret-looking part of the value was replaced before it left Visual Studio; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
+
+    /// <summary>Set by the MCP server when <c>vars</c> was asked for a depth above 1: the members read under this one. Never sent by the extension.</summary>
+    public VariableInfo[]? Children { get; set; }
+
+    /// <summary>True when <see cref="Children"/> holds only the first members; omitted otherwise.</summary>
+    public bool? ChildrenTruncated { get; set; }
 }
 
 public sealed class BreakSnapshot
@@ -87,6 +96,9 @@ public sealed class StatusInfo
 
     /// <summary>Protocol 2.2. Client name of the agent that holds this Visual Studio; null when it is free.</summary>
     public string? LeaseHolder { get; set; }
+
+    /// <summary>Protocol 2.7. Title of the dialog Visual Studio is waiting on (the agent cannot answer it); null when there is none. Untrusted text.</summary>
+    public string? Dialog { get; set; }
 }
 
 public sealed class BreakpointSpec
@@ -99,6 +111,9 @@ public sealed class BreakpointSpec
     public int HitCount { get; set; }
     public HitCountKind HitCountKind { get; set; }
     public string? LogMessage { get; set; }
+
+    /// <summary>Protocol 2.6. The breakpoint removes itself after the break it causes. Only for a breakpoint this request creates.</summary>
+    public bool Temporary { get; set; }
 }
 
 public sealed class BreakpointInfo
@@ -115,6 +130,87 @@ public sealed class BreakpointInfo
     public bool Enabled { get; set; }
     public bool Bound { get; set; }
     public string? BindError { get; set; }
+
+    /// <summary>True while the breakpoint is waiting to remove itself after its first break; omitted otherwise.</summary>
+    public bool? Temporary { get; set; }
+}
+
+/// <summary>
+/// The debugger options that decide whether symbols load and breakpoints bind (Tools → Options → Debugging → General), and the
+/// breakpoints that are not bound. An option Visual Studio does not report is null.
+/// </summary>
+public sealed class SymbolStatus
+{
+    /// <summary>"Require source files to exactly match the original version".</summary>
+    public bool? RequireSourceToMatch { get; set; }
+
+    /// <summary>"Enable Just My Code".</summary>
+    public bool? JustMyCode { get; set; }
+
+    /// <summary>The automation property <c>WarnIfNoSymbols</c> of Debugging → General.</summary>
+    public bool? WarnIfNoSymbols { get; set; }
+
+    /// <summary>"Suppress JIT optimization on module load (Managed only)".</summary>
+    public bool? SuppressJitOptimization { get; set; }
+
+    /// <summary>"Enable Source Server support".</summary>
+    public bool? SourceServer { get; set; }
+
+    /// <summary>"Print Source Server diagnostic messages to the Output window".</summary>
+    public bool? SourceServerDiagnostics { get; set; }
+
+    /// <summary>Breakpoints that are not bound (in Design mode every breakpoint is pending), with the reason Visual Studio's state allows.</summary>
+    public BreakpointInfo[] Unbound { get; set; } = [];
+
+    /// <summary>What may keep a breakpoint unbound, given the options and the debugger mode; empty when every breakpoint is bound.</summary>
+    public string[] Notes { get; set; } = [];
+}
+
+/// <summary>One entry of Debug → Windows → Exception Settings.</summary>
+public sealed class ExceptionSettingInfo
+{
+    public string Name { get; set; } = "";
+    public bool BreakWhenThrown { get; set; }
+}
+
+/// <summary>One group of Exception Settings (for example "Common Language Runtime Exceptions") with the entries that were asked for.</summary>
+public sealed class ExceptionGroupInfo
+{
+    public string Name { get; set; } = "";
+    public ExceptionSettingInfo[] Settings { get; set; } = [];
+
+    /// <summary>Entries of the group that match the request, before the limit was applied.</summary>
+    public int Total { get; set; }
+
+    public bool Truncated { get; set; }
+}
+
+public sealed class ExceptionSettingsPage
+{
+    public ExceptionGroupInfo[] Groups { get; set; } = [];
+}
+
+/// <summary>Break When Thrown of one exception before and after a change.</summary>
+public sealed class ExceptionChange
+{
+    /// <summary>The exception name; <c>group/name</c> in a reset result, which can span groups.</summary>
+    public string Name { get; set; } = "";
+    public bool Previous { get; set; }
+    public bool Current { get; set; }
+
+    /// <summary>False when the exception already had the requested value.</summary>
+    public bool Changed { get; set; }
+}
+
+public sealed class ExceptionSetResult
+{
+    public string Group { get; set; } = "";
+    public ExceptionChange[] Changes { get; set; } = [];
+}
+
+public sealed class ExceptionResetResult
+{
+    public ExceptionChange[] Restored { get; set; } = [];
 }
 
 public sealed class SetBreakpointResult
@@ -173,6 +269,9 @@ public sealed class ExceptionInfo
     public bool Truncated { get; set; }
     public SourceLocation? ThrowSite { get; set; }
     public InnerExceptionInfo[] Inner { get; set; } = [];
+
+    /// <summary>True when a secret-looking part of the value was replaced before it left Visual Studio; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
 }
 
 public sealed class RunToResult
@@ -209,6 +308,9 @@ public sealed class OutputPage
     public string[] Lines { get; set; } = [];
     public bool Truncated { get; set; }
     public bool HasMore { get; set; }
+
+    /// <summary>True when a secret-looking part of the value was replaced before it left Visual Studio; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
 
     /// <summary>Offset for the next (older) page.</summary>
     public int? NextOffset { get; set; }
@@ -255,6 +357,9 @@ public sealed class EvaluateResult
     public string Value { get; set; } = "";
     public string Type { get; set; } = "";
     public bool Truncated { get; set; }
+
+    /// <summary>True when a secret-looking part of the value was replaced before it left Visual Studio; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
 }
 
 /// <summary>What the user allows per tier (Tools → Options → Debugging → Debugging via MCP). Informational for the client; the VSIX enforces it.</summary>

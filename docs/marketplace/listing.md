@@ -1,4 +1,4 @@
-# Marketplace listing texts (0.4.0 preview)
+# Marketplace listing texts
 
 Copy these into the fields of the Visual Studio Marketplace upload page. The long description is
 [overview.md](overview.md); the extension's own manifest (`source.extension.vsixmanifest`) already carries name,
@@ -19,7 +19,8 @@ Let Claude Code and other AI agents debug in Visual Studio: breakpoints, steppin
 
 ## Categories
 
-Debugging, Coding (already in `publishManifest.json`)
+Type: Tools. Categories (1 to 3, from the Marketplace list; there is no *Debugging* category): **Coding**, **Testing**
+(already in `publishManifest.json`). "Debugging" lives in the tags instead.
 
 ## Tags / keywords
 
@@ -35,7 +36,7 @@ carries the same words.)
 | 1 | `images/how-it-works.png` | Explains the idea and the three permission tiers (schematic, not a screenshot) |
 | 2 | your screenshot of the consent info bar | Shows the "you stay in control" claim — see [screenshots.md](screenshots.md) |
 | 3 | your screenshot of the Options page | Permission tiers |
-| 4 | your screenshot of the Activity pane | The audit trail |
+| 4 | your screenshot of the Audit pane | The audit trail |
 | 5 | `images/several-visual-studios.png` | Several Visual Studios, one agent each (schematic) |
 
 Icon and preview image are inside the VSIX; the gallery images above are uploaded on the page (or linked from the

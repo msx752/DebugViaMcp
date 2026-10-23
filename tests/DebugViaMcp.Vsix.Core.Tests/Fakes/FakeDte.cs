@@ -1,5 +1,6 @@
 using DebugViaMcp.Protocol;
 using DebugViaMcp.Vsix.Core.Abstractions;
+using DebugViaMcp.Vsix.Core.Bridge;
 using DebugViaMcp.Vsix.Core.Builds;
 using DebugViaMcp.Vsix.Core.Debugging;
 
@@ -72,7 +73,49 @@ public sealed class FakeDte : IDteFacade
         new() { Pid = 400, Name = "OrderDemo", OwnedByCurrentUser = true },
     ];
 
+    public string? Dialog { get; set; }
+    public int ModalDialogChecks { get; private set; }
+    public string? ModalDialogTitle() { ModalDialogChecks++; return Dialog; }   // any thread, like the real one
+
+    public RawDebuggerOptions Options { get; set; } = new();
+    public RawDebuggerOptions DebuggerOptions() { Ui(); return Options; }
+
     public IReadOnlyList<RawProcess> LocalProcesses() { Ui(); return Processes; }
+    public List<RawExceptionGroup> ExceptionGroupsData { get; } = [];
+
+    /// <summary>Makes switching Break When Thrown on for this name fail, to test a write that stops halfway.</summary>
+    public string? FailSetBreakWhenThrownFor { get; set; }
+    /// <summary>What reading Exception Settings costs in Visual Studio: entries read by enumerating a group, and values read one by one by name.</summary>
+    public int EntryReads { get; private set; }
+    public int ValueReads { get; private set; }
+
+    public IReadOnlyList<string> ExceptionGroupNames() { Ui(); return ExceptionGroupsData.Select(g => g.Name).ToList(); }
+
+    public IReadOnlyList<ExceptionEntry> ExceptionEntries(string group)
+    {
+        Ui();
+        var g = ExceptionGroupsData.FirstOrDefault(x => x.Name == group) ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No exception group '{group}'.");
+        EntryReads += g.Settings.Count;
+        return g.Settings.Select(s => new ExceptionEntry(s.Name, s.BreakWhenThrown)).ToList();
+    }
+
+    public bool? BreakWhenThrown(string group, string name)
+    {
+        Ui();
+        ValueReads++;
+        return ExceptionGroupsData.FirstOrDefault(g => g.Name == group)?.Settings.FirstOrDefault(x => x.Name == name)?.BreakWhenThrown;
+    }
+
+    public void SetBreakWhenThrown(string group, string name, bool value)
+    {
+        Ui();
+        if (name == FailSetBreakWhenThrownFor && value) throw new InvalidOperationException("Exception Settings write failed.");
+        var setting = ExceptionGroupsData.FirstOrDefault(g => g.Name == group)?.Settings.FirstOrDefault(s => s.Name == name)
+            ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No exception '{name}' in '{group}'.");
+        Calls.Add($"SetBreakWhenThrown:{group}:{name}:{value}");
+        ((RawExceptionSetting)setting).BreakWhenThrown = value;
+    }
+
     public Action<int>? OnAttach { get; set; }
     public void Attach(int pid) { Ui(); Calls.Add("Attach:" + pid); OnAttach?.Invoke(pid); }
     public void DetachAll() { Ui(); Calls.Add("DetachAll"); }
@@ -80,18 +123,21 @@ public sealed class FakeDte : IDteFacade
     public List<RawOutputPane> Panes { get; set; } =
     [
         new() { Id = OutputPaneIds.Build, Name = "Build", Lines = 3 },
-        new() { Id = OutputPaneIds.Activity, Name = "Debugging via MCP Activity", Lines = 2 },
+        new() { Id = OutputPaneIds.Log, Name = "Debugging via MCP Log", Lines = 4 },
+        new() { Id = OutputPaneIds.Activity, Name = "Debugging via MCP Audit", Lines = 2 },
     ];
 
     public List<(Guid Pane, int First, int Count)> OutputReads { get; } = [];
 
     public IReadOnlyList<RawOutputPane> OutputPanes() { Ui(); return Panes; }
 
+    public Func<int, string>? OutputLineText { get; set; }
+
     public IReadOnlyList<string> OutputLines(Guid pane, int firstLine, int count)
     {
         Ui();
         OutputReads.Add((pane, firstLine, count));
-        return Enumerable.Range(firstLine, count).Select(n => "line " + n).ToList();
+        return Enumerable.Range(firstLine, count).Select(n => OutputLineText?.Invoke(n) ?? "line " + n).ToList();
     }
 
     public List<RawErrorItem> Errors { get; set; } = [];
@@ -229,10 +275,25 @@ public sealed class FakeDte : IDteFacade
         return OnSetValue(expression, value);
     }
 
+    public Func<string, EvaluateResult>? OnEvaluate { get; set; }
+
     public EvaluateResult Evaluate(string expression)
     {
         Ui();
         LastEvaluated = expression;
-        return new EvaluateResult { IsValid = true, Value = new string('v', 3000), Type = "string" };
+        return OnEvaluate?.Invoke(expression) ?? new EvaluateResult { IsValid = true, Value = new string('v', 3000), Type = "string" };
     }
+}
+
+/// <summary>Exception Settings data of <see cref="FakeDte"/>.</summary>
+public sealed class RawExceptionSetting
+{
+    public string Name { get; set; } = "";
+    public bool BreakWhenThrown { get; set; }
+}
+
+public sealed class RawExceptionGroup
+{
+    public string Name { get; set; } = "";
+    public IReadOnlyList<RawExceptionSetting> Settings { get; set; } = [];
 }

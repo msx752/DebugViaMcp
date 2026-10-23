@@ -50,6 +50,13 @@
       "default": true,
       "order": 60
     },
+    "debugging.mcp.maskSensitiveValues": {
+      "type": "boolean",
+      "title": "Mask sensitive values",
+      "description": "On: values that look like secrets (passwords, tokens, keys, connection strings) are hidden before the agent sees them. Turning it off lets such values reach the agent and its AI provider; Visual Studio asks you to confirm, and keeps masking until you do.",
+      "default": true,
+      "order": 65
+    },
     "debugging.mcp.logLevel": {
       "type": "string",
       "title": "Log level",

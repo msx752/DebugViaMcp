@@ -1,30 +1,84 @@
 name: Bug report
 description: Something does not work as described
-labels: [bug]
+title: "[Bug]: "
+labels: [bug, needs-triage]
 body:
-  - type: input
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A good report has the versions, the steps and the logs, so it can be reproduced.
+        **Security problems** do not belong here: use the private report (Security → Report a vulnerability).
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and this is not a duplicate.
+          required: true
+        - label: I use the latest version of the extension (Extensions → Manage Extensions → Updates).
+          required: false
+  - type: dropdown
     id: vs
     attributes:
-      label: Visual Studio version
-      placeholder: "2022 17.14.x or 2026 18.x"
+      label: Visual Studio
+      options:
+        - Visual Studio 2026 (18.x)
+        - Visual Studio 2022 (17.14 or later)
+        - Other
     validations: { required: true }
   - type: input
     id: ext
     attributes:
       label: Extension version
+      description: Extensions → Manage Extensions → Installed → Debugging via MCP.
+      placeholder: "0.4.1"
     validations: { required: true }
-  - type: input
+  - type: dropdown
     id: client
     attributes:
       label: AI client
-      placeholder: Claude Code, Codex, Cursor, ...
-  - type: textarea
-    id: what
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - Other MCP client
+        - Not related to an agent
+    validations: { required: true }
+  - type: input
+    id: os
     attributes:
-      label: What happened, and what did you expect?
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you asked the agent to do, or did in Visual Studio, in order. A small project that shows it helps most.
+      placeholder: |
+        1. Open the solution ...
+        2. Ask the agent to ...
+        3. ...
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+      description: Include the error code the agent saw (for example `in_use`, `denied`, `version_mismatch`).
     validations: { required: true }
   - type: textarea
     id: logs
     attributes:
       label: Logs
-      description: Output of the `diag` tool, or View → Output → Debugging via MCP. Remove anything private.
+      description: |
+        The output of the agent's `diag` tool, and View → Output → "Debugging via MCP Log" in Visual Studio.
+        **Remove anything private** (paths, names, values from your program) before pasting.
+      render: text
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else

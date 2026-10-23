@@ -25,7 +25,7 @@ M3 also closes the minor issues deferred from the M2 final review.
 
 **Out of scope:** multi-process debugging (attach while a session is running), Test Explorer results, active
 document/selection, code navigation (parent spec §13), program `Console` output (it goes to a separate console
-window, not to Visual Studio). M4 keeps `setup`/`doctor`, CI and the macOS test matrix; M5 the VS Code adapter.
+window, not to Visual Studio). M4 keeps `setup`/`doctor`, CI and the macOS test matrix.
 
 ## 2. Protocol 2.1
 

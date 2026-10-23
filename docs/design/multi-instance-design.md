@@ -234,7 +234,7 @@ decides how much rides along.
 
 ## 8. Out of this milestone
 
-Marketplace packaging and the custom Options page; M4 (`setup`/`doctor`, CI); M5 (VS Code adapter).
+Marketplace packaging and the custom Options page; M4 (`setup`/`doctor`, CI).
 
 ## 9. Verification
 

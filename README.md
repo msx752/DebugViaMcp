@@ -1,33 +1,49 @@
 # Debugging via MCP
 
+[![Install from the Visual Studio Marketplace](https://img.shields.io/badge/Visual%20Studio%20Marketplace-Install-5C2D91?logo=visualstudio&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=msx752.DebugViaMcp)
+
 Let AI coding agents drive the Visual Studio debugger over the Model Context Protocol (MCP):
 breakpoints, stepping, call stacks, variables and QuickWatch-style evaluation.
 
-It works with **Visual Studio only** (2022 17.14+ and 2026); Visual Studio Code is not supported.
+It works with Visual Studio 2022 (17.14+) and Visual Studio 2026.
 
-> Status: early development (milestone M3). Not yet published.
+**[Install it from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=msx752.DebugViaMcp)**, or in Visual Studio: **Extensions → Manage Extensions** and search for *Debugging via MCP*.
 
-## What works today (M3)
+> Status: preview. The tool set is growing; feedback and issues are welcome.
 
-- Breakpoints: file/line or function, conditions, hit counts, tracepoints, enable/disable (`bp_enable`)
+## What it can do
+
+- Breakpoints: file/line or function, conditions, hit counts, tracepoints, one-shot breakpoints (`temporary`), enable/disable (`bp_enable`)
 - Several Visual Studios, one agent each: the right instance is chosen by folder, unrelated agents need your approval,
   and a second agent gets `in_use` while the first holds a Visual Studio
-- Execution: start, continue, pause, step into/over/out, wait for break, run to line, attach to a running process
+- Execution: start, continue, pause, step into/over/out, wait for break, run to line, attach to a running process (`process_list` shows the candidates)
   (detach on stop)
-- Inspection: threads, call stack, frame selection (`frame_select`), the current exception, locals/arguments, drill-down by path, side-effect-free evaluation, `set_value`, and
+- Inspection: status (`debug_status` with `detail` adds the top Call Stack frames, Locals and exception of a stop), threads, call stack, frame selection (`frame_select`), the current exception, locals/arguments, drill-down by path or several levels in one call (`vars` with `depth` and `expand`), side-effect-free evaluation, `set_value`, and
   evaluation with side effects (`eval` with `allowSideEffects`)
-- IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`)
+- IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`), why a breakpoint may not bind (`symbol_status`), which exceptions the debugger stops on when thrown (`exception_list`, `exception_set`, `exception_reset`); `debug_start` builds first and returns a failed build (read it with `errors_list`) instead of opening Visual Studio's build-error dialog
 - Diagnostics: `diag` returns the MCP server's recent log lines
 - Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → All Settings → Debugging → Debugging via MCP**; Mutate operations ask in a
   Visual Studio info bar (Allow once / Allow for session / Deny, no answer = deny); every state change is audited
-  (`audit-*.log`, Output → **Debugging via MCP Activity**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
+  (`audit-*.log`, Output → **Debugging via MCP Audit**); **Disconnect AI** (Ctrl+Alt+Shift+F12, Extensions →
   Debugging via MCP). See [docs/security.md](docs/security.md).
-- Logs: `%LOCALAPPDATA%\DebugViaMcp\logs` and the **Debugging via MCP** Output pane in Visual Studio; every call has a
+- Logs: `%LOCALAPPDATA%\DebugViaMcp\logs` and the **Debugging via MCP Log** Output pane in Visual Studio; every call has a
   `callId` that appears in both the MCP server and Visual Studio logs
 
-## Install (local build)
+### Languages
 
-1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp.vsix` (nothing is published).
+Tested with .NET (C#) programs only. Native C++, Python and JavaScript (and mixed-mode) debugging are not supported yet, for these reasons:
+
+- **Out of scope for v1.** [docs/design/design.md](docs/design/design.md) lists them as a non-goal; the protocol is kept language-neutral so they can be added.
+- **Never tried.** The tools go through Visual Studio's debugger automation, which is not tied to a language, but nothing beyond .NET has been run
+  against it. Stopping, stack and variables may well work; that is unverified.
+- **Written for C#.** Breakpoint conditions, `eval` and `set_value` take C# expressions; exception names and groups (`exception_list`,
+  `exception_set`) were checked only for the .NET runtime group. Other languages use other expression syntax and exception groups.
+- **Needs workloads and runtimes.** Each language needs its Visual Studio workload and toolchain (MSVC, Python, Node.js), which this extension does
+  not install or check.
+
+## Install from source (local build)
+
+1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp.vsix` (nothing is published). For a normal install use the Marketplace link above.
 2. Install the extension: double-click `artifacts/DebugViaMcp.vsix` (Visual Studio 2022 17.14+ or 2026).
 3. Start Visual Studio once. The extension carries the MCP server and copies it to `%LOCALAPPDATA%\DebugViaMcp\bin`
    (nothing to install separately; it needs the .NET 10 runtime). Then tell your AI client about it:
@@ -48,7 +64,7 @@ folder if you want it gone. Release notes: [CHANGELOG.md](CHANGELOG.md).
 
 | Symptom | What to check |
 |---|---|
-| The agent says no Visual Studio instance is running | Visual Studio must be open with the Debugging via MCP extension installed (Extensions → Manage Extensions → Installed). Open a solution; the Output pane "Debugging via MCP" shows `ready` when it started. |
+| The agent says no Visual Studio instance is running | Visual Studio must be open with the Debugging via MCP extension installed (Extensions → Manage Extensions → Installed). Open a solution; the Output pane "Debugging via MCP Log" shows `ready` when it started. |
 | The agent cannot start the server | The server needs the .NET 10 runtime (`dotnet --list-runtimes`). Start Visual Studio once so the extension installs it, then check that `%LOCALAPPDATA%\DebugViaMcp\debugviamcp.cmd` exists; **Set Up AI Agent…** reports both. |
 | `ai_disabled` | Someone chose Extensions → Debugging via MCP → Disconnect AI. Choose Reconnect AI, then retry. |
 | `version_mismatch` or `unsupported` | Visual Studio still runs an older extension than the server in use (or the reverse). Restart Visual Studio after updating the extension, and restart the agent session. |
@@ -59,7 +75,7 @@ folder if you want it gone. Release notes: [CHANGELOG.md](CHANGELOG.md).
 | Uninstalling the extension hangs | The server does not run from the extension folder, so agents cannot block the removal; close every Visual Studio window and any other VSIXInstaller. For development, `scripts\reinstall-vsix.ps1` stops a stuck installer after 3 minutes (`-InstallerTimeoutSeconds`). |
 | An out-of-date warning (or Build bar) after editing files outside Visual Studio | Visual Studio notices external edits late, sometimes only when its window is activated. Build in Visual Studio (or call `vs_build`) before debugging; the warning is a hint, it never blocks. With Visual Studio's default option **On Run, when projects are out of date = Always build** (Tools → Options → Projects and Solutions → Build and Run) Visual Studio builds by itself as debugging starts, so the warning and the bar only appear while a program is running, or when that option is Never build / Prompt to build. |
 | Visual Studio says the extension is already installed | Same version number: uninstall it first (Extensions → Manage Extensions), restart Visual Studio, then double-click the VSIX again. |
-| Something else | Call the `diag` tool for the server log, and look at View → Output → Debugging via MCP and Debugging via MCP Activity. |
+| Something else | Call the `diag` tool for the server log, and look at View → Output → Debugging via MCP Log and Debugging via MCP Audit. |
 
 ## Build from source
 

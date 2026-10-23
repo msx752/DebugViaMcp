@@ -350,6 +350,126 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         return null;
     }
 
+    /// <summary>
+    /// A modal dialog disables Visual Studio's main window and is its enabled popup (GW_ENABLEDPOPUP). Read off a live Visual Studio with the
+    /// Hot Reload "changes not supported" dialog open: main window disabled, popup titled with the dialog's name.
+    /// </summary>
+    public string? ModalDialogTitle()
+    {
+        var main = MainWindowHandle();
+        if (main == IntPtr.Zero || NativeDialog.IsWindowEnabled(main)) return null;
+        var popup = NativeDialog.GetWindow(main, NativeDialog.GW_ENABLEDPOPUP);
+        if (popup == IntPtr.Zero || popup == main) return "";
+        var title = new char[256];
+        var length = NativeDialog.GetWindowText(popup, title, title.Length);
+        return length > 0 ? new string(title, 0, length) : "";
+    }
+
+    private IntPtr _mainWindow;
+
+    /// <summary>The handle never changes while Visual Studio runs; it is read once, then every thread can use it without touching COM.</summary>
+    private IntPtr MainWindowHandle()
+    {
+        if (_mainWindow != IntPtr.Zero) return _mainWindow;
+        using var self = System.Diagnostics.Process.GetCurrentProcess();
+        return _mainWindow = self.MainWindowHandle;
+    }
+
+    private static class NativeDialog
+    {
+        public const uint GW_ENABLEDPOPUP = 6;
+
+        [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, [Out] char[] text, int maxCount);
+    }
+
+    public RawDebuggerOptions DebuggerOptions()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        return new RawDebuggerOptions
+        {
+            RequireSourceToMatch = DebuggingFlag("RequireSourceToMatch"),
+            JustMyCode = DebuggingFlag("EnableJustMyCode"),
+            WarnIfNoSymbols = DebuggingFlag("WarnIfNoSymbols"),
+            SuppressJitOptimization = DebuggingFlag("SuppressJitOptimization"),
+            SourceServer = DebuggingFlag("EnableSourceServer"),
+            SourceServerDiagnostics = DebuggingFlag("PrintSourceServerDiagnostics"),
+        };
+    }
+
+    private EnvDTE90.ExceptionGroups ExceptionGroupsRoot()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        return ((EnvDTE90.Debugger3)dte.Debugger).ExceptionGroups;
+    }
+
+    public IReadOnlyList<string> ExceptionGroupNames()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var names = new List<string>();
+        foreach (EnvDTE90.ExceptionSettings group in ExceptionGroupsRoot()) names.Add(group.Name);
+        return names;
+    }
+
+    public IReadOnlyList<ExceptionEntry> ExceptionEntries(string group)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        EnvDTE90.ExceptionSettings settings;
+        try { settings = ExceptionGroupsRoot().Item(group); }
+        catch (COMException e) when (e.HResult == DispEBadIndex) { throw new BridgeException(BridgeErrorCode.NotFound, $"No exception group '{group}'."); }
+
+        var entries = new List<ExceptionEntry>(settings.Count);
+        foreach (EnvDTE90.ExceptionSetting setting in settings) entries.Add(new ExceptionEntry(setting.Name, setting.BreakWhenThrown));   // not Code: it throws in groups without codes
+        return entries;
+    }
+
+    public bool? BreakWhenThrown(string group, string name)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try { return ExceptionGroupsRoot().Item(group).Item(name).BreakWhenThrown; }
+        catch (COMException e) when (e.HResult == DispEBadIndex) { return null; }
+    }
+
+    public void SetBreakWhenThrown(string group, string name, bool value)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        EnvDTE90.ExceptionSettings settings;
+        EnvDTE90.ExceptionSetting setting;
+        try
+        {
+            settings = ExceptionGroupsRoot().Item(group);
+            setting = settings.Item(name);
+        }
+        catch (COMException e) when (e.HResult == DispEBadIndex)
+        {
+            throw new BridgeException(BridgeErrorCode.NotFound, $"No exception '{name}' in '{group}'.", "Call exception_list with group and filter to see the names.");
+        }
+
+        settings.SetBreakWhenThrown(value, setting);
+    }
+
+    /// <summary>HRESULT of <c>DISP_E_BADINDEX</c>, which Exception Settings answers for a group or name it does not have.</summary>
+    private const int DispEBadIndex = unchecked((int)0x8002000B);
+
+    /// <summary>One boolean of Tools → Options → Debugging → General; null when this Visual Studio does not have it or it is not a boolean.</summary>
+    private bool? DebuggingFlag(string name)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try
+        {
+            return dte.get_Properties("Debugging", "General").Item(name).Value as bool?;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
     public IReadOnlyList<RawProcess> LocalProcesses()
     {
         ThreadHelper.ThrowIfNotOnUIThread();

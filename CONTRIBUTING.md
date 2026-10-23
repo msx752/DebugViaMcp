@@ -1,5 +1,7 @@
 # Contributing
 
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 Thanks for helping. This is a Visual Studio extension (VS 2022 17.14+ and VS 2026) plus a .NET MCP server.
 
 ## Build and test

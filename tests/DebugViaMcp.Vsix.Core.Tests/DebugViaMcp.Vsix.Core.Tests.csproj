@@ -10,6 +10,9 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\Shared\StaleTempSweep.cs" Link="Support\StaleTempSweep.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\DebugViaMcp.Vsix.Core\DebugViaMcp.Vsix.Core.csproj" />
   </ItemGroup>
 </Project>

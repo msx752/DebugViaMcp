@@ -66,6 +66,26 @@ public class SessionToolsTests
         Assert.Equal("retry later", error.GetProperty("hint").GetString());
     }
 
+    [Fact]
+    public async Task Status_names_the_dialog_Visual_Studio_is_waiting_on()
+    {
+        var bridge = new FakeDebugBridge { OnStatus = () => new StatusInfo { Mode = DebuggerMode.Run, Dialog = "Hot Reload - Changes not supported" } };
+
+        var json = Json(await new SessionTools(new FakeConnectionManager(bridge)).Status(CancellationToken.None));
+
+        Assert.Equal("Hot Reload - Changes not supported", json.GetProperty("dialog").GetString());
+    }
+
+    [Fact]
+    public async Task Status_has_no_dialog_field_when_none_is_open()
+    {
+        var bridge = new FakeDebugBridge { OnStatus = () => new StatusInfo { Mode = DebuggerMode.Run } };
+
+        var json = Json(await new SessionTools(new FakeConnectionManager(bridge)).Status(CancellationToken.None));
+
+        Assert.False(json.TryGetProperty("dialog", out var dialog) && dialog.ValueKind != System.Text.Json.JsonValueKind.Null);
+    }
+
     /// <summary>Final review 2: events went to another agent, so debug_status must bring this session back in step.</summary>
     [Fact]
     public async Task Status_brings_the_session_state_in_step_with_Visual_Studio()

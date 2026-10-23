@@ -6,7 +6,7 @@ using DebugViaMcp.Vsix.Core.Security;
 
 namespace DebugViaMcp.Vsix.Ui;
 
-/// <summary>View → Output → "Debugging via MCP Activity": one line per audited operation.</summary>
+/// <summary>View → Output → "Debugging via MCP Audit": one line per audited operation.</summary>
 internal sealed class ActivityPane(IVsOutputWindowPane pane, Action showOutputWindow) : IActivitySink
 {
     public static readonly Guid PaneGuid = OutputPaneIds.Activity;

@@ -15,7 +15,7 @@ using DebugViaMcp.Vsix.Core.Support;
 namespace DebugViaMcp.Vsix.Core.Bridge;
 
 /// <summary>Implements the bridge operations on top of <see cref="IDteFacade"/>. Handshake lives in BridgeConnectionHandler.</summary>
-public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IBuildPrompt? buildPrompt = null, Func<bool>? vsBuildsOnRun = null)
+public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq seq, ILog log, string vsixVersion, BuildMonitor? builds = null, IBuildPrompt? buildPrompt = null, Func<bool>? vsBuildsOnRun = null, Func<bool>? maskSensitiveValues = null)
 {
     /// <summary>How long a project's build state is reused: reading it walks the project folder on the UI thread.</summary>
     public const int BuildInfoCacheSeconds = 5;
@@ -43,9 +43,15 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     private long _epoch;
     private readonly RunToState _runTo = new();
+
+    /// <summary>Ids of the breakpoints that remove themselves after their first break (bp_set temporary). UI thread only.</summary>
+    private readonly HashSet<string> _temporary = new(StringComparer.Ordinal);
     private bool _attached;
 
     public string VsixVersion => vsixVersion;
+
+    /// <summary>Read on every call, so the Options setting applies at once. On when nothing says otherwise: a secret leaks only if someone chose it.</summary>
+    private bool MaskOn => maskSensitiveValues?.Invoke() ?? true;
 
     /// <summary>Increments on every break: anything read in an earlier break is stale once the program has moved (spec §3.1).</summary>
     public long Epoch => Interlocked.Read(ref _epoch);
@@ -73,7 +79,22 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         Seq = seq.Current,
         Snapshot = dte.Mode == DebuggerMode.Break ? BuildSnapshot(BreakReason.Other) : null,
         Epoch = Epoch,
+        Dialog = BlockingDialog(),
     }, ct);
+
+    public const int MaxDialogTitle = 120;
+
+    /// <summary>The dialog Visual Studio is blocked on, as text safe to hand to the agent; null when none. Any thread, no UI-thread hop.</summary>
+    public string? GetBlockingDialog() => BlockingDialog();
+
+    /// <summary>The title is Visual Studio's own text and may hold a file name: single line, short.</summary>
+    private string? BlockingDialog()
+    {
+        if (dte.ModalDialogTitle() is not { } raw) return null;
+        var text = string.Join(" ", raw.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (text.Length == 0) return "(a dialog without a title)";
+        return text.Length <= MaxDialogTitle ? text : text.Substring(0, MaxDialogTitle - 3) + "...";
+    }
 
     public Task<BreakpointInfo[]> ListBreakpointsAsync(CancellationToken ct) =>
         ui.RunAsync(() => dte.Breakpoints().Where(b => !_runTo.Owns(IdOf(b))).Select(ToInfo).ToArray(), ct);
@@ -202,6 +223,8 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             dte.AddBreakpoint(spec);
             var created = dte.Breakpoints().FirstOrDefault(b => IdOf(b) == key)
                 ?? throw new BridgeException(BridgeErrorCode.Internal, "Visual Studio did not create the breakpoint.");
+            if (spec.Temporary) _temporary.Add(key);
+            else _temporary.Remove(key);   // a breakpoint set again after removal does not inherit the old flag
             log.Info($"Breakpoint {key} set");
             return (new SetBreakpointResult { Breakpoint = ToInfo(created) }, key);
         }, ct).ConfigureAwait(false);
@@ -233,6 +256,8 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         if (spec.Condition is not null) ExpressionPolicy.RequireMutationText(spec.Condition, "condition");
         if (spec.LogMessage is not null) ExpressionPolicy.RequireMutationText(spec.LogMessage, "logMessage");
         if (spec.Function is not null) ExpressionPolicy.RequireMutationText(spec.Function, "function");
+        if (spec.Temporary && spec.LogMessage is not null)
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, "A tracepoint never stops, so it cannot be temporary.", "Drop temporary, or drop logMessage.");
 
         string? absolute = null;
         if (spec.File is not null)
@@ -248,14 +273,25 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         if (spec.Condition is not null) ExpressionPolicy.RequireNoSideEffects(spec.Condition);
         if (spec.LogMessage is not null)
         {
-            foreach (var placeholder in PathUtil.Placeholders(spec.LogMessage)) ExpressionPolicy.RequireNoSideEffects(placeholder);
+            foreach (var placeholder in PathUtil.Placeholders(spec.LogMessage))
+            {
+                ExpressionPolicy.RequireNoSideEffects(placeholder);
+                if (MaskOn && SensitiveValueMask.NamesSensitiveValue(placeholder))
+                    throw new BridgeException(BridgeErrorCode.InvalidArgument, $"The tracepoint message would print {{{placeholder}}}, which looks sensitive, and \"Mask sensitive values\" is on.",
+                        "Print something else, or turn Mask sensitive values off in Tools → Options → Debugging via MCP if you accept the risk.");
+            }
         }
 
         return absolute;
     }
 
     public Task<int> RemoveBreakpointsAsync(string? id, bool all, CancellationToken ct) => ui.RunAsync(() =>
-        dte.RemoveBreakpoints(b => all || IdOf(b) == id), ct);
+    {
+        var removed = dte.RemoveBreakpoints(b => all || IdOf(b) == id);
+        if (all) _temporary.Clear();
+        else if (id is not null) _temporary.Remove(id);
+        return removed;
+    }, ct);
 
     public Task<BreakpointInfo?> FindBreakpointAsync(string id, CancellationToken ct) =>
         ui.RunAsync<BreakpointInfo?>(() => dte.Breakpoints().Where(b => IdOf(b) == id).Select(ToInfo).FirstOrDefault(), ct);
@@ -316,6 +352,58 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     public Task<ProcessInfo[]> ListAttachableAsync(string? processName, CancellationToken ct) =>
         ui.RunAsync(() => AttachCandidates.Filter(dte.LocalProcesses(), processName), ct);
+
+    /// <summary>
+    /// The options that decide whether symbols load, and the breakpoints that are not bound with what may be behind it. The notes only say
+    /// what can be the cause; they never claim one (Visual Studio does not tell why a module has no symbols).
+    /// </summary>
+    public Task<SymbolStatus> GetSymbolStatusAsync(CancellationToken ct) => ui.RunAsync(() =>
+    {
+        var o = dte.DebuggerOptions();
+        var unbound = dte.Breakpoints().Where(b => b.BoundCount == 0 && !_runTo.Owns(IdOf(b))).Select(ToInfo).ToArray();
+        var notes = new List<string>();
+        if (unbound.Length > 0)
+        {
+            if (dte.Mode == DebuggerMode.Design)
+                notes.Add("Breakpoints bind when debugging starts.");
+            else
+            {
+                notes.Add("A breakpoint that stays unbound while debugging means no symbols are loaded for its module, or the line has no executable code. Debug > Windows > Modules shows what is loaded.");
+                if (o.RequireSourceToMatch == true)
+                    notes.Add("'Require source files to exactly match the original version' is on: a file changed since the build does not bind.");
+                if (o.JustMyCode == true)
+                    notes.Add("Just My Code is on: modules that are optimized or have no symbols are skipped.");
+            }
+        }
+
+        return new SymbolStatus
+        {
+            RequireSourceToMatch = o.RequireSourceToMatch, JustMyCode = o.JustMyCode, WarnIfNoSymbols = o.WarnIfNoSymbols,
+            SuppressJitOptimization = o.SuppressJitOptimization, SourceServer = o.SourceServer, SourceServerDiagnostics = o.SourceServerDiagnostics,
+            Unbound = unbound, Notes = notes.ToArray(),
+        };
+    }, ct);
+
+    private readonly ExceptionSettingsEditor _exceptions = new(dte);
+
+    public Task<ExceptionSettingsPage> ListExceptionSettingsAsync(string? group, string? filter, bool onlyEnabled, int limit, CancellationToken ct) =>
+        ui.RunAsync(() => _exceptions.List(group, filter, onlyEnabled, limit), ct);
+
+    /// <summary>What a set would change, or the reason it cannot; writes nothing, so the consent question is only asked for a request that can succeed.</summary>
+    public Task<ExceptionSetResult> PlanExceptionSettingsAsync(string group, string[] names, bool breakWhenThrown, CancellationToken ct) =>
+        ui.RunAsync(() => _exceptions.Plan(group, names, breakWhenThrown), ct);
+
+    /// <param name="owner">The connection; <see cref="ResetExceptionSettingsAsync"/> puts back what this owner changed.</param>
+    public Task<ExceptionSetResult> SetExceptionSettingsAsync(object owner, string group, string[] names, bool breakWhenThrown, CancellationToken ct) =>
+        ui.RunAsync(() => _exceptions.Set(owner, group, names, breakWhenThrown), ct);
+
+    public Task<int> PendingExceptionChangesAsync(object owner) => ui.RunAsync(() => _exceptions.Pending(owner), CancellationToken.None);
+
+    public Task<ExceptionResetResult> ResetExceptionSettingsAsync(object owner, CancellationToken ct) =>
+        ui.RunAsync(() => _exceptions.Reset(owner), ct);
+
+    /// <summary>Puts back what the owner changed and forgets it (the owner's hold on Visual Studio ended).</summary>
+    public Task ReleaseExceptionSettingsAsync(object owner) => ui.RunAsync(() => { _exceptions.Release(owner); return true; }, CancellationToken.None);
 
     /// <summary>The process name for the consent question; validates mode and target first, so a doomed request never asks.</summary>
     public Task<string> DescribeAttachTargetAsync(int pid, CancellationToken ct) => ui.RunAsync(() => RequireAttachable(pid).Name, ct);
@@ -385,7 +473,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         {
             ThreadId = threadId ?? dte.CurrentThreadId, Index = index, Epoch = Epoch,
             Location = ToLocation(frame), Source = SourceOf(frame),
-            Args = dte.Variables(VariableScope.Args, 20).Select(Shape).ToArray(),
+            Args = dte.Variables(VariableScope.Args, 20).Select(v => Shape(v, null)).ToArray(),
         };
     }, ct);
 
@@ -403,14 +491,24 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     {
         var raw = dte.CurrentException(MaxInnerExceptions);
         if (raw is null) return null;
-        var (message, messageCut) = ValueShaper.Truncate(raw.Message);
-        var (trace, traceCut) = raw.StackTrace is null ? ((string?)null, false) : ValueShaper.Truncate(raw.StackTrace, MaxStackTraceLength);
+        var anyMasked = false;
+        string Hide(string? text)
+        {
+            if (!MaskOn) return text ?? "";
+            var hidden = SensitiveValueMask.MaskText(text, out var changed);
+            anyMasked |= changed;
+            return hidden;
+        }
+
+        var (message, messageCut) = ValueShaper.Truncate(Hide(raw.Message));
+        var (trace, traceCut) = raw.StackTrace is null ? ((string?)null, false) : ValueShaper.Truncate(Hide(raw.StackTrace), MaxStackTraceLength);
         var top = dte.Stack(1);
         return new ExceptionInfo
         {
             Type = raw.Type, Message = message, StackTrace = trace, Truncated = messageCut || traceCut,
             ThrowSite = top.Count > 0 ? ToLocation(top[0]) : null,
-            Inner = raw.Inner.Take(MaxInnerExceptions).Select(i => new InnerExceptionInfo { Type = i.Type, Message = ValueShaper.Truncate(i.Message).Value }).ToArray(),
+            Inner = raw.Inner.Take(MaxInnerExceptions).Select(i => new InnerExceptionInfo { Type = i.Type, Message = ValueShaper.Truncate(Hide(i.Message)).Value }).ToArray(),
+            Masked = anyMasked ? true : null,
         };
     }, ct);
 
@@ -423,7 +521,17 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         if (target.Lines is not { } total)
             throw new BridgeException(BridgeErrorCode.Busy, $"The text of the '{target.Name}' pane is not available yet.",
                 "Show it once in Visual Studio's Output window (View → Output), then retry.");
-        return OutputPaging.Page(target.Name, total, tail, offset, (first, count) => dte.OutputLines(target.Id, first, count));
+        var page = OutputPaging.Page(target.Name, total, tail, offset, (first, count) => dte.OutputLines(target.Id, first, count));
+        if (!MaskOn) return page;
+        var anyMasked = false;
+        page.Lines = page.Lines.Select(line =>
+        {
+            var hidden = SensitiveValueMask.MaskText(line, out var changed);
+            anyMasked |= changed;
+            return hidden;
+        }).ToArray();
+        if (anyMasked) page.Masked = true;
+        return page;
     }, ct);
 
     public Task<ErrorListPage> GetErrorListAsync(ErrorSeverity[] severities, int offset, int max, CancellationToken ct) =>
@@ -558,7 +666,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         var items = path is null
             ? dte.Variables(scope, skip + take)
             : dte.Members(ExpressionPolicy.PrepareSideEffectFree(path), skip + take);
-        return items.Skip(skip).Take(take).Select(Shape).ToArray();
+        return items.Skip(skip).Take(take).Select(v => Shape(v, path)).ToArray();
     }, ct);
 
     public static void ValidateSetValue(string? expression, string? value)
@@ -579,7 +687,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return InBreak(() =>
         {
             RequireUnchanged(expected);
-            return Shape(dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression)));
+            return Shape(expression, dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression)));
         }, ct);
     }
 
@@ -593,7 +701,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return InBreak(() =>
         {
             RequireUnchanged(expected);
-            return Shape(dte.SetValue(expression.Trim(), value.Trim()));
+            return Shape(expression, dte.SetValue(expression.Trim(), value.Trim()));
         }, ct);
     }
 
@@ -624,20 +732,28 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     private static string PositionOf(IReadOnlyList<RawFrame> frames, int index) =>
         frames.Count > index ? $"{frames[index].File}:{frames[index].Line}" : "";
 
-    private static EvaluateResult Shape(EvaluateResult r)
+    private EvaluateResult Shape(string expression, EvaluateResult r)
     {
-        var (value, truncated) = ValueShaper.Truncate(r.Value);
-        return new EvaluateResult { IsValid = r.IsValid, Value = value, Type = r.Type, Truncated = truncated };
+        var masked = MaskOn ? SensitiveValueMask.MaskValue(expression, r.Value, r.Type) : new MaskedValue(r.Value, false);
+        var (value, truncated) = ValueShaper.Truncate(masked.Value);
+        return new EvaluateResult { IsValid = r.IsValid, Value = value, Type = r.Type, Truncated = truncated, Masked = masked.Masked ? true : null };
     }
 
     /// <summary>Called by the event pump on every break (UI thread): starts a new epoch, then builds the snapshot for it.</summary>
     public BreakSnapshot OnEnterBreak(BreakReason reason)
     {
         Interlocked.Increment(ref _epoch);
+        var byBreakpoint = reason == BreakReason.Breakpoint;
         if (_runTo.TargetId is { } target && reason == BreakReason.Breakpoint && dte.LastHitBreakpoint is { } hit && IdOf(hit) == target)
             reason = BreakReason.RunTo;
         var snapshot = BuildSnapshot(reason);
         ReleaseRunTo(null);   // wherever it stopped, the run-to is over
+        if (byBreakpoint && dte.LastHitBreakpoint is { } hit2 && IdOf(hit2) is var hitId && _temporary.Remove(hitId))
+        {
+            dte.RemoveBreakpoints(b => IdOf(b) == hitId);   // the snapshot above still names it
+            log.Info($"Temporary breakpoint {hitId} removed after its break");
+        }
+
         return snapshot;
     }
 
@@ -653,7 +769,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
             BreakpointId = lastHit is null ? null : IdOf(lastHit),
             Location = top is null ? null : ToLocation(top),
             Source = top is null ? [] : SourceOf(top),
-            Args = dte.Variables(VariableScope.Args, 20).Select(Shape).ToArray(),
+            Args = dte.Variables(VariableScope.Args, 20).Select(v => Shape(v, null)).ToArray(),
             StackTop = frames.Select(f => f.Line is { } l ? $"{f.Function}:{l}" : f.Function).ToArray(),
             ThreadId = dte.CurrentThreadId,
             Epoch = Epoch,
@@ -682,10 +798,12 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 
     private static string IdOf(RawBreakpoint b) => BreakpointKey.Compute(b.File, b.Line, b.Function, b.Condition);
 
-    private static VariableInfo Shape(VariableInfo v)
+    /// <param name="parent">The path the members were read under: a member of something sensitive is judged by that path too.</param>
+    private VariableInfo Shape(VariableInfo v, string? parent)
     {
-        var (value, truncated) = ValueShaper.Truncate(v.Value);
-        return new VariableInfo { Name = v.Name, Type = v.Type, Value = value, HasChildren = v.HasChildren, Truncated = truncated || v.Truncated };
+        var masked = MaskOn ? SensitiveValueMask.MaskValue(parent is null ? v.Name : parent + "." + v.Name, v.Value, v.Type) : new MaskedValue(v.Value, false);
+        var (value, truncated) = ValueShaper.Truncate(masked.Value);
+        return new VariableInfo { Name = v.Name, Type = v.Type, Value = value, HasChildren = v.HasChildren, Truncated = truncated || v.Truncated, Masked = masked.Masked ? true : null };
     }
 
     private BreakpointInfo ToInfo(RawBreakpoint b) => new()
@@ -695,6 +813,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         Line = b.Line, Function = b.Function, Condition = b.Condition, ConditionKind = b.ConditionKind,
         HitCount = b.HitCount, HitCountKind = b.HitCountKind, LogMessage = b.LogMessage, Enabled = b.Enabled,
         Bound = b.BoundCount > 0,
+        Temporary = _temporary.Contains(IdOf(b)) ? true : null,
         BindError = b.BoundCount > 0 ? null
             : dte.Mode == DebuggerMode.Design ? "Pending: binds when debugging starts."
             : "Will not be hit: no executable code at this location or symbols are not loaded.",

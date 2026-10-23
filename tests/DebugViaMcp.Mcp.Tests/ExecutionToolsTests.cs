@@ -61,6 +61,62 @@ public class ExecutionToolsTests
     }
 
     [Fact]
+    public async Task Start_builds_first_so_a_failed_build_never_reaches_the_build_error_prompt()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design);
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        await tools.Start(null, CancellationToken.None);
+        await tools.Start("OrderDemo", CancellationToken.None);
+
+        var calls = cm.Bridge.Calls;
+        Assert.Contains("Build::120", calls);
+        Assert.Contains("Build:OrderDemo:120", calls);
+        Assert.True(calls.IndexOf("Build::120") < calls.IndexOf("Start"), string.Join(",", calls));
+        Assert.True(calls.IndexOf("Build:OrderDemo:120") < calls.IndexOf("StartProject:OrderDemo"), string.Join(",", calls));
+    }
+
+    [Fact]
+    public async Task Start_after_a_failed_build_reports_it_and_does_not_start()
+    {
+        var bridge = new FakeDebugBridge { OnBuild = (_, _) => new BuildResult { State = BuildState.Done, Succeeded = false, FailedProjects = 1 } };
+        var cm = new FakeConnectionManager(bridge, DebuggerMode.Design);
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        var result = await tools.Start(null, CancellationToken.None);
+
+        var error = Json(result).GetProperty("error");
+        Assert.Contains("build failed", error.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("errors_list", error.GetProperty("hint").GetString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Start", cm.Bridge.Calls);
+    }
+
+    [Fact]
+    public async Task Start_while_the_build_is_still_running_says_so_and_does_not_start()
+    {
+        var bridge = new FakeDebugBridge { OnBuild = (_, _) => new BuildResult { State = BuildState.Building } };
+        var cm = new FakeConnectionManager(bridge, DebuggerMode.Design);
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        var json = Json(await tools.Start(null, CancellationToken.None));
+
+        Assert.Equal("building", json.GetProperty("state").GetString());
+        Assert.DoesNotContain("Start", cm.Bridge.Calls);
+    }
+
+    [Fact]
+    public async Task Start_against_an_extension_without_build_support_starts_without_building()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge(), DebuggerMode.Design) { RemoteProtocolMinor = ProtocolInfo.MinorM3 - 1 };
+        var tools = new ExecutionTools(cm, TimeSpan.FromMilliseconds(50));
+
+        await tools.Start(null, CancellationToken.None);
+
+        Assert.Contains("Start", cm.Bridge.Calls);
+        Assert.DoesNotContain(cm.Bridge.Calls, c => c.StartsWith("Build", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Start_project_not_found_is_returned_as_not_found()
     {
         var bridge = new FakeDebugBridge { OnStartProject = _ => throw new McpBridgeException(BridgeErrorCode.NotFound, "No project named 'Nope' in the solution.", "Projects: OrderDemo, FaultDemo") };

@@ -8,7 +8,7 @@ public class DtoRoundTripTests
 {
     private static T RoundTrip<T>(T value) => ProtocolJson.Deserialize<T>(ProtocolJson.Serialize(value!))!;
 
-    /// <summary>Golden test: this exact JSON is what a non-.NET adapter (e.g. the TypeScript VS Code adapter) sees.</summary>
+    /// <summary>Golden test: this exact JSON is what a non-.NET adapter (for example a client written in another language) sees.</summary>
     [Fact]
     public void Wire_format_is_camelCase_with_string_enums_and_no_nulls()
     {
@@ -24,6 +24,75 @@ public class DtoRoundTripTests
         Assert.Equal("{\"callId\":\"c-000001\"}", ProtocolJson.Serialize(new CallContext { CallId = "c-000001" }));
         Assert.Equal("{\"hint\":\"h\",\"reason\":\"timeout\"}", ProtocolJson.Serialize(new BridgeErrorData { Hint = "h", Reason = DeniedReasons.Timeout }));
         Assert.Equal("{\"hint\":\"h\"}", ProtocolJson.Serialize(new BridgeErrorData { Hint = "h" }));
+    }
+
+    [Fact]
+    public void Symbol_status_wire_format_leaves_out_options_it_does_not_know()
+    {
+        Assert.Equal(
+            "{\"justMyCode\":true,\"unbound\":[],\"notes\":[]}",
+            ProtocolJson.Serialize(new SymbolStatus { JustMyCode = true }));
+    }
+
+    [Fact]
+    public void Symbol_status_round_trips()
+    {
+        var original = new SymbolStatus
+        {
+            RequireSourceToMatch = true, SourceServer = false,
+            Unbound = [new BreakpointInfo { Id = "bp-1", File = "A.cs", Line = 3, BindError = "x" }],
+            Notes = ["n"],
+        };
+
+        var copy = RoundTrip(original);
+
+        Assert.Equal(true, copy.RequireSourceToMatch);
+        Assert.Equal(false, copy.SourceServer);
+        Assert.Null(copy.JustMyCode);
+        Assert.Equal(3, copy.Unbound[0].Line);
+        Assert.Equal(["n"], copy.Notes);
+    }
+
+    [Fact]
+    public void Exception_settings_wire_format()
+    {
+        Assert.Equal(
+            "{\"group\":\"CLR\",\"changes\":[{\"name\":\"A\",\"previous\":false,\"current\":true,\"changed\":true}]}",
+            ProtocolJson.Serialize(new ExceptionSetResult
+            {
+                Group = "CLR", Changes = [new ExceptionChange { Name = "A", Previous = false, Current = true, Changed = true }],
+            }));
+        Assert.Equal(
+            "{\"groups\":[{\"name\":\"CLR\",\"settings\":[{\"name\":\"A\",\"breakWhenThrown\":true}],\"total\":1,\"truncated\":false}]}",
+            ProtocolJson.Serialize(new ExceptionSettingsPage
+            {
+                Groups = [new ExceptionGroupInfo { Name = "CLR", Settings = [new ExceptionSettingInfo { Name = "A", BreakWhenThrown = true }], Total = 1 }],
+            }));
+        Assert.Equal(
+            "{\"restored\":[]}",
+            ProtocolJson.Serialize(new ExceptionResetResult()));
+    }
+
+    [Fact]
+    public void Exception_settings_round_trip()
+    {
+        var copy = RoundTrip(new ExceptionResetResult
+        {
+            Restored = [new ExceptionChange { Name = "CLR/A", Previous = true, Current = false, Changed = true }],
+        });
+
+        Assert.Equal("CLR/A", copy.Restored[0].Name);
+        Assert.True(copy.Restored[0].Previous);
+        Assert.False(copy.Restored[0].Current);
+    }
+
+    [Fact]
+    public void A_minor_7_payload_still_deserializes()
+    {
+        var old = ProtocolJson.Deserialize<SymbolStatus>("{\"justMyCode\":true,\"unbound\":[],\"notes\":[]}")!;
+
+        Assert.Equal(true, old.JustMyCode);
+        Assert.Empty(old.Notes);
     }
 
     [Fact]

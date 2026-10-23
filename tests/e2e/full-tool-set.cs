@@ -55,7 +55,7 @@ await Call("vs_build", new() { ["project"] = "OrderDemo" });                    
 await Call("errors_list", new() { ["severity"] = "error,warning,message" });
 await Call("output_read");                                                                   // pane list: no Debugging via MCP panes
 await Call("output_read", new() { ["pane"] = "build", ["tail"] = 20 });
-await Call("output_read", new() { ["pane"] = "Debugging via MCP Activity" });                    // denied / policy
+await Call("output_read", new() { ["pane"] = "Debugging via MCP Audit" });                    // denied / policy
 
 // Frames, threads, run to
 await Call("bp_remove", new() { ["all"] = true });

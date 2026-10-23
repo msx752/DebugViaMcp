@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -158,6 +159,39 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         Guard(Operation.ListProcesses, context, () => service.ListAttachableAsync(processName, cancellationToken),
             Request.Of(processName ?? "", ("processName", processName)), null, cancellationToken);
 
+    public Task<SymbolStatus> GetSymbolStatusAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.SymbolStatus, context, () => service.GetSymbolStatusAsync(cancellationToken), null, null, cancellationToken);
+
+    public Task<ExceptionSettingsPage> ListExceptionSettingsAsync(string? group, string? filter, bool onlyEnabled, int limit, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.ListExceptionSettings, context, () => service.ListExceptionSettingsAsync(group, filter, onlyEnabled, limit, cancellationToken),
+            Request.Of(group ?? "all groups", ("group", group), ("filter", filter), ("onlyEnabled", onlyEnabled ? "true" : "false"), ("limit", limit.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
+
+    public Task<ExceptionSetResult> SetExceptionSettingsAsync(string group, string[] names, bool breakWhenThrown, CallContext context, CancellationToken cancellationToken)
+    {
+        var joined = string.Join(", ", names ?? []);
+        return Guard(Operation.SetExceptionSettings, context, () => service.SetExceptionSettingsAsync(this, group, names!, breakWhenThrown, cancellationToken),
+            Request.Of($"{group}: {joined} → {(breakWhenThrown ? "on" : "off")}", ("group", group), ("names", joined), ("breakWhenThrown", breakWhenThrown ? "true" : "false")),
+            async () =>
+            {
+                // Validates first, so a request that would fail anyway never asks. Lists what changes; when nothing does, what was named.
+                var plan = await service.PlanExceptionSettingsAsync(group, names!, breakWhenThrown, cancellationToken).ConfigureAwait(false);
+                var changing = plan.Changes.Where(c => c.Changed).Select(c => c.Name).ToList();
+                return ConsentText.ExceptionSettings(_client, plan.Group, changing.Count > 0 ? changing : plan.Changes.Select(c => c.Name).ToList(), breakWhenThrown);
+            },
+            cancellationToken);
+    }
+
+    public async Task<ExceptionResetResult> ResetExceptionSettingsAsync(CallContext context, CancellationToken cancellationToken)
+    {
+        // Nothing recorded: the call only says so, which is a read. It asks no question and takes no lease, so a cleanup call
+        // of an agent that changed nothing never locks the other agents out.
+        var nothing = _authenticated && await service.PendingExceptionChangesAsync(this).ConfigureAwait(false) == 0;
+        return await Guard(nothing ? Operation.ListExceptionSettings : Operation.ResetExceptionSettings, context,
+            () => service.ResetExceptionSettingsAsync(this, cancellationToken), null,
+            nothing ? null : async () => ConsentText.ExceptionReset(_client, await service.PendingExceptionChangesAsync(this).ConfigureAwait(false)),
+            cancellationToken).ConfigureAwait(false);
+    }
+
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken)
     {
         // Set when the question is prepared: the approval covers the process the question named.
@@ -311,6 +345,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             }
 
             if (operation != Operation.Release) await EnsureApprovedAsync(callId, ct).ConfigureAwait(false);
+
+            // A dialog Visual Studio waits on cannot be answered through the tools (and an info bar in its blocked window cannot be answered
+            // either): say so now instead of letting the call hang. After the approval, so an unapproved agent learns nothing; no await,
+            // so the lease check below stays atomic with taking the lease.
+            if (tier != PermissionTier.Read && service.GetBlockingDialog() is { } dialog)
+            {
+                log.Warn($"[{callId}] {PermissionPolicy.ToolName(operation)} not run: Visual Studio waits on the dialog \"{dialog}\"");
+                throw Rpc(BridgeErrorCode.Busy, $"Visual Studio is waiting for an answer to a dialog: \"{dialog}\".", "Answer it in Visual Studio (the agent does not click dialogs), then call again.");
+            }
+
             switch (level)
             {
                 case PermissionLevel.Ask:
@@ -438,8 +482,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
     private void ReleaseLease()
     {
-        if (security.Lease.Release(_connectionId)) AuditLease("released");
+        if (!security.Lease.Release(_connectionId)) return;
+        AuditLease("released");
+        // The agent can no longer call exception_reset: put its Exception Settings changes back now.
+        RestoreExceptionSettings();
     }
+
+    private void RestoreExceptionSettings() =>
+        _ = service.ReleaseExceptionSettingsAsync(this).ContinueWith(
+            t => log.Warn($"Putting back the Exception Settings changed by '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
 
     private void AuditLease(string outcome) =>
         security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "lease", Outcome = outcome, Summary = outcome });
@@ -534,6 +586,7 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         _ = service.ReleaseRunToAsync(this).ContinueWith(
             t => log.Warn($"Removing the run-to breakpoint of '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        RestoreExceptionSettings();
         if (_authenticated)
             security.Audit.Record(new AuditEntry { Ts = DateTimeOffset.UtcNow, Client = _client, Operation = "disconnect", Outcome = "ok", Summary = _client });
     }

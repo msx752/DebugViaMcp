@@ -43,7 +43,7 @@ public static class McpSetupPlan
             },
             state.ServerDeployed
                 ? $"OK       The MCP server of this extension is installed ({state.LauncherPath})."
-                : "MISSING  The extension could not install its MCP server. See View → Output → Debugging via MCP, then restart Visual Studio.",
+                : "MISSING  The extension could not install its MCP server. See View → Output → Debugging via MCP Log, then restart Visual Studio.",
         };
 
         return new SetupPlan { Lines = lines };

@@ -17,7 +17,7 @@ It builds and starts `samples/FaultDemo` for the attach and exception steps and 
 |---|---|---|
 | 1 | `debug_attach` to FaultDemo | info bar: "… attach the debugger to FaultDemo (pid N) — Visual Studio will be able to read and change that process's memory" |
 | 2 | `bp_enable` true on a conditional breakpoint | info bar: "… enable the breakpoint at … when … — this runs in your program on every hit" |
-| 3 | `output_read` pane "Debugging via MCP Activity" | `denied` / `policy` |
+| 3 | `output_read` pane "Debugging via MCP Audit" | `denied` / `policy` |
 | 4 | Tools → Import and Export Settings: import a file with Mutate = Deny | the next `set_value` is denied by settings without restarting; Activity shows "Imported settings: Mutate: Ask → Deny" |
 | 5 | A `set_value` whose expression is 500 characters long | the info bar wraps or truncates visibly; Allow/Deny buttons stay reachable |
 | 6 | Click another frame in the Call Stack window while a `set_value` question is open, then Allow | `wrong_mode` "program state changed", nothing assigned |
@@ -36,7 +36,7 @@ Extension log: `Debugging via MCP 0.3.0 ready (pid 61796, protocol 2.1)`. VS had
 | `errors_list` | totals 0 / 0 / 0 |
 | `output_read` (no pane) | 11 panes, none of the Debugging via MCP ones; panes without a text document listed without `lines` |
 | `output_read pane=build` | the 3 build lines |
-| `output_read pane="Debugging via MCP Activity"` | `denied` / `policy` |
+| `output_read pane="Debugging via MCP Audit"` | `denied` / `policy` |
 | `bp_set` line 23, `debug_start` | break in `Calculate`, `epoch: 1` |
 | `threads`, `stack` | 7 threads with locations (native threads without one are still listed); 3 frames |
 | `frame_select 1`, `vars args`, `eval order.Id` | `Submit`; each answer carries `frame: {index: 1, threadId}`; `1` |
@@ -74,7 +74,7 @@ settling instead of polling, a deadline for commands that block in a modal dialo
 |---|---|
 | 1 | `debug_attach`: info bar answered by the driver (the audit line shows `allowOnce`) |
 | 2 | `bp_enable true`: info bar answered by the driver |
-| 3 | Activity pane: `denied` / `policy` |
+| 3 | Audit pane: `denied` / `policy` |
 | 4 | Import and Export Settings: the page is listed (`ProvideProfile` was missing before this run and was added). Importing a file with Mutate = Deny took effect at once (audit: `Imported settings: Mutate: Allow → Deny`). A file with Mutate = Allow left Mutate at Ask (audit: `Imported settings (Mutate = Allow ignored; set it in Options): Mutate: Deny → Ask`). The unrelated errors VS lists for the JavaScript/TypeScript categories of the exported file are Visual Studio's own. |
 | 5 | A 497-character value: the info bar showed Allow once / Allow for session / Deny; Deny gave `user_denied`, nothing assigned |
 | 6 | `tests/e2e/consent-check.ps1 -Scenario frame` (moves the selected frame through DTE while the question is open, then Allow once): frame `Calculate` → `Submit`, audit `allowOnce` + `wrong_mode`, nothing assigned; the agent receives a structured `wrong_mode` |
