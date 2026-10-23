@@ -23,14 +23,21 @@ the main window).
 | 14 | The agent changes an exception, then disconnects (or calls `vs_release`) without calling `exception_reset` | The exception is back at its first value in the Exception Settings window at once; the Output pane "Debugging via MCP Log" shows no error |
 | 15 | Old extension (protocol 2.7) with the new server | The three tools answer `unsupported` and say to update the extension |
 
-## Driver
+## Automated run
 
-    dotnet run tests/e2e/exception-settings.cs -- <repo>\src\DebugViaMcp.Mcp\bin\Debug\net10.0\DebugViaMcp.Mcp.dll
+    powershell -File scripts\reinstall-vsix.ps1 -Build        # the build under test must be the installed one
+    powershell -File tests\e2e\exception-settings.ps1         # phases allow, deny, ask (add -Phases allow for one)
 
-Needs the repository's solution open in Visual Studio with this extension, and a temporary `samples/FaultDemo/Properties/launchSettings.json`
-with `"commandLineArgs":"crash 15"` (see the header of the driver). It covers rows 1, 3, 4, 5, 6, 8, 10 and 14 without answering any question.
+It closes nothing of yours: it refuses to run while a Visual Studio is open, starts its own (minimized, real profile) for each phase,
+changes the permission values in Visual Studio's `settings.json` and the sample's `launchSettings.json` for the run, and puts both back
+whatever happens. It answers no question and clicks nothing. `tests/e2e/exception-settings.cs` is the driver it runs.
+It covers rows 1, 3, 4, 5, 6, 8, 9, 10, 11 (the unanswered question), 12, 13 and 14. Not covered by it: row 2 and 7 (cosmetic), the
+question being **answered** (Allow once / Deny in the info bar, which needs UI automation), and row 15 (an older extension: the
+`RequireMinor` fallback is unit-tested; no old build is kept to install).
 
 ## Run record
-- 2026-10-23, Visual Studio 2026 (18.x), dev build 0.4.1 (protocol 2.8), Control = Allow: `tests/e2e/exception-settings.cs` 17 of 17 checks passed
-  (list, misspelled name with suggestion and no change, set, stop at the caught `ArgumentException`, reset, the unhandled exception still stops,
-  `vs_release` puts a forgotten change back). Rows 2, 7, 9 (stopped at a breakpoint), 11, 12, 13 and 15 not run.
+- 2026-10-23, Visual Studio 2026 (18.x), dev build 0.4.1 (protocol 2.8): `tests\e2e\exception-settings.ps1`, all three phases passed.
+  allow 23 checks (list, misspelled name with a suggestion and no change, set, a second agent gets `in_use` for a read and a set,
+  stop at the caught `ArgumentException`, a set while stopped at a break, reset of both, an empty reset, the unhandled exception,
+  `vs_release` puts a forgotten change back and lets the second agent in), deny 5 (policy denial, nothing changed, empty reset still works),
+  ask 4 (the unanswered question denies after 15 s with `reason: timeout`, nothing changed, an empty reset asks nothing).
