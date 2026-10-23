@@ -109,6 +109,19 @@ public class ConnectionApprovalTests
     }
 
     [Fact]
+    public async Task An_agent_that_is_not_approved_learns_nothing_about_an_open_dialog()
+    {
+        using var s = new SecurityHarness(new FakeDte { Dialog = "Secret project - Save changes?" });
+        s.Prompt.AutoAnswer = ConsentChoice.Deny;
+        await s.HandshakeAsync("claude-code", Elsewhere);
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => SetBp(s.Handler));
+
+        Assert.Equal((int)BridgeErrorCode.Denied, ex.ErrorCode);   // the approval question comes first, not the dialog's busy
+        Assert.DoesNotContain("Secret project", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Deny_answers_denied_user_denied_and_runs_nothing()
     {
         using var s = new SecurityHarness();

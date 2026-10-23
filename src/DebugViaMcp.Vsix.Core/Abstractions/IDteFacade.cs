@@ -113,6 +113,12 @@ public interface IDteFacade
     /// <summary>The Debugging → General options that decide whether symbols load and breakpoints bind.</summary>
     RawDebuggerOptions DebuggerOptions();
 
+    /// <summary>
+    /// Title of the modal dialog Visual Studio is blocked on; empty when it has no title; null when no dialog is open.
+    /// Safe to call from any thread (it only asks Windows about the main window), so checking costs no UI-thread hop.
+    /// </summary>
+    string? ModalDialogTitle();
+
     /// <summary>Debugger.LocalProcesses without Visual Studio itself.</summary>
     IReadOnlyList<RawProcess> LocalProcesses();
     void Attach(int pid);

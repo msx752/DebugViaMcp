@@ -79,7 +79,22 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         Seq = seq.Current,
         Snapshot = dte.Mode == DebuggerMode.Break ? BuildSnapshot(BreakReason.Other) : null,
         Epoch = Epoch,
+        Dialog = BlockingDialog(),
     }, ct);
+
+    public const int MaxDialogTitle = 120;
+
+    /// <summary>The dialog Visual Studio is blocked on, as text safe to hand to the agent; null when none. Any thread, no UI-thread hop.</summary>
+    public string? GetBlockingDialog() => BlockingDialog();
+
+    /// <summary>The title is Visual Studio's own text and may hold a file name: single line, short.</summary>
+    private string? BlockingDialog()
+    {
+        if (dte.ModalDialogTitle() is not { } raw) return null;
+        var text = string.Join(" ", raw.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (text.Length == 0) return "(a dialog without a title)";
+        return text.Length <= MaxDialogTitle ? text : text.Substring(0, MaxDialogTitle - 3) + "...";
+    }
 
     public Task<BreakpointInfo[]> ListBreakpointsAsync(CancellationToken ct) =>
         ui.RunAsync(() => dte.Breakpoints().Where(b => !_runTo.Owns(IdOf(b))).Select(ToInfo).ToArray(), ct);

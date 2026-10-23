@@ -31,6 +31,12 @@ the `debugviamcp` tool are released together with the same version.
 - **`bp_set` with `temporary`.** A one-shot breakpoint: it removes itself after the break it causes, and `bp_list` shows it
   (`temporary: true`) until then. A breakpoint that already existed is left as it is, and a tracepoint cannot be temporary.
 
+- **A dialog Visual Studio waits on is named, not waited for.** When a modal dialog is open (for example the Hot Reload
+  "changes not supported" question), `debug_status` returns its title under `dialog`, and every call that would move the
+  program, build or change a value fails at once with `busy` and says which dialog to answer. Reads keep working. The check
+  asks Windows about the main window only, so it costs no pause on Visual Studio's UI thread, and each held-back call is
+  logged with its call id.
+
 ### Changed
 - `debug_start` builds first. A failed build comes back to the agent (read the diagnostics with `errors_list`) instead of
   leaving Visual Studio's "run the last successful build?" dialog open on screen.

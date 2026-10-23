@@ -96,6 +96,9 @@ public sealed class StatusInfo
 
     /// <summary>Protocol 2.2. Client name of the agent that holds this Visual Studio; null when it is free.</summary>
     public string? LeaseHolder { get; set; }
+
+    /// <summary>Protocol 2.7. Title of the dialog Visual Studio is waiting on (the agent cannot answer it); null when there is none. Untrusted text.</summary>
+    public string? Dialog { get; set; }
 }
 
 public sealed class BreakpointSpec

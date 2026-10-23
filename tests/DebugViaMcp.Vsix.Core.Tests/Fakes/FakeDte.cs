@@ -72,6 +72,10 @@ public sealed class FakeDte : IDteFacade
         new() { Pid = 400, Name = "OrderDemo", OwnedByCurrentUser = true },
     ];
 
+    public string? Dialog { get; set; }
+    public int ModalDialogChecks { get; private set; }
+    public string? ModalDialogTitle() { ModalDialogChecks++; return Dialog; }   // any thread, like the real one
+
     public RawDebuggerOptions Options { get; set; } = new();
     public RawDebuggerOptions DebuggerOptions() { Ui(); return Options; }
 

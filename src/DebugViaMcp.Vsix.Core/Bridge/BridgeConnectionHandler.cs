@@ -314,6 +314,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             }
 
             if (operation != Operation.Release) await EnsureApprovedAsync(callId, ct).ConfigureAwait(false);
+
+            // A dialog Visual Studio waits on cannot be answered through the tools (and an info bar in its blocked window cannot be answered
+            // either): say so now instead of letting the call hang. After the approval, so an unapproved agent learns nothing; no await,
+            // so the lease check below stays atomic with taking the lease.
+            if (tier != PermissionTier.Read && service.GetBlockingDialog() is { } dialog)
+            {
+                log.Warn($"[{callId}] {PermissionPolicy.ToolName(operation)} not run: Visual Studio waits on the dialog \"{dialog}\"");
+                throw Rpc(BridgeErrorCode.Busy, $"Visual Studio is waiting for an answer to a dialog: \"{dialog}\".", "Answer it in Visual Studio (the agent does not click dialogs), then call again.");
+            }
+
             switch (level)
             {
                 case PermissionLevel.Ask:

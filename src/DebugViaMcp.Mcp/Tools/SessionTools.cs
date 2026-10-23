@@ -65,6 +65,7 @@ public sealed class SessionTools(IConnectionManager connections)
         return ToolResponse.Ok(new
         {
             mode = status.Mode, permissions = status.Permissions, snapshot = ToolResponse.Snapshot(status.Snapshot), heldBy = status.LeaseHolder,
+            dialog = status.Dialog, dialogNote = status.Dialog is null ? null : "Visual Studio is waiting for the user to answer this dialog. The agent cannot click it, and calls that move the program fail with busy until it is closed.",
             detail = more,
             connectionRestored = restored ? true : (bool?)null,
             connectionRestoredNote = restored ? "The connection to Visual Studio was lost and re-established: any hold on it and any approval from before are gone, and breakpoints you set earlier may need checking." : null,

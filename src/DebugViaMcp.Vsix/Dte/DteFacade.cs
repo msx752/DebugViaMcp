@@ -350,6 +350,40 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         return null;
     }
 
+    /// <summary>
+    /// A modal dialog disables Visual Studio's main window and is its enabled popup (GW_ENABLEDPOPUP). Read off a live Visual Studio with the
+    /// Hot Reload "changes not supported" dialog open: main window disabled, popup titled with the dialog's name.
+    /// </summary>
+    public string? ModalDialogTitle()
+    {
+        var main = MainWindowHandle();
+        if (main == IntPtr.Zero || NativeDialog.IsWindowEnabled(main)) return null;
+        var popup = NativeDialog.GetWindow(main, NativeDialog.GW_ENABLEDPOPUP);
+        if (popup == IntPtr.Zero || popup == main) return "";
+        var title = new char[256];
+        var length = NativeDialog.GetWindowText(popup, title, title.Length);
+        return length > 0 ? new string(title, 0, length) : "";
+    }
+
+    private IntPtr _mainWindow;
+
+    /// <summary>The handle never changes while Visual Studio runs; it is read once, then every thread can use it without touching COM.</summary>
+    private IntPtr MainWindowHandle()
+    {
+        if (_mainWindow != IntPtr.Zero) return _mainWindow;
+        using var self = System.Diagnostics.Process.GetCurrentProcess();
+        return _mainWindow = self.MainWindowHandle;
+    }
+
+    private static class NativeDialog
+    {
+        public const uint GW_ENABLEDPOPUP = 6;
+
+        [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, [Out] char[] text, int maxCount);
+    }
+
     public RawDebuggerOptions DebuggerOptions()
     {
         ThreadHelper.ThrowIfNotOnUIThread();
