@@ -31,8 +31,15 @@ It works with Visual Studio 2022 (17.14+) and Visual Studio 2026.
 
 ### Languages
 
-Tested with .NET (C#) programs only. The tools go through Visual Studio's own debugger automation, so they are not tied to a language, but
-native C++, Python and JavaScript debugging have not been tried and are not supported yet.
+Tested with .NET (C#) programs only. Native C++, Python and JavaScript (and mixed-mode) debugging are not supported yet, for these reasons:
+
+- **Out of scope for v1.** [docs/design/design.md](docs/design/design.md) lists them as a non-goal; the protocol is kept language-neutral so they can be added.
+- **Never tried.** The tools go through Visual Studio's debugger automation, which is not tied to a language, but nothing beyond .NET has been run
+  against it. Stopping, stack and variables may well work; that is unverified.
+- **Written for C#.** Breakpoint conditions, `eval` and `set_value` take C# expressions; exception names and groups (`exception_list`,
+  `exception_set`) were checked only for the .NET runtime group. Other languages use other expression syntax and exception groups.
+- **Needs workloads and runtimes.** Each language needs its Visual Studio workload and toolchain (MSVC, Python, Node.js), which this extension does
+  not install or check.
 
 ## Install from source (local build)
 
