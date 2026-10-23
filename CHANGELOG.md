@@ -3,7 +3,7 @@
 All notable changes to Debugging via MCP. Versions follow [Semantic Versioning](https://semver.org/); the extension and
 the `debugviamcp` tool are released together with the same version.
 
-## Unreleased
+## 0.5.0 — Exception settings (preview)
 
 ### Added
 - **Exception settings: `exception_list`, `exception_set`, `exception_reset`.** The agent can see which exceptions Visual Studio stops
