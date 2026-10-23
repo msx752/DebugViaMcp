@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using DebugViaMcp.Vsix.Core.Abstractions;
 
 namespace DebugViaMcp.Vsix.Core.Setup;
@@ -121,11 +122,36 @@ public sealed class McpServerDeployer
         foreach (var directory in Directory.GetDirectories(from)) CopyDirectory(directory, Path.Combine(to, Path.GetFileName(directory)));
     }
 
-    private static void WriteIfDifferent(string path, string text)
+    /// <summary>
+    /// A running launcher reads <c>current.txt</c> and antivirus may hold a file for a moment: try a few times, and if it stays busy keep
+    /// the old content (the previous server still works) and try again at the next start. The user never sees an "in use" error.
+    /// </summary>
+    private void WriteIfDifferent(string path, string text)
     {
-        if (File.Exists(path) && File.ReadAllText(path) == text) return;
-        File.WriteAllText(path, text, new UTF8Encoding(false));
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                if (File.Exists(path) && File.ReadAllText(path) == text) return;
+                File.WriteAllText(path, text, new UTF8Encoding(false));
+                return;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                if (attempt < WriteAttempts)
+                {
+                    Thread.Sleep(WriteRetryDelay);
+                    continue;
+                }
+
+                _log.Warn($"{Path.GetFileName(path)} is in use ({e.Message}); it keeps its content and is updated at the next start");
+                return;
+            }
+        }
     }
+
+    private const int WriteAttempts = 5;
+    private static readonly TimeSpan WriteRetryDelay = TimeSpan.FromMilliseconds(100);
 
     /// <summary>Older builds (and abandoned temporary copies) go; one an agent still runs keeps its locked files and is tried again next time.</summary>
     private void RemoveOtherBuilds(string bin, string keep)
@@ -156,18 +182,21 @@ public sealed class McpServerDeployer
         }
     }
 
-    /// <summary>12 hex digits of a hash over the server's own assemblies.</summary>
+    /// <summary>12 hex digits of a hash over the server's own assemblies. Streams the files through one small buffer: this runs at every start of Visual Studio.</summary>
     internal static string BuildName(string bundleDirectory)
     {
         using var sha = SHA256.Create();
-        var hash = new StringBuilder();
+        var buffer = new byte[64 * 1024];
         foreach (var name in new[] { MainAssembly, "DebugViaMcp.Protocol.dll" })
         {
             var path = Path.Combine(bundleDirectory, name);
-            if (File.Exists(path)) hash.Append(Convert.ToBase64String(sha.ComputeHash(File.ReadAllBytes(path))));
+            if (!File.Exists(path)) continue;
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, buffer.Length);
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0) sha.TransformBlock(buffer, 0, read, null, 0);
         }
 
-        var digest = sha.ComputeHash(Encoding.UTF8.GetBytes(hash.ToString()));
-        return string.Concat(digest.Take(6).Select(b => b.ToString("x2", System.Globalization.CultureInfo.InvariantCulture)));
+        sha.TransformFinalBlock(buffer, 0, 0);
+        return string.Concat(sha.Hash.Take(6).Select(b => b.ToString("x2", System.Globalization.CultureInfo.InvariantCulture)));
     }
 }
