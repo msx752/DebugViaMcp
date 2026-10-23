@@ -43,8 +43,8 @@ Tested with .NET (C#) programs only. Native C++, Python and JavaScript (and mixe
 
 ## Install from source (local build)
 
-1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp.vsix` (nothing is published). For a normal install use the Marketplace link above.
-2. Install the extension: double-click `artifacts/DebugViaMcp.vsix` (Visual Studio 2022 17.14+ or 2026).
+1. Build the release artifacts: `powershell -File scripts/release.ps1` → `artifacts/DebugViaMcp-<version>.vsix` (nothing is published). For a normal install use the Marketplace link above.
+2. Install the extension: double-click `artifacts/DebugViaMcp-<version>.vsix` (Visual Studio 2022 17.14+ or 2026).
 3. Start Visual Studio once. The extension carries the MCP server and copies it to `%LOCALAPPDATA%\DebugViaMcp\bin`
    (nothing to install separately; it needs the .NET 10 runtime). Then tell your AI client about it:
    **Extensions → Debugging via MCP → Set Up AI Agent…** checks the .NET runtime and the installed server, and shows a
