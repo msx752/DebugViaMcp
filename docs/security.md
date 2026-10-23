@@ -31,7 +31,7 @@ change it. The values live in your user settings file, so anything that can writ
 | Tier | Operations | Default |
 |---|---|---|
 | Read | status, threads, call stack, frame selection, variables, side-effect-free evaluation, the current exception, list breakpoints, the processes you can attach to, symbol status, Output window, Error List | Allow |
-| Control | breakpoints without conditions (set, remove, enable/disable), start, stop, continue, pause, step, run to, build | Allow |
+| Control | breakpoints without conditions (set, remove, enable/disable), start, stop, continue, pause, step, run to, build, Exception Settings (`exception_set`, `exception_reset`) | Allow |
 | Mutate | `set_value`, `eval` with `allowSideEffects`, breakpoint conditions and tracepoint messages, `debug_attach` | **Ask** |
 
 Breakpoint conditions and tracepoint `{…}` placeholders are in the Mutate tier because they run inside your
@@ -55,6 +55,7 @@ confirmation first.
 - Visual Studio itself (`devenv`) and the `debugviamcp` server are never offered as attach targets: another
   Visual Studio instance holds its own pipe token and your sources.
 - `bp_enable(true)` on a breakpoint with a condition or tracepoint is Mutate for the same reason as `bp_set` with one.
+- `exception_set` and `exception_reset` are **Control**: they change a setting of Visual Studio (which exceptions it stops on), not the program. Only what the agent changed is put back; your own settings are never reset.
 - `vs_build` is **Control**: it runs your project's build, including any custom MSBuild targets.
 
 ### Sensitive values are masked (0.5)

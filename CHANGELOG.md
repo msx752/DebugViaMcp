@@ -6,6 +6,13 @@ the `debugviamcp` tool are released together with the same version.
 ## Unreleased
 
 ### Added
+- **Exception settings: `exception_list`, `exception_set`, `exception_reset`.** The agent can see which exceptions Visual Studio stops
+  on when they are thrown (Debug → Windows → Exception Settings) and turn *Break When Thrown* on or off for named exceptions,
+  so a debugging session stops where the exception is thrown instead of where it is caught. A call checks every name first and
+  changes nothing when one is unknown (it offers close names). `exception_reset` puts back only what the agent changed. These are
+  Control tools: they ask like the other Control tools when you set that in Options. Needs the extension and the `debugviamcp`
+  server of the same release (protocol 2.8); an older extension answers that it must be updated.
+
 - **Mask sensitive values** (Tools → Options → All Settings → Debugging → Debugging via MCP, on by default): values that look
   like secrets (strings under names such as `password` or `token`, JWTs, `Bearer` tokens, PEM private keys, GitHub and AWS keys,
   `Password=` in connection strings, passwords in URLs) are replaced by `[masked]` before they reach the agent, in `vars`, `eval`,
