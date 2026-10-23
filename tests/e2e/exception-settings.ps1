@@ -136,8 +136,24 @@ finally {
     foreach ($id in $started) { Stop-OwnVs $id }
 }
 
+# Hygiene: the run must leave the machine as it found it.
+$leftovers = [System.Collections.Generic.List[string]]::new()
+foreach ($name in 'devenv', 'FaultDemo') {
+    Get-Process $name -ErrorAction SilentlyContinue | ForEach-Object { $leftovers.Add("$name process $($_.Id) is still running") }
+}
+Get-CimInstance Win32_Process -Filter "Name='dotnet.exe'" | Where-Object { $_.CommandLine -match 'DebugViaMcp\.Mcp\.dll' } |
+    ForEach-Object { $leftovers.Add("MCP server process $($_.ProcessId) is still running") }
+Get-ChildItem ([IO.Path]::GetTempPath()) -Directory -Filter 'debugviamcp-e2e-*' -ErrorAction SilentlyContinue |
+    ForEach-Object { $leftovers.Add("temp folder $($_.FullName) was left behind") }
+Get-ChildItem $instances -File -Filter '*.json' -ErrorAction SilentlyContinue | Where-Object { $started -contains [int]$_.BaseName } |
+    ForEach-Object { $leftovers.Add("instance file $($_.Name) of a Visual Studio that is gone") }
+if (-not [System.Linq.Enumerable]::SequenceEqual([byte[]][IO.File]::ReadAllBytes($settingsFile), [byte[]]$settingsBackup)) { $leftovers.Add('settings.json is not as it was') }
+if ((Test-Path $launchFile) -and $null -eq $launchBackup) { $leftovers.Add('launchSettings.json was left behind') }
+foreach ($l in $leftovers) { Write-Host "LEFT BEHIND: $l" -ForegroundColor Red }
+if ($leftovers.Count -eq 0) { Write-Host 'Hygiene: no process, temp folder, instance file or setting left behind.' -ForegroundColor Green }
+
 Write-Host ''
-$failed = $false
+$failed = $leftovers.Count -gt 0
 foreach ($phase in $results.Keys) {
     $ok = $results[$phase] -eq 0
     if (-not $ok) { $failed = $true }

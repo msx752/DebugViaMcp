@@ -31,7 +31,7 @@ async Task<McpClient> Connect() => await McpClient.CreateAsync(new StdioClientTr
     Arguments = [Path.Combine(copy, Path.GetFileName(built)), "serve"],
 }));
 
-await using var agent = await Connect();
+var agent = await Connect();
 McpClient? second = null;
 
 var failures = new List<string>();
@@ -85,23 +85,34 @@ var before = await ValueOf(Arg);
 var beforeTimeout = await ValueOf(Timeout);
 Check($"the exceptions are listed (ArgumentException {before}, TimeoutException {beforeTimeout})", before is not null && beforeTimeout is not null);
 
-switch (phase)
+try
 {
-    case "allow":
-        await Allow();
-        break;
-    case "deny":
-        await Deny();
-        break;
-    case "ask":
-        await Ask();
-        break;
-    default:
-        Check($"unknown phase '{phase}'", false);
-        break;
+    switch (phase)
+    {
+        case "allow":
+            await Allow();
+            break;
+        case "deny":
+            await Deny();
+            break;
+        case "ask":
+            await Ask();
+            break;
+        default:
+            Check($"unknown phase '{phase}'", false);
+            break;
+    }
+}
+finally
+{
+    // Leave nothing behind, also after a failure: the two server processes, then their private copy of the server (23 MB over four runs once piled up in %TEMP%).
+    if (second is not null) await second.DisposeAsync();
+    await agent.DisposeAsync();
+    try { Directory.Delete(copy, recursive: true); }
+    catch (IOException) { Console.WriteLine($"(could not remove {copy})"); }
+    catch (UnauthorizedAccessException) { Console.WriteLine($"(could not remove {copy})"); }
 }
 
-if (second is not null) await second.DisposeAsync();
 Console.WriteLine(failures.Count == 0 ? $"PHASE {phase}: ALL CHECKS PASSED" : $"PHASE {phase}: {failures.Count} CHECK(S) FAILED: {string.Join("; ", failures)}");
 return failures.Count == 0 ? 0 : 1;
 
