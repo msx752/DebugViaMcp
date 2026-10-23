@@ -44,6 +44,8 @@ public class LeaseRulesTests
     [InlineData(Operation.SetValue)]
     [InlineData(Operation.EvaluateWithSideEffects)]
     [InlineData(Operation.FrameSelect)]
+    [InlineData(Operation.SetExceptionSettings)]
+    [InlineData(Operation.ResetExceptionSettings)]
     public void State_changing_operations_need_the_lease(Operation operation) =>
         Assert.Equal(LeaseNeed.Change, LeaseRules.For(operation));
 
@@ -54,6 +56,7 @@ public class LeaseRulesTests
     [InlineData(Operation.Evaluate)]
     [InlineData(Operation.ListProcesses)]
     [InlineData(Operation.SymbolStatus)]
+    [InlineData(Operation.ListExceptionSettings)]
     [InlineData(Operation.BuildCheck)]
     public void Reads_only_need_the_lease_to_be_free_or_theirs(Operation operation) =>
         Assert.Equal(LeaseNeed.Read, LeaseRules.For(operation));

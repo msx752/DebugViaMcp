@@ -398,6 +398,43 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         };
     }
 
+    /// <summary>Reads name and Break When Thrown only: <c>ExceptionSetting.Code</c> throws in groups that do not support exception codes.</summary>
+    public IReadOnlyList<RawExceptionGroup> ExceptionGroups()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var result = new List<RawExceptionGroup>();
+        foreach (EnvDTE90.ExceptionSettings group in ((EnvDTE90.Debugger3)dte.Debugger).ExceptionGroups)
+        {
+            var settings = new List<RawExceptionSetting>(group.Count);
+            foreach (EnvDTE90.ExceptionSetting setting in group)
+                settings.Add(new RawExceptionSetting { Name = setting.Name, BreakWhenThrown = setting.BreakWhenThrown });
+            result.Add(new RawExceptionGroup { Name = group.Name, Settings = settings });
+        }
+
+        return result;
+    }
+
+    public void SetBreakWhenThrown(string group, string name, bool value)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        EnvDTE90.ExceptionSettings settings;
+        EnvDTE90.ExceptionSetting setting;
+        try
+        {
+            settings = ((EnvDTE90.Debugger3)dte.Debugger).ExceptionGroups.Item(group);
+            setting = settings.Item(name);
+        }
+        catch (COMException e) when (e.HResult == DispEBadIndex)
+        {
+            throw new BridgeException(BridgeErrorCode.NotFound, $"No exception '{name}' in '{group}'.", "Call exception_list with group and filter to see the names.");
+        }
+
+        settings.SetBreakWhenThrown(value, setting);
+    }
+
+    /// <summary>HRESULT of <c>DISP_E_BADINDEX</c>, which Exception Settings answers for a group or name it does not have.</summary>
+    private const int DispEBadIndex = unchecked((int)0x8002000B);
+
     /// <summary>One boolean of Tools → Options → Debugging → General; null when this Visual Studio does not have it or it is not a boolean.</summary>
     private bool? DebuggingFlag(string name)
     {

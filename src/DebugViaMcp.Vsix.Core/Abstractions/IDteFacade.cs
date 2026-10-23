@@ -19,6 +19,18 @@ public sealed class RawBreakpoint
     public int BoundCount { get; set; }
 }
 
+public sealed class RawExceptionSetting
+{
+    public string Name { get; set; } = "";
+    public bool BreakWhenThrown { get; set; }
+}
+
+public sealed class RawExceptionGroup
+{
+    public string Name { get; set; } = "";
+    public IReadOnlyList<RawExceptionSetting> Settings { get; set; } = [];
+}
+
 public sealed class RawFrame
 {
     public string Function { get; set; } = "";
@@ -118,6 +130,12 @@ public interface IDteFacade
     /// Safe to call from any thread (it only asks Windows about the main window), so checking costs no UI-thread hop.
     /// </summary>
     string? ModalDialogTitle();
+
+    /// <summary>Exception Settings: every group with its entries and their Break When Thrown value.</summary>
+    IReadOnlyList<RawExceptionGroup> ExceptionGroups();
+
+    /// <summary>Sets Break When Thrown of one entry. Throws a not-found <c>BridgeException</c> for an unknown group or name.</summary>
+    void SetBreakWhenThrown(string group, string name, bool value);
 
     /// <summary>Debugger.LocalProcesses without Visual Studio itself.</summary>
     IReadOnlyList<RawProcess> LocalProcesses();

@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace DebugViaMcp.Vsix.Core.Security;
@@ -33,6 +35,20 @@ public static class ConsentText
 
     public static string Attach(string client, string process, int pid) =>
         $"{client} wants to attach the debugger to {Visible(process)} (pid {pid.ToString(CultureInfo.InvariantCulture)}) — Visual Studio will be able to read and change that process's memory";
+
+    private const int MaxExceptionNamesShown = 5;
+
+    public static string ExceptionSettings(string client, string group, IReadOnlyList<string> names, bool breakWhenThrown)
+    {
+        var shown = string.Join(", ", names.Take(MaxExceptionNamesShown).Select(Visible));
+        var more = names.Count > MaxExceptionNamesShown ? $" and {(names.Count - MaxExceptionNamesShown).ToString(CultureInfo.InvariantCulture)} more" : "";
+        return $"{client} wants to turn Break When Thrown {(breakWhenThrown ? "on" : "off")} for {Count(names.Count)} in {Visible(group)}: {shown}{more}";
+    }
+
+    public static string ExceptionReset(string client, int count) =>
+        $"{client} wants to restore Break When Thrown for {Count(count)} it changed";
+
+    private static string Count(int n) => $"{n.ToString(CultureInfo.InvariantCulture)} exception{(n == 1 ? "" : "s")}";
 
     public static string Operation(string client, string tool, string summary) =>
         string.IsNullOrEmpty(summary)

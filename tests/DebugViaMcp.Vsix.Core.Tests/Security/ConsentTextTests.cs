@@ -30,6 +30,39 @@ public class ConsentTextTests
     }
 
     [Fact]
+    public void Exception_settings_text_names_client_group_and_exceptions()
+    {
+        Assert.Equal(
+            "claude-code wants to turn Break When Thrown on for 2 exceptions in Common Language Runtime Exceptions: System.A, System.B",
+            ConsentText.ExceptionSettings("claude-code", "Common Language Runtime Exceptions", ["System.A", "System.B"], true));
+        Assert.Equal(
+            "claude-code wants to turn Break When Thrown off for 1 exception in C++ Exceptions: std::x",
+            ConsentText.ExceptionSettings("claude-code", "C++ Exceptions", ["std::x"], false));
+    }
+
+    [Fact]
+    public void Exception_settings_text_lists_five_names_and_counts_the_rest()
+    {
+        var text = ConsentText.ExceptionSettings("c", "G", ["A", "B", "C", "D", "E", "F", "G", "H"], true);
+
+        Assert.EndsWith(": A, B, C, D, E and 3 more", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Exception_settings_text_makes_control_characters_visible()
+    {
+        Assert.Contains("Bad\\nName", ConsentText.ExceptionSettings("c", "G", ["Bad\nName"], true), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Exception_reset_text_counts_what_it_restores()
+    {
+        Assert.Equal(
+            "claude-code wants to restore Break When Thrown for 3 exceptions it changed",
+            ConsentText.ExceptionReset("claude-code", 3));
+    }
+
+    [Fact]
     public void Attach_text_escapes_the_process_name()
     {
         Assert.Contains("Fault\\nDemo (pid 7)", ConsentText.Attach("claude-code", "Fault\nDemo", 7), StringComparison.Ordinal);

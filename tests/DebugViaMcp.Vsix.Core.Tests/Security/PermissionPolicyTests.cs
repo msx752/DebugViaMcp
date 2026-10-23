@@ -39,6 +39,9 @@ public class PermissionPolicyTests
     [InlineData(Operation.RunTo, PermissionTier.Control)]
     [InlineData(Operation.ListProcesses, PermissionTier.Read)]
     [InlineData(Operation.SymbolStatus, PermissionTier.Read)]
+    [InlineData(Operation.ListExceptionSettings, PermissionTier.Read)]
+    [InlineData(Operation.SetExceptionSettings, PermissionTier.Control)]
+    [InlineData(Operation.ResetExceptionSettings, PermissionTier.Control)]
     [InlineData(Operation.Attach, PermissionTier.Mutate)]
     [InlineData(Operation.OutputRead, PermissionTier.Read)]
     [InlineData(Operation.ErrorList, PermissionTier.Read)]
@@ -78,5 +81,8 @@ public class PermissionPolicyTests
         Assert.Equal("connect", PermissionPolicy.ToolName(Operation.Connect));
         Assert.Equal("vs_release", PermissionPolicy.ToolName(Operation.Release));
         Assert.Equal("build_check", PermissionPolicy.ToolName(Operation.BuildCheck));
+        Assert.Equal("exception_list", PermissionPolicy.ToolName(Operation.ListExceptionSettings));
+        Assert.Equal("exception_set", PermissionPolicy.ToolName(Operation.SetExceptionSettings));
+        Assert.Equal("exception_reset", PermissionPolicy.ToolName(Operation.ResetExceptionSettings));
     }
 }

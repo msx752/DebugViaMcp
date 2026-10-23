@@ -1,5 +1,6 @@
 using DebugViaMcp.Protocol;
 using DebugViaMcp.Vsix.Core.Abstractions;
+using DebugViaMcp.Vsix.Core.Bridge;
 using DebugViaMcp.Vsix.Core.Builds;
 using DebugViaMcp.Vsix.Core.Debugging;
 
@@ -80,6 +81,17 @@ public sealed class FakeDte : IDteFacade
     public RawDebuggerOptions DebuggerOptions() { Ui(); return Options; }
 
     public IReadOnlyList<RawProcess> LocalProcesses() { Ui(); return Processes; }
+    public List<RawExceptionGroup> ExceptionGroupsData { get; } = [];
+    public IReadOnlyList<RawExceptionGroup> ExceptionGroups() { Ui(); return ExceptionGroupsData; }
+    public void SetBreakWhenThrown(string group, string name, bool value)
+    {
+        Ui();
+        var setting = ExceptionGroupsData.FirstOrDefault(g => g.Name == group)?.Settings.FirstOrDefault(s => s.Name == name)
+            ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No exception '{name}' in '{group}'.");
+        Calls.Add($"SetBreakWhenThrown:{group}:{name}:{value}");
+        ((RawExceptionSetting)setting).BreakWhenThrown = value;
+    }
+
     public Action<int>? OnAttach { get; set; }
     public void Attach(int pid) { Ui(); Calls.Add("Attach:" + pid); OnAttach?.Invoke(pid); }
     public void DetachAll() { Ui(); Calls.Add("DetachAll"); }

@@ -161,6 +161,16 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
     public Task<SymbolStatus> GetSymbolStatusAsync(CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.SymbolStatus, context, () => service.GetSymbolStatusAsync(cancellationToken), null, null, cancellationToken);
 
+    // Task 4 replaces these with the guarded implementations.
+    public Task<ExceptionSettingsPage> ListExceptionSettingsAsync(string? group, string? filter, bool onlyEnabled, int limit, CallContext context, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<ExceptionSetResult> SetExceptionSettingsAsync(string group, string[] names, bool breakWhenThrown, CallContext context, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<ExceptionResetResult> ResetExceptionSettingsAsync(CallContext context, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken)
     {
         // Set when the question is prepared: the approval covers the process the question named.
