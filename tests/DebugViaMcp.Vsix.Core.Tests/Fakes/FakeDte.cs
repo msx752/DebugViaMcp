@@ -85,7 +85,27 @@ public sealed class FakeDte : IDteFacade
 
     /// <summary>Makes switching Break When Thrown on for this name fail, to test a write that stops halfway.</summary>
     public string? FailSetBreakWhenThrownFor { get; set; }
-    public IReadOnlyList<RawExceptionGroup> ExceptionGroups() { Ui(); return ExceptionGroupsData; }
+    /// <summary>What reading Exception Settings costs in Visual Studio: entries read by enumerating a group, and values read one by one by name.</summary>
+    public int EntryReads { get; private set; }
+    public int ValueReads { get; private set; }
+
+    public IReadOnlyList<string> ExceptionGroupNames() { Ui(); return ExceptionGroupsData.Select(g => g.Name).ToList(); }
+
+    public IReadOnlyList<ExceptionEntry> ExceptionEntries(string group)
+    {
+        Ui();
+        var g = ExceptionGroupsData.FirstOrDefault(x => x.Name == group) ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No exception group '{group}'.");
+        EntryReads += g.Settings.Count;
+        return g.Settings.Select(s => new ExceptionEntry(s.Name, s.BreakWhenThrown)).ToList();
+    }
+
+    public bool? BreakWhenThrown(string group, string name)
+    {
+        Ui();
+        ValueReads++;
+        return ExceptionGroupsData.FirstOrDefault(g => g.Name == group)?.Settings.FirstOrDefault(x => x.Name == name)?.BreakWhenThrown;
+    }
+
     public void SetBreakWhenThrown(string group, string name, bool value)
     {
         Ui();
@@ -263,4 +283,17 @@ public sealed class FakeDte : IDteFacade
         LastEvaluated = expression;
         return OnEvaluate?.Invoke(expression) ?? new EvaluateResult { IsValid = true, Value = new string('v', 3000), Type = "string" };
     }
+}
+
+/// <summary>Exception Settings data of <see cref="FakeDte"/>.</summary>
+public sealed class RawExceptionSetting
+{
+    public string Name { get; set; } = "";
+    public bool BreakWhenThrown { get; set; }
+}
+
+public sealed class RawExceptionGroup
+{
+    public string Name { get; set; } = "";
+    public IReadOnlyList<RawExceptionSetting> Settings { get; set; } = [];
 }

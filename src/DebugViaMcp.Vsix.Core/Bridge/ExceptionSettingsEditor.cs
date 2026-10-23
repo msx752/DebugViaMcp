@@ -30,43 +30,49 @@ internal sealed class ExceptionSettingsEditor(IDteFacade dte)
     public ExceptionSettingsPage List(string? group, string? filter, bool onlyEnabled, int limit)
     {
         limit = Math.Min(Math.Max(limit, 1), MaxLimit);
-        var groups = dte.ExceptionGroups();
-        IReadOnlyList<RawExceptionGroup> selected = group is null ? groups : new[] { FindGroup(groups, group) };
+        var groupNames = dte.ExceptionGroupNames();
+        IReadOnlyList<string> selected = group is null ? groupNames : new[] { RequireGroup(groupNames, group) };
         var left = limit;
         var result = new List<ExceptionGroupInfo>();
-        foreach (var g in selected)
+        foreach (var name in selected)
         {
-            var matches = g.Settings.Where(s => (!onlyEnabled || s.BreakWhenThrown) && Matches(s.Name, filter)).ToList();
-            if (group is null && matches.Count == 0) continue;
-            var shown = matches.Take(left).Select(s => new ExceptionSettingInfo { Name = s.Name, BreakWhenThrown = s.BreakWhenThrown }).ToArray();
-            left -= shown.Length;
-            result.Add(new ExceptionGroupInfo { Name = g.Name, Settings = shown, Total = matches.Count, Truncated = shown.Length < matches.Count });
+            // One enumeration per group asked for (never one lookup per entry: that is a scan each time).
+            var matches = dte.ExceptionEntries(name).Where(e => Matches(e.Name, filter) && (!onlyEnabled || e.BreakWhenThrown)).ToList();
+            var total = matches.Count;
+            var shown = matches.Take(left).Select(e => new ExceptionSettingInfo { Name = e.Name, BreakWhenThrown = e.BreakWhenThrown }).ToList();
+
+            if (group is null && total == 0) continue;
+            left -= shown.Count;
+            result.Add(new ExceptionGroupInfo { Name = name, Settings = shown.ToArray(), Total = total, Truncated = shown.Count < total });
         }
 
         return new ExceptionSettingsPage { Groups = result.ToArray() };
     }
 
-    /// <summary>Checks the group and every name and says what a set would change, without writing.</summary>
+    /// <summary>Checks the group and every name and says what a set would change, without writing. Reads one value per name; the names of the group only when one is unknown.</summary>
     public ExceptionSetResult Plan(string group, string[] names, bool value)
     {
         if (names is null || names.Length == 0)
             throw new BridgeException(BridgeErrorCode.InvalidArgument, "names is empty.", "Give the exact exception names, for example System.NullReferenceException.");
 
-        var g = FindGroup(dte.ExceptionGroups(), group);
-        var byName = new Dictionary<string, RawExceptionSetting>(StringComparer.Ordinal);
-        foreach (var s in g.Settings)
-            if (!byName.ContainsKey(s.Name)) byName.Add(s.Name, s);
-
+        var groupName = RequireGroup(dte.ExceptionGroupNames(), group);
         var wanted = names.Distinct(StringComparer.Ordinal).ToArray();
-        var unknown = wanted.Where(n => !byName.ContainsKey(n)).ToArray();
-        if (unknown.Length > 0)
-            throw new BridgeException(BridgeErrorCode.NotFound, UnknownMessage(group, unknown, byName.Keys),
+        var current = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var unknown = new List<string>();
+        foreach (var n in wanted)
+        {
+            if (dte.BreakWhenThrown(groupName, n) is { } on) current[n] = on;
+            else unknown.Add(n);
+        }
+
+        if (unknown.Count > 0)
+            throw new BridgeException(BridgeErrorCode.NotFound, UnknownMessage(group, unknown.ToArray(), dte.ExceptionEntries(groupName).Select(e => e.Name)),
                 "Names are exact and case-sensitive. Call exception_list with group and filter to see them. Nothing was changed.");
 
         return new ExceptionSetResult
         {
-            Group = g.Name,
-            Changes = wanted.Select(n => new ExceptionChange { Name = n, Previous = byName[n].BreakWhenThrown, Current = value, Changed = byName[n].BreakWhenThrown != value }).ToArray(),
+            Group = groupName,
+            Changes = wanted.Select(n => new ExceptionChange { Name = n, Previous = current[n], Current = value, Changed = current[n] != value }).ToArray(),
         };
     }
 
@@ -109,15 +115,13 @@ internal sealed class ExceptionSettingsEditor(IDteFacade dte)
     {
         if (!_changed.TryGetValue(owner, out var record) || record.Count == 0) return new ExceptionResetResult();
 
-        var current = dte.ExceptionGroups();
         var restored = new List<ExceptionChange>();
         foreach (var original in record)
         {
-            var setting = current.FirstOrDefault(g => g.Name == original.Group)?.Settings.FirstOrDefault(s => s.Name == original.Name);
-            if (setting is null) continue;
-            var changed = setting.BreakWhenThrown != original.Value;
+            if (dte.BreakWhenThrown(original.Group, original.Name) is not { } now) continue;   // the entry is gone: nothing to put back
+            var changed = now != original.Value;
             if (changed) dte.SetBreakWhenThrown(original.Group, original.Name, original.Value);
-            restored.Add(new ExceptionChange { Name = original.Group + "/" + original.Name, Previous = setting.BreakWhenThrown, Current = original.Value, Changed = changed });
+            restored.Add(new ExceptionChange { Name = original.Group + "/" + original.Name, Previous = now, Current = original.Value, Changed = changed });
         }
 
         _changed.Remove(owner);
@@ -135,10 +139,9 @@ internal sealed class ExceptionSettingsEditor(IDteFacade dte)
         finally { _changed.Remove(owner); }
     }
 
-    private static RawExceptionGroup FindGroup(IReadOnlyList<RawExceptionGroup> groups, string name) =>
-        groups.FirstOrDefault(g => string.Equals(g.Name, name, StringComparison.Ordinal))
-        ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No exception group '{name}'. Groups: {string.Join(", ", groups.Select(g => g.Name))}.",
-            "Call exception_list without group to see them.");
+    private static string RequireGroup(IReadOnlyList<string> groups, string name) =>
+        groups.FirstOrDefault(g => string.Equals(g, name, StringComparison.Ordinal))
+        ?? throw new BridgeException(BridgeErrorCode.NotFound, $"No exception group '{name}'. Groups: {string.Join(", ", groups)}.", "Call exception_list without group to see them.");
 
     private static bool Matches(string name, string? filter) =>
         string.IsNullOrEmpty(filter) || name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;

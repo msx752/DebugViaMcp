@@ -41,3 +41,8 @@ question being **answered** (Allow once / Deny in the info bar, which needs UI a
   stop at the caught `ArgumentException`, a set while stopped at a break, reset of both, an empty reset, the unhandled exception,
   `vs_release` puts a forgotten change back and lets the second agent in), deny 5 (policy denial, nothing changed, empty reset still works),
   ask 4 (the unanswered question denies after 15 s with `reason: timeout`, nothing changed, an empty reset asks nothing).
+- 2026-10-23, same build after reading only what a request needs (a group is enumerated once; set and reset look up only their names): all four phases
+  passed. `perf` (`-Phases perf`, 2000 cycles): `debug_status` p50 1.2 ms; `exception_list` p50 121 ms / p95 216 ms; with a filter 68 / 125 ms;
+  `exception_set` 61 / 106 ms; `exception_reset` 60 / 100 ms. Visual Studio's private memory rose to 1480 MB and settled near 1370 MB (garbage, not a leak).
+  Looking entries up one by one by name for a whole group was tried first and took 12 s per list: a lookup scans the group.
+

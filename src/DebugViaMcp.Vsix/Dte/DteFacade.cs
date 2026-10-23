@@ -398,20 +398,37 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         };
     }
 
-    /// <summary>Reads name and Break When Thrown only: <c>ExceptionSetting.Code</c> throws in groups that do not support exception codes.</summary>
-    public IReadOnlyList<RawExceptionGroup> ExceptionGroups()
+    private EnvDTE90.ExceptionGroups ExceptionGroupsRoot()
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        var result = new List<RawExceptionGroup>();
-        foreach (EnvDTE90.ExceptionSettings group in ((EnvDTE90.Debugger3)dte.Debugger).ExceptionGroups)
-        {
-            var settings = new List<RawExceptionSetting>(group.Count);
-            foreach (EnvDTE90.ExceptionSetting setting in group)
-                settings.Add(new RawExceptionSetting { Name = setting.Name, BreakWhenThrown = setting.BreakWhenThrown });
-            result.Add(new RawExceptionGroup { Name = group.Name, Settings = settings });
-        }
+        return ((EnvDTE90.Debugger3)dte.Debugger).ExceptionGroups;
+    }
 
-        return result;
+    public IReadOnlyList<string> ExceptionGroupNames()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var names = new List<string>();
+        foreach (EnvDTE90.ExceptionSettings group in ExceptionGroupsRoot()) names.Add(group.Name);
+        return names;
+    }
+
+    public IReadOnlyList<ExceptionEntry> ExceptionEntries(string group)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        EnvDTE90.ExceptionSettings settings;
+        try { settings = ExceptionGroupsRoot().Item(group); }
+        catch (COMException e) when (e.HResult == DispEBadIndex) { throw new BridgeException(BridgeErrorCode.NotFound, $"No exception group '{group}'."); }
+
+        var entries = new List<ExceptionEntry>(settings.Count);
+        foreach (EnvDTE90.ExceptionSetting setting in settings) entries.Add(new ExceptionEntry(setting.Name, setting.BreakWhenThrown));   // not Code: it throws in groups without codes
+        return entries;
+    }
+
+    public bool? BreakWhenThrown(string group, string name)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try { return ExceptionGroupsRoot().Item(group).Item(name).BreakWhenThrown; }
+        catch (COMException e) when (e.HResult == DispEBadIndex) { return null; }
     }
 
     public void SetBreakWhenThrown(string group, string name, bool value)
@@ -421,7 +438,7 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         EnvDTE90.ExceptionSetting setting;
         try
         {
-            settings = ((EnvDTE90.Debugger3)dte.Debugger).ExceptionGroups.Item(group);
+            settings = ExceptionGroupsRoot().Item(group);
             setting = settings.Item(name);
         }
         catch (COMException e) when (e.HResult == DispEBadIndex)

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using DebugViaMcp.Protocol;
 using DebugViaMcp.Vsix.Core.Abstractions;
 using DebugViaMcp.Vsix.Core.Bridge;
@@ -278,5 +279,98 @@ public class ExceptionSettingsTests
 
         Assert.False(Value(dte, Clr, "System.IO.IOException"));
         Assert.Equal(0, await svc.PendingExceptionChangesAsync(owner));
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static async Task<WeakReference> SetFromAnOwnerThatIsDropped(DebugBridgeService svc)
+    {
+        var owner = new object();
+        await svc.SetExceptionSettingsAsync(owner, Clr, ["System.IO.IOException"], true, CancellationToken.None);
+        return new WeakReference(owner);
+    }
+
+    /// <summary>A connection that goes away without a release (a crash) must not stay in memory because of what it changed.</summary>
+    [Fact]
+    public async Task A_dropped_owner_is_not_kept_alive_by_its_record()
+    {
+        var (svc, _) = Create();
+
+        var weak = await SetFromAnOwnerThatIsDropped(svc);
+        for (var i = 0; i < 5 && weak.IsAlive; i++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
+        Assert.False(weak.IsAlive);
+    }
+
+    /// <summary>A group as big as the CLR one: reading it all is hundreds of automation calls, so a request may read only what it needs.</summary>
+    private static (DebugBridgeService Svc, FakeDte Dte) CreateWithABigGroup()
+    {
+        var (svc, dte) = Create();
+        dte.ExceptionGroupsData.Add(Group("Big", Enumerable.Range(0, 300).Select(i => ($"Foo{i}Exception", i % 50 == 0)).ToArray()));
+        var before = (dte.EntryReads, dte.ValueReads);
+        Assert.Equal((0, 0), before);
+        return (svc, dte);
+    }
+
+    [Fact]
+    public async Task Set_of_one_name_reads_that_one_value_and_no_names()
+    {
+        var (svc, dte) = CreateWithABigGroup();
+
+        await svc.SetExceptionSettingsAsync(new object(), "Big", ["Foo7Exception"], true, CancellationToken.None);
+
+        Assert.Equal(0, dte.EntryReads);
+        Assert.True(dte.ValueReads <= 2, $"read {dte.ValueReads} values for one name");
+    }
+
+    [Fact]
+    public async Task Reset_reads_only_what_it_recorded()
+    {
+        var (svc, dte) = CreateWithABigGroup();
+        var owner = new object();
+        await svc.SetExceptionSettingsAsync(owner, "Big", ["Foo7Exception", "Foo8Exception"], true, CancellationToken.None);
+        var before = dte.ValueReads;
+
+        await svc.ResetExceptionSettingsAsync(owner, CancellationToken.None);
+
+        Assert.Equal(0, dte.EntryReads);
+        Assert.True(dte.ValueReads - before <= 2, $"read {dte.ValueReads - before} values to restore two");
+    }
+
+    [Fact]
+    public async Task List_enumerates_a_group_once_and_never_looks_entries_up_one_by_one()
+    {
+        var (svc, dte) = CreateWithABigGroup();
+
+        var page = await svc.ListExceptionSettingsAsync("Big", "Foo1", false, 3, CancellationToken.None);
+
+        Assert.Equal(3, page.Groups[0].Settings.Length);
+        Assert.Equal(300, dte.EntryReads);   // the one group, once
+        Assert.Equal(0, dte.ValueReads);     // a lookup by name scans the group each time: 800 of them took seconds in Visual Studio
+        Assert.Equal(111, page.Groups[0].Total);   // Foo1, Foo10-Foo19, Foo100-Foo199
+    }
+
+    [Fact]
+    public async Task List_of_enabled_entries_filters_what_it_enumerated()
+    {
+        var (svc, dte) = CreateWithABigGroup();
+
+        var page = await svc.ListExceptionSettingsAsync("Big", "Foo5", true, 100, CancellationToken.None);
+
+        Assert.Equal(0, dte.ValueReads);
+        Assert.Equal(["Foo50Exception"], page.Groups[0].Settings.Select(s => s.Name));
+    }
+
+    [Fact]
+    public async Task A_group_that_is_not_asked_for_is_not_read()
+    {
+        var (svc, dte) = CreateWithABigGroup();
+
+        await svc.ListExceptionSettingsAsync(Clr, null, true, 100, CancellationToken.None);
+
+        Assert.Equal(8, dte.EntryReads);   // the eight entries of the CLR group, nothing of "Big"
     }
 }

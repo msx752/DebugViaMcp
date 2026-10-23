@@ -8,10 +8,12 @@
 //   allow : Control = Allow. list, misspelled name, set, stop at a caught exception, write while stopped, reset, an unhandled exception,
 //           a second agent (in_use while the first holds Visual Studio), and vs_release putting a forgotten change back.
 //   deny  : Control = Deny. exception_list still works; set is refused by policy and changes nothing; an empty reset still works.
+//   perf  : Control = Allow. Latency of every call and Visual Studio's memory over hundreds of calls and many connect/set/disconnect rounds.
 //   ask   : Control = Ask with the shortest timeout. set is asked about, nobody answers, the timeout denies and changes nothing;
 //           an empty reset asks nothing.
 //
 // Usage: dotnet run tests/e2e/exception-settings.cs -- <path-to-DebugViaMcp.Mcp.dll> <allow|deny|ask>
+using System.Diagnostics;
 using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -97,6 +99,9 @@ try
             break;
         case "ask":
             await Ask();
+            break;
+        case "perf":
+            await Perf();
             break;
         default:
             Check($"unknown phase '{phase}'", false);
@@ -197,4 +202,100 @@ async Task Ask()
     var (reset, resetError) = await Call("exception_reset");
     watch.Stop();
     Check("exception_reset with nothing recorded asks nothing", !resetError && reset.Contains("\"restored\":[]", StringComparison.Ordinal) && watch.Elapsed.TotalSeconds < 8);
+}
+
+async Task Perf()
+{
+    const int WarmUp = 20, CyclesPerRound = 100, Reconnects = 30;
+    var Rounds = int.TryParse(Environment.GetEnvironmentVariable("E2E_PERF_ROUNDS"), out var r) && r >= 3 ? r : 12;   // Visual Studio keeps garbage for a while: it rose to 1480 MB and settled near 1370 MB over 20 rounds, so a short run misreads it
+    const double P95BudgetMs = 400, ClimbBudgetMb = 32;
+
+    var vsPid = int.Parse(System.Text.RegularExpressions.Regex.Match(instances, @"""pid""\s*:\s*(\d+)").Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+    using var vs = Process.GetProcessById(vsPid);
+    double PrivateMb() { vs.Refresh(); return vs.PrivateMemorySize64 / 1048576.0; }
+
+    var times = new Dictionary<string, List<double>> { ["debug_status (baseline)"] = [], ["exception_list"] = [], ["exception_list (filter)"] = [], ["exception_set"] = [], ["exception_reset"] = [] };
+    async Task<string> Timed(string label, string tool, Dictionary<string, object?> arguments, McpClient? who = null)
+    {
+        var watch = Stopwatch.StartNew();
+        var result = await (who ?? agent).CallToolAsync(tool, arguments);
+        watch.Stop();
+        times[label].Add(watch.Elapsed.TotalMilliseconds);
+        var text = result.Content.OfType<TextContentBlock>().FirstOrDefault()?.Text ?? "{}";
+        if (result.IsError == true) throw new InvalidOperationException($"{tool} failed during the run: {text}");
+        return text;
+    }
+
+    async Task Cycle(int i)
+    {
+        await Timed("debug_status (baseline)", "debug_status", []);   // the same trip (MCP, pipe, UI thread) without touching Exception Settings
+        await Timed("exception_list", "exception_list", []);
+        await Timed("exception_list (filter)", "exception_list", new() { ["group"] = Clr, ["filter"] = "Argument", ["onlyEnabled"] = false });
+        await Timed("exception_set", "exception_set", new() { ["group"] = Clr, ["names"] = argNames, ["breakWhenThrown"] = (i % 2 == 0) != (before == true) });
+        await Timed("exception_reset", "exception_reset", []);
+    }
+
+    for (var i = 0; i < WarmUp; i++) await Cycle(i);
+    foreach (var list in times.Values) list.Clear();
+
+    // A solution that is still loading keeps allocating: take the baseline once the memory has settled (two samples 5 s apart within 10 MB).
+    var last = PrivateMb();
+    for (var i = 0; i < 18; i++)
+    {
+        await Task.Delay(5000);
+        var now = PrivateMb();
+        if (Math.Abs(now - last) < 10) break;
+        last = now;
+    }
+
+    var baseline = PrivateMb();
+    var samples = new List<double> { baseline };
+    Console.WriteLine($"   Visual Studio {vsPid} private memory after warm-up: {baseline:0.0} MB");
+
+    for (var round = 1; round <= Rounds; round++)
+    {
+        for (var i = 0; i < CyclesPerRound; i++) await Cycle(i);
+        samples.Add(PrivateMb());
+        Console.WriteLine($"   after {round * CyclesPerRound} cycles: {samples[^1]:0.0} MB");
+    }
+
+    foreach (var (label, list) in times)
+    {
+        var sorted = list.Order().ToArray();
+        var p50 = sorted[sorted.Length / 2];
+        var p95 = sorted[(int)(sorted.Length * 0.95)];
+        Console.WriteLine($"   {label,-26} n={sorted.Length,4}  p50 {p50,6:0.0} ms  p95 {p95,6:0.0} ms  max {sorted[^1],6:0.0} ms");
+        Check($"{label}: p95 {p95:0} ms is within {P95BudgetMs:0} ms", p95 <= P95BudgetMs);
+    }
+
+    // Visual Studio keeps garbage until it is under pressure and a loading solution allocates too, so the end-minus-start number means little. A leak
+    // keeps climbing round after round; garbage does not. Look at the last three rounds.
+    var climbing = samples[^1] > samples[^2] && samples[^2] > samples[^3] && samples[^1] - samples[^3] > ClimbBudgetMb;
+    Check($"memory is not climbing round after round (last rounds {samples[^3]:0} -> {samples[^2]:0} -> {samples[^1]:0} MB; a rise of more than {ClimbBudgetMb:0} MB over two rounds in a row fails)", !climbing);
+    Check("every cycle ended with the setting at its first value", await ValueOf(Arg) == before);
+
+    // Many short-lived agents: each takes Visual Studio, changes a setting and vanishes without a reset.
+    await Call("vs_release");   // the main agent holds Visual Studio since its first set; the visitors need it free
+    var beforeChurn = PrivateMb();
+    var stuck = 0;
+    for (var i = 0; i < Reconnects; i++)
+    {
+        await using var visitor = await Connect();
+        var done = false;
+        for (var attempt = 0; attempt < 25 && !done; attempt++)   // the previous visitor's hold may still be ending
+        {
+            var result = await visitor.CallToolAsync("exception_set", new Dictionary<string, object?> { ["group"] = Clr, ["names"] = argNames, ["breakWhenThrown"] = before != true });
+            done = result.IsError != true;
+            if (!done) await Task.Delay(200);
+        }
+
+        if (!done) stuck++;
+    }
+
+    await Task.Delay(1500);
+    Check($"{Reconnects} agents that came, changed a setting and left", stuck == 0);
+    Check("every one of them left the setting as the user had it", await ValueOf(Arg) == before);
+    var afterChurn = PrivateMb();
+    Check($"memory after {Reconnects} connections changed by {afterChurn - beforeChurn:+0.0;-0.0} MB (fails above +{ClimbBudgetMb:0} MB)", afterChurn - beforeChurn <= ClimbBudgetMb);
+    Console.WriteLine($"   Visual Studio private memory: start {baseline:0.0} MB, end {afterChurn:0.0} MB");
 }

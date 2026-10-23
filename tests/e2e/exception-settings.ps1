@@ -10,6 +10,7 @@
     allow  Control = Allow (the default). The whole feature, two agents, a break, vs_release.
     deny   Control = Deny.
     ask    Control = Ask with the shortest timeout: nobody answers, so the question times out and denies.
+    perf   (only when asked for) latency of every call and Visual Studio's memory over hundreds of calls and many connections.
 
   What it changes and puts back, whatever happens (try/finally):
     - the permission values in Visual Studio's settings.json (backed up byte for byte and restored),
@@ -31,7 +32,7 @@
   powershell -File tests\e2e\exception-settings.ps1 -Phases allow
 #>
 param(
-    [ValidateSet('allow', 'deny', 'ask')][string[]]$Phases = @('allow', 'deny', 'ask'),
+    [ValidateSet('allow', 'deny', 'ask', 'perf')][string[]]$Phases = @('allow', 'deny', 'ask'),
     [string]$McpDll,
     [int]$ReadyTimeoutSeconds = 300
 )
@@ -95,6 +96,7 @@ try {
         Write-Host "=== phase: $phase ===" -ForegroundColor Cyan
         switch ($phase) {
             'allow' { Write-PermissionSettings $null 0 }
+            'perf' { Write-PermissionSettings $null 0 }
             'deny' { Write-PermissionSettings 'Deny' 15 }
             'ask' { Write-PermissionSettings 'Ask' 15 }
         }
