@@ -44,11 +44,11 @@ overview with raw GitHub URLs once the repository is public).
 
 ## What's new in this preview (release notes box)
 
-0.4.0 — Several Visual Studios, one agent each. The tool picks the Visual Studio that matches the folder the agent
-runs in; an agent from an unrelated folder needs your approval; a second agent gets `in_use` while the first holds a
-Visual Studio (`vs_release` frees it). `debug_start(project)` starts a named project and leaves your startup project
-alone. `debug_start`, `debug_attach` and `bp_set` warn when the build is older than the sources, and Visual Studio
-offers an optional Build. This is a preview: feedback is welcome on GitHub.
+0.6.0 — Settings on Visual Studio 2022. Visual Studio 2022 now has an Options page (Tools → Options → Debugging via MCP →
+General) for the permission tiers, the consent timeout, masking, the limits and the log level; Visual Studio 2026 keeps
+them in All Settings. Fixes a false "waiting for a dialog" on Visual Studio 2022. Since 0.4.0: exception settings
+(`exception_list`, `exception_set`, `exception_reset`), masking of sensitive values, `vars` with `depth`, `debug_status`
+with `detail`, `process_list`, `symbol_status` and temporary breakpoints. This is a preview: feedback is welcome on GitHub.
 
 ## Questions and answers (seed the Q&A tab)
 
