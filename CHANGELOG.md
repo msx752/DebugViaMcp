@@ -3,6 +3,33 @@
 All notable changes to Debugging via MCP. Versions follow [Semantic Versioning](https://semver.org/); the extension and
 the `debugviamcp` tool are released together with the same version.
 
+## 0.7.0 — Watch list, long values and concurrency (preview)
+
+### Added
+- **Watch list: `watch_add`, `watch_list`, `watch_remove`.** The agent follows expressions across stops: every answer that reports
+  a stop (`debug_wait`, the steps, `debug_status`...) carries their values and whether each changed since the previous stop. At most
+  10 entries; values are masked and shortened like those of `vars`. The list belongs to the agent's connection, lives in memory and is
+  dropped when the agent lets go or disconnects; your Watch windows and your solution are not touched. These are Read tools: with Read
+  set to Ask, reading the values at a stop asks nothing more. Needs the extension and the `debugviamcp` server of the same
+  release (protocol 2.9); an older extension answers that it must be updated.
+- **`eval` with `offset` and `length` reads a long value in pages** (up to 16384 characters per page, up to 2,000,000 per value). The
+  value is read once, masked as a whole before it is cut (a secret split by a page boundary stays hidden) and the next pages come
+  from that saved read. Not allowed together with `allowSideEffects`.
+- **A concurrency lab for testing** (`samples/ConcurrencyLab`: a data race, a deadlock and a crash on a worker thread) with end-to-end
+  scenarios in `tests/e2e/concurrency-lab.cs`.
+
+### Fixed
+- **A stop with several threads no longer fails as a whole when a frame has no source line.** `threads` and the call stack answered
+  `E_FAIL` and an empty snapshot; such frames are now listed without a file and line.
+- `eval`, `vars` and drill-down on a thread that is blocked (waiting on a lock) answer `eval_failed` with a pointer to `stack`
+  instead of an unclear error.
+- The failure text of a paged read is masked and cut like every other value.
+- `debug_wait` after a stop no longer asks again for consent just to read the watch values when Read is Ask.
+
+### Changed
+- Reading a long value page by page and keeping a watch's prepared expression are faster; a connection that never added a watch no
+  longer switches to Visual Studio's UI thread when it is released.
+
 ## 0.6.0 — Settings on Visual Studio 2022 (preview)
 
 ### Added

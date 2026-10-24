@@ -44,11 +44,11 @@ overview with raw GitHub URLs once the repository is public).
 
 ## What's new in this preview (release notes box)
 
-0.6.0 — Settings on Visual Studio 2022. Visual Studio 2022 now has an Options page (Tools → Options → Debugging via MCP →
-General) for the permission tiers, the consent timeout, masking, the limits and the log level; Visual Studio 2026 keeps
-them in All Settings. Fixes a false "waiting for a dialog" on Visual Studio 2022. Since 0.4.0: exception settings
-(`exception_list`, `exception_set`, `exception_reset`), masking of sensitive values, `vars` with `depth`, `debug_status`
-with `detail`, `process_list`, `symbol_status` and temporary breakpoints. This is a preview: feedback is welcome on GitHub.
+0.7.0 — Watch list, long values, concurrency. New tools `watch_add`, `watch_list` and `watch_remove`: the agent follows
+expressions and every stop answer carries their values and what changed. `eval` with `offset` and `length` reads a long value
+in pages. Stops with several threads no longer fail when a frame has no source line, and blocked threads answer clearly.
+Since 0.6.0 nothing else changed; Visual Studio 2022 has its Options page (Tools → Options → Debugging via MCP → General). This
+is a preview: feedback is welcome on GitHub.
 
 ## Questions and answers (seed the Q&A tab)
 
