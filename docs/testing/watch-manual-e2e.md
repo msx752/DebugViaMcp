@@ -25,3 +25,4 @@ Design: `docs/design/watch-design.md`.
 | Date | Visual Studio | Rows | Result |
 |---|---|---|---|
 | 2026-10-24 | 2026 18.x, extension 0.6.0 dev build (protocol 2.9) | 1-10 by `tests/e2e/watch.ps1` | all 21 checks passed, no process, temp folder or instance file left behind |
+| 2026-10-24 | 2022 17.14, same build, .NET 8 console project in a temporary folder | 4-6, 8, 9 and the unreadable entry by a script (not committed) | all 8 checks passed; the extension was removed again afterwards |
