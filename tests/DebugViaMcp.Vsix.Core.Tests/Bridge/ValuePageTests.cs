@@ -121,6 +121,22 @@ public class ValuePageTests
         Assert.Contains("does not exist", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>The failure text of Visual Studio can carry the program's data (a getter's exception message): it is masked and cut like every other value.</summary>
+    [Fact]
+    public async Task The_text_of_a_failed_evaluation_is_masked_and_cut_like_a_value()
+    {
+        var (svc, dte) = Create("abc");
+        dte.OnEvaluate = _ => new EvaluateResult { IsValid = false, Value = "hunter2-very-secret-value", Type = "string" };
+
+        var masked = await Assert.ThrowsAsync<BridgeException>(() => svc.ReadValuePageAsync("password", 0, 10, CancellationToken.None));
+        dte.OnEvaluate = _ => new EvaluateResult { IsValid = false, Value = new string('e', 5000) };
+        var long_ = await Assert.ThrowsAsync<BridgeException>(() => svc.ReadValuePageAsync("anything", 0, 10, CancellationToken.None));
+
+        Assert.DoesNotContain("hunter2", masked.Message, StringComparison.Ordinal);
+        Assert.True(long_.Message.Length <= ValueShaper.MaxValueLength);
+        Assert.Equal(BridgeErrorCode.EvalFailed, masked.Code);
+    }
+
     [Fact]
     public async Task A_secret_is_masked_in_the_whole_text_before_it_is_cut_so_no_page_boundary_hides_it()
     {

@@ -761,7 +761,8 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return InBreak(() =>
         {
             var raw = dte.Evaluate(prepared);
-            if (!raw.IsValid) throw new BridgeException(BridgeErrorCode.EvalFailed, raw.Value, "Check the expression against the frame's variables (vars).");
+            // The failure text can carry the program's data (a getter's exception message): masked and cut like every value of eval.
+            if (!raw.IsValid) throw new BridgeException(BridgeErrorCode.EvalFailed, Shape(expression, raw).Value, "Check the expression against the frame's variables (vars).");
             if (raw.Value.Length > MaxPagedTotal)   // before masking: that reads the whole text
                 throw new BridgeException(BridgeErrorCode.InvalidArgument, $"The value is longer than {MaxPagedTotal} characters, the most that can be paged.",
                     "Read a part of it with an expression such as Substring(start, count), or let the program write it to a file.");
