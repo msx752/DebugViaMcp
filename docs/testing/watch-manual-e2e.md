@@ -16,7 +16,7 @@ Design: `docs/design/watch-design.md`.
 | 8 | `debug_stop`, wait for Design, `debug_start` | The list is still there and read again |
 | 9 | `vs_release`, then `watch_list` | Empty list |
 | 10 | `debug_start` with an empty list | No `watches` in the answer and no extra request to the extension |
-| 11 | Options: Read = Ask, then `watch_add` | One question naming the expression; later stops ask nothing |
+| 11 | Options: Read = Ask, then `watch_add`, a stop, `debug_continue` | One question for `watch_add` naming the expression; the stops ask nothing about the watches (`watch_list` called by the agent asks like any Read; `build_check` and the other Read calls ask as they always did) |
 | 12 | Open Debug → Windows → Watch while the agent has entries | The user's Watch windows are unchanged |
 | 13 | Same on Visual Studio 2022 17.14 (a .NET 8 project; the repository's solution does not load there) | Same answers |
 

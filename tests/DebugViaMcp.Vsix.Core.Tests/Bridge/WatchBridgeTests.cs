@@ -40,7 +40,7 @@ public class WatchBridgeTests
 
         Assert.Equal((int)BridgeErrorCode.Denied, ex.ErrorCode);
         s.Settings.Permissions.Read = PermissionLevel.Allow;
-        Assert.Empty((await s.Handler.ListWatchesAsync(SecurityHarness.Ctx(), CancellationToken.None)).Watches);
+        Assert.Empty((await s.Handler.ListWatchesAsync(false, SecurityHarness.Ctx(), CancellationToken.None)).Watches);
     }
 
     [Fact]
@@ -57,6 +57,37 @@ public class WatchBridgeTests
     }
 
     /// <summary>Like every Read call, an answered question is audited and a plain allowed call is not.</summary>
+    [Fact]
+    public async Task Reading_the_values_at_a_stop_does_not_ask_again_but_an_explicit_list_does()
+    {
+        using var s = Create();
+        s.Settings.Permissions.Read = PermissionLevel.Ask;
+        await s.HandshakeAsync("claude-code");
+        s.Prompt.AutoAnswer = ConsentChoice.AllowOnce;
+        await s.Handler.AddWatchAsync("i", null, SecurityHarness.Ctx(), CancellationToken.None);
+        Assert.Single(s.Prompt.Texts);   // the question of the add
+
+        var atStop = await s.Handler.ListWatchesAsync(true, SecurityHarness.Ctx(), CancellationToken.None);
+        Assert.Single(s.Prompt.Texts);   // a stop asks nothing more
+        Assert.Equal("3", Assert.Single(atStop.Watches).Value);
+
+        await s.Handler.ListWatchesAsync(false, SecurityHarness.Ctx(), CancellationToken.None);
+        Assert.Equal(2, s.Prompt.Texts.Count);   // watch_list, called by the agent, asks like any Read
+    }
+
+    [Fact]
+    public async Task Reading_the_values_at_a_stop_is_still_denied_when_Read_is_Deny()
+    {
+        using var s = Create();
+        await s.HandshakeAsync();
+        await s.Handler.AddWatchAsync("i", null, SecurityHarness.Ctx(), CancellationToken.None);
+        s.Settings.Permissions.Read = PermissionLevel.Deny;
+
+        var ex = await Assert.ThrowsAsync<LocalRpcException>(() => s.Handler.ListWatchesAsync(true, SecurityHarness.Ctx(), CancellationToken.None));
+
+        Assert.Equal((int)BridgeErrorCode.Denied, ex.ErrorCode);
+    }
+
     [Fact]
     public async Task Add_is_audited_with_the_call_id_when_it_asked()
     {
@@ -104,7 +135,7 @@ public class WatchBridgeTests
 
         await s.Handler.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
 
-        Assert.Empty((await s.Handler.ListWatchesAsync(SecurityHarness.Ctx(), CancellationToken.None)).Watches);
+        Assert.Empty((await s.Handler.ListWatchesAsync(false, SecurityHarness.Ctx(), CancellationToken.None)).Watches);
     }
 
     [Fact]
@@ -118,6 +149,6 @@ public class WatchBridgeTests
         gone.Dispose();
         var next = await s.AddConnectionAsync("third-agent");
 
-        Assert.Empty((await next.ListWatchesAsync(SecurityHarness.Ctx(), CancellationToken.None)).Watches);
+        Assert.Empty((await next.ListWatchesAsync(false, SecurityHarness.Ctx(), CancellationToken.None)).Watches);
     }
 }

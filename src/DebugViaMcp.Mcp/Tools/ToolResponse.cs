@@ -116,7 +116,7 @@ internal static class ToolResponse
         if (session.WatchCount == 0 || connections.RemoteProtocolMinor < ProtocolInfo.MinorWatch) return null;
         try
         {
-            var list = await bridge.ListWatchesAsync(ctx, ct).ConfigureAwait(false);
+            var list = await bridge.ListWatchesAsync(true, ctx, ct).ConfigureAwait(false);
             session.SetWatchCount(list.Watches.Length);
             return list.Watches.Any(w => w.Value is not null || w.Error is not null) ? list.Watches : null;
         }

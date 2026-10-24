@@ -196,8 +196,8 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
         Guard(Operation.AddWatch, context, () => service.AddWatchAsync(this, expression, name, cancellationToken),
             Request.Of(expression, ("expression", expression), ("name", name)), null, cancellationToken);
 
-    public Task<WatchListResult> ListWatchesAsync(CallContext context, CancellationToken cancellationToken) =>
-        Guard(Operation.ListWatches, context, () => service.ListWatchesAsync(this, cancellationToken), null, null, cancellationToken);
+    public Task<WatchListResult> ListWatchesAsync(bool atStop, CallContext context, CancellationToken cancellationToken) =>
+        Guard(atStop ? Operation.ReadWatchValues : Operation.ListWatches, context, () => service.ListWatchesAsync(this, cancellationToken), null, null, cancellationToken);
 
     public Task<RemoveWatchResult> RemoveWatchAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.RemoveWatch, context, () => service.RemoveWatchAsync(this, id, all, cancellationToken),

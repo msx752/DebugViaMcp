@@ -93,6 +93,17 @@ public class WatchToolTests
     }
 
     [Fact]
+    public async Task An_explicit_watch_list_is_not_the_read_at_a_stop()
+    {
+        var cm = new FakeConnectionManager(new FakeDebugBridge());
+
+        await Tools(cm).WatchList(CancellationToken.None);
+
+        Assert.Contains("ListWatches", cm.Bridge.Calls);
+        Assert.DoesNotContain("ListWatches:atStop", cm.Bridge.Calls);
+    }
+
+    [Fact]
     public async Task An_empty_list_says_how_to_add_one()
     {
         var json = Json(await Tools(new FakeConnectionManager(new FakeDebugBridge())).WatchList(CancellationToken.None));
@@ -146,7 +157,7 @@ public class WatchToolTests
         Assert.Equal("break", json.GetProperty("state").GetString());
         Assert.Equal("3", json.GetProperty("watches")[0].GetProperty("value").GetString());
         Assert.True(json.GetProperty("watches")[0].GetProperty("changed").GetBoolean());
-        Assert.Contains("ListWatches", cm.Bridge.Calls);
+        Assert.Contains("ListWatches:atStop", cm.Bridge.Calls);   // a stop reads them as part of the answer, never as a question of its own
     }
 
     [Fact]
@@ -155,7 +166,7 @@ public class WatchToolTests
         var (json, cm) = await StepAsync(new FakeDebugBridge());
 
         Assert.False(json.TryGetProperty("watches", out _));
-        Assert.DoesNotContain("ListWatches", cm.Bridge.Calls);
+        Assert.DoesNotContain(cm.Bridge.Calls, c => c.StartsWith("ListWatches", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -185,7 +196,7 @@ public class WatchToolTests
         var (json, cm) = await StepAsync(new FakeDebugBridge(), c => { c.Session.SetWatchCount(1); c.RemoteProtocolMinor = ProtocolInfo.MinorExceptionSettings; });
 
         Assert.False(json.TryGetProperty("watches", out _));
-        Assert.DoesNotContain("ListWatches", cm.Bridge.Calls);
+        Assert.DoesNotContain(cm.Bridge.Calls, c => c.StartsWith("ListWatches", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -255,6 +266,6 @@ public class WatchToolTests
         var json = Json(await new SessionTools(cm).Status(false, CancellationToken.None));
 
         Assert.False(json.TryGetProperty("watches", out _));
-        Assert.DoesNotContain("ListWatches", cm.Bridge.Calls);
+        Assert.DoesNotContain(cm.Bridge.Calls, c => c.StartsWith("ListWatches", StringComparison.Ordinal));
     }
 }

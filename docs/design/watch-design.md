@@ -26,7 +26,7 @@ the stop itself and shows what changed since the last stop, the way the Watch wi
   connection, because an agent restarts the program often and would otherwise re-add the same list each time. It ends with the agent, not with the program.
 - **Who adds the values to an answer: the MCP host, by one request.** A stop answer (`debug_start`, `debug_continue`, `debug_step`, `debug_run_to`,
   `debug_wait`, `debug_attach`) is built in the host from the break event, and the event is broadcast to every connection, so it cannot hold one
-  agent's list. After shaping a stop (and in `debug_status` in Break mode) the host adds `watches` by calling `ListWatches` on the extension, **only when it
+  agent's list. After shaping a stop (and in `debug_status` in Break mode) the host adds `watches` by calling `ListWatches` (with `atStop: true`) on the extension, **only when it
   knows its list is not empty** (it counts what `watch_add` and `watch_remove` returned; a new connection starts at zero). With an empty list
   nothing extra is sent. If the program has already resumed when the request arrives, the extension returns the entries without values and the host
   leaves `watches` out of the answer.
@@ -51,7 +51,7 @@ Rules:
 - At most 10 entries, expression at most 500 characters (like `set_value`). Adding beyond the limit is an error that says to remove one.
 - Adding is allowed in any mode (Design, Run, Break); the value appears at the next stop.
 - Values obey the existing masking, truncation (200 characters per value) and the untrusted-text note of `eval`; secrets are masked before they leave Visual Studio.
-- Why Read and not Control: a watch evaluates what `eval` already evaluates for Read, and changes nothing in Visual Studio. Tier consent texts and the audit line name the expression ("watch: order.Total"). The user who sets Read = Ask is asked once per `watch_add`, not at every stop.
+- Why Read and not Control: a watch evaluates what `eval` already evaluates for Read, and changes nothing in Visual Studio. Tier consent texts and the audit line name the expression ("watch: order.Total"). The user who sets Read = Ask is asked once per `watch_add`, not at every stop: the host's read of the values at a stop is the separate operation `ReadWatchValues` (tool name `watch_values`), which Ask lets through because the question was answered when the entry was added; Deny still blocks it, and `watch_list` called by the agent asks like any Read. (A first version asked again at every stop; a run with Read = Ask on Visual Studio 2026 showed it.)
 - Property getters and similar code still run when an expression is evaluated (as in the Watch window); this is the same exposure `eval` has and is stated in `docs/security.md`.
 
 ## Protocol

@@ -39,7 +39,7 @@ public sealed class WatchTools(IConnectionManager connections)
         var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
         if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorWatch) is { } unsupported) return unsupported;
 
-        var result = await bridge.ListWatchesAsync(ctx, ct).ConfigureAwait(false);
+        var result = await bridge.ListWatchesAsync(false, ctx, ct).ConfigureAwait(false);
         connections.Session.SetWatchCount(result.Watches.Length);
         return ToolResponse.Ok(new { watches = result.Watches, hint = result.Watches.Length == 0 ? "The list is empty: add an expression with watch_add." : null });
     });

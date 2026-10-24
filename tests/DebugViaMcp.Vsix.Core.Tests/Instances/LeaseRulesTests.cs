@@ -59,6 +59,7 @@ public class LeaseRulesTests
     [InlineData(Operation.ListExceptionSettings)]
     [InlineData(Operation.AddWatch)]
     [InlineData(Operation.ListWatches)]
+    [InlineData(Operation.ReadWatchValues)]
     [InlineData(Operation.RemoveWatch)]
     [InlineData(Operation.BuildCheck)]
     public void Reads_only_need_the_lease_to_be_free_or_theirs(Operation operation) =>

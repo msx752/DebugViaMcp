@@ -61,7 +61,7 @@ public sealed class FakeDebugBridge : IDebugBridge
     public Func<WatchListResult> OnListWatches { get; set; } = () => new WatchListResult();
     public Func<string?, bool, RemoveWatchResult> OnRemoveWatch { get; set; } = (id, all) => new RemoveWatchResult { Removed = id is null ? [] : [id] };
     public Task<AddWatchResult> AddWatchAsync(string expression, string? name, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("AddWatch:" + expression); return Task.FromResult(OnAddWatch(expression, name)); }
-    public Task<WatchListResult> ListWatchesAsync(CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("ListWatches"); return Task.FromResult(OnListWatches()); }
+    public Task<WatchListResult> ListWatchesAsync(bool atStop, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add(atStop ? "ListWatches:atStop" : "ListWatches"); return Task.FromResult(OnListWatches()); }
     public Task<RemoveWatchResult> RemoveWatchAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("RemoveWatch:" + (all ? "all" : id)); return Task.FromResult(OnRemoveWatch(id, all)); }
 
     public Func<SymbolStatus> OnSymbolStatus { get; set; } = () => new SymbolStatus { JustMyCode = true, RequireSourceToMatch = true };
