@@ -138,6 +138,47 @@ public class WatchBridgeTests
         Assert.Empty((await s.Handler.ListWatchesAsync(false, SecurityHarness.Ctx(), CancellationToken.None)).Watches);
     }
 
+    private sealed class CountingUiThread : DebugViaMcp.Vsix.Core.Abstractions.IUiThread
+    {
+        private readonly InlineUiThread _inner = new();
+        public int Hops { get; private set; }
+
+        public Task<T> RunAsync<T>(Func<T> work, CancellationToken ct)
+        {
+            Hops++;
+            return _inner.RunAsync(work, ct);
+        }
+    }
+
+    [Fact]
+    public async Task Releasing_a_connection_that_never_added_a_watch_makes_no_UI_thread_hop_for_it()
+    {
+        var ui = new CountingUiThread();
+        using var s = new SecurityHarness(ui: ui);
+        await s.HandshakeAsync();
+        var before = ui.Hops;
+
+        await s.Handler.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
+
+        Assert.Equal(before, ui.Hops);
+    }
+
+    [Fact]
+    public async Task Releasing_a_connection_that_added_a_watch_drops_it_in_one_hop()
+    {
+        var ui = new CountingUiThread();
+        using var s = new SecurityHarness(ui: ui);
+        s.Dte.OnEvaluate = _ => new EvaluateResult { IsValid = true, Value = "3", Type = "int" };
+        await s.HandshakeAsync();
+        await s.Handler.AddWatchAsync("i", null, SecurityHarness.Ctx(), CancellationToken.None);
+        var before = ui.Hops;
+
+        await s.Handler.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);
+        await s.Handler.ReleaseAsync(SecurityHarness.Ctx(), CancellationToken.None);   // the list is gone: nothing more to drop
+
+        Assert.Equal(before + 1, ui.Hops);
+    }
+
     [Fact]
     public async Task A_connection_that_goes_away_leaves_no_list_for_the_next_one()
     {

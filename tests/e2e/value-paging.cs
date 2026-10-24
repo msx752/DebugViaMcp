@@ -110,6 +110,14 @@ try
     Check("Visual Studio gives the whole 300,000-character text and the pages rebuild it exactly", big.Total == 300002 && big.Text == expected);
     Check("it took 19 pages of 16384", big.Pages == 19);
 
+    // 1,500,000 characters: the text is read and masked once for all the pages of a stop, so the whole read stays a matter of seconds.
+    const string Huge = "new string('a', 750000) + new string('b', 750000)";
+    var hugeClock = Stopwatch.StartNew();
+    var huge = await ReadAllAsync(Huge, 16384);
+    Console.WriteLine($"   1,500,000 characters in {huge.Pages} pages, {hugeClock.ElapsedMilliseconds} ms in all, slowest page {huge.SlowestMs} ms");
+    Check("Visual Studio gives 1,500,000 characters and the pages rebuild them exactly", huge.Total == 1500002 && huge.Text == "\"" + new string('a', 750000) + new string('b', 750000) + "\"");
+    Check("the whole read took less than 30 seconds", hugeClock.ElapsedMilliseconds < 30_000);
+
     // Boundaries and refusals.
     var past = await Call("eval", new() { ["expression"] = "order.Note", ["offset"] = 9000, ["length"] = 10 });
     Check("an offset past the end is an empty last page", Data(past).GetProperty("value").GetString() == "" && !Data(past).GetProperty("hasMore").GetBoolean());

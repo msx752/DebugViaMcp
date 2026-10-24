@@ -49,6 +49,21 @@ public class WatchTests
     }
 
     [Fact]
+    public async Task A_stop_with_a_list_prepares_nothing_again()
+    {
+        var (svc, dte) = Create();
+        var owner = new object();
+        await AddAsync(svc, owner, "i");
+        var seen = new List<string>();
+        dte.OnEvaluate = e => { seen.Add(e); return new EvaluateResult { IsValid = true, Value = "1", Type = "int" }; };
+
+        await svc.ListWatchesAsync(owner, CancellationToken.None);
+        await svc.ListWatchesAsync(owner, CancellationToken.None);
+
+        Assert.Equal(["i, nse", "i, nse"], seen);
+    }
+
+    [Fact]
     public async Task Evaluation_is_side_effect_free()
     {
         var (svc, dte) = Create();

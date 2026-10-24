@@ -431,7 +431,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
 #pragma warning disable CA1031 // One entry that cannot be read must not fail the others: its message becomes its error.
         try
         {
-            var raw = dte.Evaluate(ExpressionPolicy.PrepareSideEffectFree(entry.Expression));
+            var raw = dte.Evaluate(entry.Prepared);
             var shaped = Shape(entry.Expression, raw);
             var (text, _) = ValueShaper.Truncate(shaped.Value, MaxWatchValueLength);
             if (!shaped.IsValid)
@@ -736,11 +736,27 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return InBreak(() =>
         {
             RequireUnchanged(expected);
+            if (allowSideEffects) _pagedText = null;
             return Shape(expression, dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression)));
         }, ct);
     }
 
     public const int MaxPageLength = 16384;
+
+    /// <summary>The masked text of the value that was paged last, for the pages that follow it at the same stop and frame.</summary>
+    private sealed class PagedText(long epoch, int frame, string expression, string text, string? type, bool masked)
+    {
+        public long Epoch { get; } = epoch;
+        public int Frame { get; } = frame;
+        public string Expression { get; } = expression;
+        public string Text { get; } = text;
+        public string? Type { get; } = type;
+        public bool Masked { get; } = masked;
+    }
+
+    // Weak: the text can be megabytes, and nothing may keep it alive after the agent stopped asking for pages (a collection frees it).
+    // Dropped by anything that can change a value (eval with side effects, set_value) and replaced at every stop (the epoch is part of the key).
+    private WeakReference<PagedText>? _pagedText;
 
     /// <summary>The longest text that can be paged: each page reads the whole value again, so the cost grows with it.</summary>
     public const int MaxPagedTotal = 2_000_000;
@@ -760,20 +776,27 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         var prepared = ExpressionPolicy.PrepareSideEffectFree(expression);
         return InBreak(() =>
         {
-            var raw = dte.Evaluate(prepared);
-            // The failure text can carry the program's data (a getter's exception message): masked and cut like every value of eval.
-            if (!raw.IsValid) throw new BridgeException(BridgeErrorCode.EvalFailed, Shape(expression, raw).Value, "Check the expression against the frame's variables (vars).");
-            if (raw.Value.Length > MaxPagedTotal)   // before masking: that reads the whole text
-                throw new BridgeException(BridgeErrorCode.InvalidArgument, $"The value is longer than {MaxPagedTotal} characters, the most that can be paged.",
-                    "Read a part of it with an expression such as Substring(start, count), or let the program write it to a file.");
-            var masked = MaskOn ? SensitiveValueMask.MaskValue(expression, raw.Value, raw.Type) : new MaskedValue(raw.Value, false);
-            var text = masked.Value ?? "";
+            var frame = dte.CurrentFrameIndex;
+            if (_pagedText is null || !_pagedText.TryGetTarget(out var paged) || paged.Epoch != Epoch || paged.Frame != frame || !string.Equals(paged.Expression, expression, StringComparison.Ordinal))
+            {
+                var raw = dte.Evaluate(prepared);
+                // The failure text can carry the program's data (a getter's exception message): masked and cut like every value of eval.
+                if (!raw.IsValid) throw new BridgeException(BridgeErrorCode.EvalFailed, Shape(expression, raw).Value, "Check the expression against the frame's variables (vars).");
+                if (raw.Value.Length > MaxPagedTotal)   // before masking: that reads the whole text
+                    throw new BridgeException(BridgeErrorCode.InvalidArgument, $"The value is longer than {MaxPagedTotal} characters, the most that can be paged.",
+                        "Read a part of it with an expression such as Substring(start, count), or let the program write it to a file.");
+                var masked = MaskOn ? SensitiveValueMask.MaskValue(expression, raw.Value, raw.Type) : new MaskedValue(raw.Value, false);
+                paged = new PagedText(Epoch, frame, expression, masked.Value ?? "", raw.Type, masked.Masked);
+                _pagedText = new WeakReference<PagedText>(paged);
+            }
+
+            var text = paged.Text;
             var start = Math.Min(offset, text.Length);
             var take = Math.Min(length, text.Length - start);
             return new ValuePage
             {
-                Value = text.Substring(start, take), Type = raw.Type, Offset = offset, TotalLength = text.Length,
-                HasMore = start + take < text.Length, Masked = masked.Masked ? true : null,
+                Value = text.Substring(start, take), Type = paged.Type, Offset = offset, TotalLength = text.Length,
+                HasMore = start + take < text.Length, Masked = paged.Masked ? true : null,
             };
         }, ct);
     }
@@ -788,6 +811,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return InBreak(() =>
         {
             RequireUnchanged(expected);
+            _pagedText = null;
             return Shape(expression, dte.SetValue(expression.Trim(), value.Trim()));
         }, ct);
     }

@@ -81,6 +81,62 @@ public class ValuePageTests
         Assert.EndsWith(", nse", dte.LastEvaluated, StringComparison.Ordinal);
     }
 
+    private static (DebugBridgeService Svc, FakeDte Dte, Func<int> Evaluations) CreateCounting(string text)
+    {
+        var evaluations = 0;
+        var dte = new FakeDte { OnEvaluate = _ => { evaluations++; return new EvaluateResult { IsValid = true, Value = Literal(text), Type = "string" }; } };
+        return (new DebugBridgeService(dte, new InlineUiThread(), new EventSeq(), new NullLog(), "0.1.0"), dte, () => evaluations);
+    }
+
+    [Fact]
+    public async Task All_the_pages_of_one_value_at_one_stop_read_the_text_once()
+    {
+        var (svc, _, evaluations) = CreateCounting(new string('x', 5000));
+
+        for (var offset = 0; offset < 5002; offset += 1000) await svc.ReadValuePageAsync("note", offset, 1000, CancellationToken.None);
+
+        Assert.Equal(1, evaluations());
+    }
+
+    [Fact]
+    public async Task A_new_stop_reads_the_text_again()
+    {
+        var (svc, _, evaluations) = CreateCounting("abc");
+        await svc.ReadValuePageAsync("note", 0, 10, CancellationToken.None);
+
+        svc.OnEnterBreak(BreakReason.Step);
+        await svc.ReadValuePageAsync("note", 0, 10, CancellationToken.None);
+
+        Assert.Equal(2, evaluations());
+    }
+
+    [Fact]
+    public async Task Another_expression_or_another_frame_reads_again()
+    {
+        var (svc, dte, evaluations) = CreateCounting("abc");
+        await svc.ReadValuePageAsync("note", 0, 10, CancellationToken.None);
+
+        await svc.ReadValuePageAsync("other", 0, 10, CancellationToken.None);
+        dte.CurrentFrameIndex = 2;
+        await svc.ReadValuePageAsync("other", 0, 10, CancellationToken.None);
+
+        Assert.Equal(3, evaluations());
+    }
+
+    [Fact]
+    public async Task A_change_made_through_eval_or_set_value_is_never_hidden_by_the_saved_text()
+    {
+        var (svc, _, evaluations) = CreateCounting("abc");
+        await svc.ReadValuePageAsync("note", 0, 10, CancellationToken.None);
+
+        await svc.EvaluateAsync("note = \"x\"", true, CancellationToken.None);
+        await svc.ReadValuePageAsync("note", 0, 10, CancellationToken.None);
+        await svc.SetValueAsync("note", "\"y\"", CancellationToken.None);
+        await svc.ReadValuePageAsync("note", 0, 10, CancellationToken.None);
+
+        Assert.Equal(4, evaluations());   // the first page, the eval with side effects, the page after it, the page after set_value
+    }
+
     [Theory]
     [InlineData(-1, 10)]
     [InlineData(0, 0)]

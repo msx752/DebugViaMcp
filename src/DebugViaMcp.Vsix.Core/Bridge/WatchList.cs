@@ -16,11 +16,14 @@ internal sealed class WatchList
     public const int MaxEntries = 10;
     public const int MaxExpressionLength = 500;
 
-    internal sealed class Entry(string id, string expression, string? name)
+    internal sealed class Entry(string id, string expression, string? name, string prepared)
     {
         public string Id { get; } = id;
         public string Expression { get; } = expression;
         public string? Name { get; } = name;
+
+        /// <summary>The expression as it is evaluated (side-effect free), made once when the entry was added, not at every stop.</summary>
+        public string Prepared { get; } = prepared;
 
         /// <summary>The value text of the last read that gave one; what <c>changed</c> is compared with.</summary>
         public string? LastText { get; set; }
@@ -42,7 +45,7 @@ internal sealed class WatchList
         var text = expression!.Trim();
         if (text.Length > MaxExpressionLength)
             throw new BridgeException(BridgeErrorCode.InvalidArgument, $"expression is longer than {MaxExpressionLength} characters.");
-        ExpressionPolicy.PrepareSideEffectFree(text);   // throws the same invalid_argument as eval
+        var prepared = ExpressionPolicy.PrepareSideEffectFree(text);   // throws the same invalid_argument as eval
 
         var holder = _lists.GetOrCreateValue(owner);
         var existing = holder.Entries.FirstOrDefault(e => string.Equals(e.Expression, text, StringComparison.Ordinal));
@@ -53,7 +56,7 @@ internal sealed class WatchList
                 "Remove one with watch_remove (watch_list shows the ids), then add again.");
 
         var label = string.IsNullOrWhiteSpace(name) ? null : name!.Trim();
-        var entry = new Entry("w" + holder.Next++.ToString(System.Globalization.CultureInfo.InvariantCulture), text, label);
+        var entry = new Entry("w" + holder.Next++.ToString(System.Globalization.CultureInfo.InvariantCulture), text, label, prepared);
         holder.Entries.Add(entry);
         return (entry, false);
     }
