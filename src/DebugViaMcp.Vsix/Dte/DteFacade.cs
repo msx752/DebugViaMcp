@@ -714,24 +714,53 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
         ThreadHelper.ThrowIfNotOnUIThread();
         var frame = dte.Debugger.CurrentStackFrame;
         if (frame is null) return [];
-        var expressions = scope == VariableScope.Args ? frame.Arguments : frame.Locals;
-        return expressions.Cast<Expression>().Take(maxItems).Select(ToInfo).ToList();
+        try
+        {
+            var expressions = scope == VariableScope.Args ? frame.Arguments : frame.Locals;
+            return expressions.Cast<Expression>().Take(maxItems).Select(ToInfo).ToList();
+        }
+        catch (COMException e)
+        {
+            throw new BridgeException(BridgeErrorCode.EvalFailed, CannotEvaluateHere(e), "Look at the other frames of this thread with stack, or select another thread with frame_select.");
+        }
     }
+
+    /// <summary>
+    /// Seen on a thread that waits for a lock (0x89711006): Visual Studio cannot read variables or run code there. Its own stack lines
+    /// ("[Waiting on lock owned by Thread ...]") say what it waits for, so the message sends the agent to stack.
+    /// </summary>
+    private static string CannotEvaluateHere(COMException e) =>
+        $"Visual Studio could not read this here (0x{e.HResult:X8}). The selected thread may be blocked, for example waiting for a lock, and unable to run code. " +
+        "stack shows what it waits for (a frame like [Waiting on lock owned by Thread ...]); a property or a method call needs a running thread: select another thread with frame_select.";
 
     public IReadOnlyList<VariableInfo> Members(string expression, int maxItems)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        var e = dte.Debugger.GetExpression(expression, true, EvalTimeoutMs);
-        if (!e.IsValidValue)
-            throw new BridgeException(BridgeErrorCode.EvalFailed, e.Value, "Check the path against vars output.");
-        return e.DataMembers.Cast<Expression>().Take(maxItems).Select(ToInfo).ToList();
+        try
+        {
+            var e = dte.Debugger.GetExpression(expression, true, EvalTimeoutMs);
+            if (!e.IsValidValue)
+                throw new BridgeException(BridgeErrorCode.EvalFailed, e.Value, "Check the path against vars output.");
+            return e.DataMembers.Cast<Expression>().Take(maxItems).Select(ToInfo).ToList();
+        }
+        catch (COMException ex)
+        {
+            throw new BridgeException(BridgeErrorCode.EvalFailed, CannotEvaluateHere(ex), "Look at the other frames of this thread with stack, or select another thread with frame_select.");
+        }
     }
 
     public EvaluateResult Evaluate(string expression)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        var e = dte.Debugger.GetExpression(expression, true, EvalTimeoutMs);
-        return new EvaluateResult { IsValid = e.IsValidValue, Value = e.Value, Type = e.Type };
+        try
+        {
+            var e = dte.Debugger.GetExpression(expression, true, EvalTimeoutMs);
+            return new EvaluateResult { IsValid = e.IsValidValue, Value = e.Value, Type = e.Type };
+        }
+        catch (COMException e)
+        {
+            return new EvaluateResult { IsValid = false, Value = CannotEvaluateHere(e), Type = "" };
+        }
     }
 
     public EvaluateResult SetValue(string expression, string value)
@@ -757,12 +786,17 @@ internal sealed class DteFacade(DTE2 dte, IErrorList? errorList) : IDteFacade
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         var f2 = f as StackFrame2;
+        // A frame without source (framework or native code, a thread inside a wait) can refuse its name, file or line with E_FAIL: it is still listed, with what it does give.
+        ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return f.FunctionName; }, out var function);
+        ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return f.Language; }, out var language);
+        ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return f2?.FileName; }, out var file);
+        ComSafe.TryRead(() => { ThreadHelper.ThrowIfNotOnUIThread(); return f2 is null ? 0u : f2.LineNumber; }, out var line);
         return new RawFrame
         {
-            Function = f.FunctionName,
-            Language = f.Language,
-            File = string.IsNullOrEmpty(f2?.FileName) ? null : f2!.FileName,
-            Line = f2 is null || f2.LineNumber == 0 ? null : (int)f2.LineNumber,
+            Function = function ?? "(unknown)",
+            Language = language ?? "",
+            File = string.IsNullOrEmpty(file) ? null : file,
+            Line = line == 0 ? null : (int)line,
         };
     }
 

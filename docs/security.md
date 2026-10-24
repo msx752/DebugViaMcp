@@ -30,7 +30,7 @@ change it. The values live in your user settings file, so anything that can writ
 
 | Tier | Operations | Default |
 |---|---|---|
-| Read | status, threads, call stack, frame selection, variables, side-effect-free evaluation, the current exception, list breakpoints, the processes you can attach to, symbol status, `exception_list`, Output window, Error List | Allow |
+| Read | status, threads, call stack, frame selection, variables, side-effect-free evaluation, the current exception, list breakpoints, the processes you can attach to, symbol status, `exception_list`, the agent's own watch list (`watch_add`, `watch_list`, `watch_remove`), Output window, Error List | Allow |
 | Control | breakpoints without conditions (set, remove, enable/disable), start, stop, continue, pause, step, run to, build, Exception Settings (`exception_set`, `exception_reset`) | Allow |
 | Mutate | `set_value`, `eval` with `allowSideEffects`, breakpoint conditions and tracepoint messages, `debug_attach` | **Ask** |
 
@@ -56,6 +56,8 @@ confirmation first.
   Visual Studio instance holds its own pipe token and your sources.
 - `bp_enable(true)` on a breakpoint with a condition or tracepoint is Mutate for the same reason as `bp_set` with one.
 - `exception_set` and `exception_reset` are **Control**: they change a setting of Visual Studio (which exceptions it stops on), not the program. Only what the agent changed is put back, by `exception_reset` or automatically when the agent lets go or disconnects; your own settings are never reset.
+- `watch_add`, `watch_list` and `watch_remove` are **Read**: a watch is evaluated like `eval` without side effects, and the list lives in the agent's connection, not in Visual Studio (nothing is written to your Watch windows or your solution's user options). The expression is checked when it is added, the values are masked and shortened like those of `vars`, and a property getter can still run code when an expression is evaluated, as with `eval`. At most 10 entries.
+- `eval` with `offset` and `length` (a long value read in pages) is **Read**, like `eval` without side effects, and is refused together with `allowSideEffects`. The whole text is read from Visual Studio and masked **before** it is cut, so a secret that a page boundary would split is still hidden; positions are those of the masked text. At most 16384 characters per page and 2,000,000 per value.
 - `vs_build` is **Control**: it runs your project's build, including any custom MSBuild targets.
 
 ### Sensitive values are masked (0.5)

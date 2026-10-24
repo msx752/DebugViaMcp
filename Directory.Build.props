@@ -7,7 +7,7 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <!-- One version for the extension and the MCP server it carries; keep in sync with source.extension.vsixmanifest Identity/@Version. -->
     <!-- First public release is a preview: the VSIX carries <Preview>true</Preview>. Drop VersionSuffix for the stable release. -->
-    <VersionPrefix>0.6.0</VersionPrefix>
+    <VersionPrefix>0.7.0</VersionPrefix>
     <VersionSuffix>preview.1</VersionSuffix>
     <Authors>Mustafa Salih ASLIM</Authors>
     <Copyright>Copyright (c) Mustafa Salih ASLIM</Copyright>

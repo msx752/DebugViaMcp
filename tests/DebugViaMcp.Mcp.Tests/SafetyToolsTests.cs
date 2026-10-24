@@ -32,7 +32,7 @@ public class SafetyToolsTests
         var bridge = new FakeDebugBridge { OnEvaluate = _ => new EvaluateResult { IsValid = false, Value = "Evaluation timed out" } };
         var cm = new FakeConnectionManager(bridge);
 
-        var error = Json(await new InspectionTools(cm).Eval("Enumerable.Range(1, 1000000000).Sum()", false, CancellationToken.None)).GetProperty("error");
+        var error = Json(await new InspectionTools(cm).Eval("Enumerable.Range(1, 1000000000).Sum()", false, ct: CancellationToken.None)).GetProperty("error");
 
         Assert.Equal("eval_failed", error.GetProperty("code").GetString());
         var hint = error.GetProperty("hint").GetString();
@@ -46,7 +46,7 @@ public class SafetyToolsTests
         var bridge = new FakeDebugBridge { OnEvaluate = _ => new EvaluateResult { IsValid = false, Value = "error CS0103: The name 'x' does not exist" } };
         var cm = new FakeConnectionManager(bridge);
 
-        var error = Json(await new InspectionTools(cm).Eval("x", false, CancellationToken.None)).GetProperty("error");
+        var error = Json(await new InspectionTools(cm).Eval("x", false, ct: CancellationToken.None)).GetProperty("error");
 
         Assert.Contains("vars", error.GetProperty("hint").GetString(), StringComparison.Ordinal);
     }
@@ -73,7 +73,7 @@ public class SafetyToolsTests
         var cm = new FakeConnectionManager(new FakeDebugBridge());
         var tools = new InspectionTools(cm);
 
-        await tools.Eval("order.Touch()", allowSideEffects: true, CancellationToken.None);
+        await tools.Eval("order.Touch()", allowSideEffects: true, ct: CancellationToken.None);
         Assert.True(cm.Bridge.LastAllowSideEffects);
 
         await tools.Eval("order.Touch()", ct: CancellationToken.None);

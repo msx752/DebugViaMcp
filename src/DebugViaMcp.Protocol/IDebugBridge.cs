@@ -84,6 +84,25 @@ public interface IDebugBridge
     /// <summary>Protocol 2.8. Restores what this connection changed with <see cref="SetExceptionSettingsAsync"/> (tier control).</summary>
     Task<ExceptionResetResult> ResetExceptionSettingsAsync(CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>Protocol 2.9. Adds an expression to this connection's watch list (tier read). The expression must be side-effect free; the value comes at the next stop.</summary>
+    Task<AddWatchResult> AddWatchAsync(string expression, string? name, CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Protocol 2.9. The list with each value read now in the selected frame; without values outside Break mode (tier read).
+    /// <paramref name="atStop"/> is true when the server reads the values to put them in the answer of a stop: that read is covered by the
+    /// question of <see cref="AddWatchAsync"/> and asks nothing more when Read is Ask (Deny still blocks it).
+    /// </summary>
+    Task<WatchListResult> ListWatchesAsync(bool atStop, CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>Protocol 2.9. Removes one entry by id, or all of them (tier read).</summary>
+    Task<RemoveWatchResult> RemoveWatchAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Protocol 2.9. Reads one page of the value of a side-effect-free expression: <paramref name="length"/> characters of the text Visual Studio shows,
+    /// from <paramref name="offset"/> (tier read, like evaluate). Masked as a whole before it is cut.
+    /// </summary>
+    Task<ValuePage> ReadValuePageAsync(string expression, int offset, int length, CallContext context, CancellationToken cancellationToken);
+
     /// <summary>Protocol 2.2. Gives up this connection's hold on the Visual Studio so another agent can use it.</summary>
     Task ReleaseAsync(CallContext context, CancellationToken cancellationToken);
 

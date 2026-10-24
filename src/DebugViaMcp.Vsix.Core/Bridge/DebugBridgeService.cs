@@ -405,6 +405,55 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     /// <summary>Puts back what the owner changed and forgets it (the owner's hold on Visual Studio ended).</summary>
     public Task ReleaseExceptionSettingsAsync(object owner) => ui.RunAsync(() => { _exceptions.Release(owner); return true; }, CancellationToken.None);
 
+    private readonly WatchList _watches = new();
+    private const int MaxWatchValueLength = 200;
+
+    public Task<AddWatchResult> AddWatchAsync(object owner, string expression, string? name, CancellationToken ct) => ui.RunAsync(() =>
+    {
+        var (entry, existed) = _watches.Add(owner, expression, name);
+        return new AddWatchResult { Watch = ReadWatch(entry), AlreadyExisted = existed };
+    }, ct);
+
+    /// <summary>Every entry of the owner with its value read now in the selected frame; without values outside Break mode.</summary>
+    public Task<WatchListResult> ListWatchesAsync(object owner, CancellationToken ct) =>
+        ui.RunAsync(() => new WatchListResult { Watches = _watches.Entries(owner).Select(ReadWatch).ToArray() }, ct);
+
+    public Task<RemoveWatchResult> RemoveWatchAsync(object owner, string? id, bool all, CancellationToken ct) =>
+        ui.RunAsync(() => new RemoveWatchResult { Removed = _watches.Remove(owner, id, all) }, ct);
+
+    /// <summary>The owner's hold on Visual Studio ended: its watch list is forgotten.</summary>
+    public Task ReleaseWatchesAsync(object owner) => ui.RunAsync(() => { _watches.Clear(owner); return true; }, CancellationToken.None);
+
+    private WatchValue ReadWatch(WatchList.Entry entry)
+    {
+        var watch = new WatchValue { Id = entry.Id, Expression = entry.Expression, Name = entry.Name };
+        if (dte.Mode != DebuggerMode.Break) return watch;
+#pragma warning disable CA1031 // One entry that cannot be read must not fail the others: its message becomes its error.
+        try
+        {
+            var raw = dte.Evaluate(entry.Prepared);
+            var shaped = Shape(entry.Expression, raw);
+            var (text, _) = ValueShaper.Truncate(shaped.Value, MaxWatchValueLength);
+            if (!shaped.IsValid)
+            {
+                watch.Error = text;
+                return watch;
+            }
+
+            watch.Value = text;
+            watch.Type = shaped.Type;
+            watch.Changed = entry.LastText is not null && !string.Equals(entry.LastText, text, StringComparison.Ordinal);
+            entry.LastText = text;
+        }
+        catch (Exception e)
+        {
+            watch.Error = ValueShaper.Truncate(e.Message, MaxWatchValueLength).Value;
+        }
+#pragma warning restore CA1031
+
+        return watch;
+    }
+
     /// <summary>The process name for the consent question; validates mode and target first, so a doomed request never asks.</summary>
     public Task<string> DescribeAttachTargetAsync(int pid, CancellationToken ct) => ui.RunAsync(() => RequireAttachable(pid).Name, ct);
 
@@ -687,7 +736,68 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return InBreak(() =>
         {
             RequireUnchanged(expected);
+            if (allowSideEffects) _pagedText = null;
             return Shape(expression, dte.Evaluate(allowSideEffects ? expression.Trim() : ExpressionPolicy.PrepareSideEffectFree(expression)));
+        }, ct);
+    }
+
+    public const int MaxPageLength = 16384;
+
+    /// <summary>The masked text of the value that was paged last, for the pages that follow it at the same stop and frame.</summary>
+    private sealed class PagedText(long epoch, int frame, string expression, string text, string? type, bool masked)
+    {
+        public long Epoch { get; } = epoch;
+        public int Frame { get; } = frame;
+        public string Expression { get; } = expression;
+        public string Text { get; } = text;
+        public string? Type { get; } = type;
+        public bool Masked { get; } = masked;
+    }
+
+    // Weak: the text can be megabytes, and nothing may keep it alive after the agent stopped asking for pages (a collection frees it).
+    // Dropped by anything that can change a value (eval with side effects, set_value) and replaced at every stop (the epoch is part of the key).
+    private WeakReference<PagedText>? _pagedText;
+
+    /// <summary>The longest text that can be paged: each page reads the whole value again, so the cost grows with it.</summary>
+    public const int MaxPagedTotal = 2_000_000;
+
+    /// <summary>
+    /// A page of the displayed text of a side-effect-free expression. The text is read once and masked as a whole, then cut: a secret that a page
+    /// boundary would split is still hidden. One evaluation per page, none of it with side effects.
+    /// </summary>
+    public Task<ValuePage> ReadValuePageAsync(string expression, int offset, int length, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, "expression is empty.");
+        if (offset < 0)
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, "offset must be 0 or more.");
+        if (length < 1 || length > MaxPageLength)
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, $"length must be between 1 and {MaxPageLength}.");
+        var prepared = ExpressionPolicy.PrepareSideEffectFree(expression);
+        return InBreak(() =>
+        {
+            var frame = dte.CurrentFrameIndex;
+            if (_pagedText is null || !_pagedText.TryGetTarget(out var paged) || paged.Epoch != Epoch || paged.Frame != frame || !string.Equals(paged.Expression, expression, StringComparison.Ordinal))
+            {
+                var raw = dte.Evaluate(prepared);
+                // The failure text can carry the program's data (a getter's exception message): masked and cut like every value of eval.
+                if (!raw.IsValid) throw new BridgeException(BridgeErrorCode.EvalFailed, Shape(expression, raw).Value, "Check the expression against the frame's variables (vars).");
+                if (raw.Value.Length > MaxPagedTotal)   // before masking: that reads the whole text
+                    throw new BridgeException(BridgeErrorCode.InvalidArgument, $"The value is longer than {MaxPagedTotal} characters, the most that can be paged.",
+                        "Read a part of it with an expression such as Substring(start, count), or let the program write it to a file.");
+                var masked = MaskOn ? SensitiveValueMask.MaskValue(expression, raw.Value, raw.Type) : new MaskedValue(raw.Value, false);
+                paged = new PagedText(Epoch, frame, expression, masked.Value ?? "", raw.Type, masked.Masked);
+                _pagedText = new WeakReference<PagedText>(paged);
+            }
+
+            var text = paged.Text;
+            var start = Math.Min(offset, text.Length);
+            var take = Math.Min(length, text.Length - start);
+            return new ValuePage
+            {
+                Value = text.Substring(start, take), Type = paged.Type, Offset = offset, TotalLength = text.Length,
+                HasMore = start + take < text.Length, Masked = paged.Masked ? true : null,
+            };
         }, ct);
     }
 
@@ -701,6 +811,7 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         return InBreak(() =>
         {
             RequireUnchanged(expected);
+            _pagedText = null;
             return Shape(expression, dte.SetValue(expression.Trim(), value.Trim()));
         }, ct);
     }

@@ -41,6 +41,9 @@ The extension and the server check each other's version at connection time (`Ver
 - **Marketplace upload** is the last job of the release workflow. It waits for approval of the `marketplace`
   environment and is skipped unless the repository secret `VS_MARKETPLACE_PAT` exists (Azure DevOps personal access
   token, scope *Marketplace → Manage*, all accessible organizations).
+  The secret lives in the `marketplace` environment. The current token was created on 2026-10-23 for one year: renew it and
+  replace the secret before 2027-10-23. An expired token makes the upload step fail; only a missing secret is skipped
+  ("VS_MARKETPLACE_PAT is not set").
 - `scripts\check-version.ps1` fails when `VersionPrefix`, the manifest version and the changelog section disagree.
 
 ## Cutting a release

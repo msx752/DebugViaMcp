@@ -213,6 +213,66 @@ public sealed class ExceptionResetResult
     public ExceptionChange[] Restored { get; set; } = [];
 }
 
+/// <summary>One entry of an agent's watch list and its value at the current stop (protocol 2.9). Debuggee text: untrusted.</summary>
+public sealed class WatchValue
+{
+    /// <summary>Stable inside the connection that added it.</summary>
+    public string Id { get; set; } = "";
+    public string Expression { get; set; } = "";
+
+    /// <summary>The label the agent gave it; omitted when there is none.</summary>
+    public string? Name { get; set; }
+
+    /// <summary>Value text at this stop; omitted outside Break mode and when <see cref="Error"/> is set.</summary>
+    public string? Value { get; set; }
+    public string? Type { get; set; }
+
+    /// <summary>True when the value text differs from the one at the previous stop that read it; false for the first value.</summary>
+    public bool Changed { get; set; }
+
+    /// <summary>Why this entry has no value (for example not in scope in this frame); one entry failing never fails the call.</summary>
+    public string? Error { get; set; }
+}
+
+public sealed class AddWatchResult
+{
+    public WatchValue Watch { get; set; } = new();
+
+    /// <summary>True when the same expression was already on the list; <see cref="Watch"/> is that entry.</summary>
+    public bool AlreadyExisted { get; set; }
+}
+
+public sealed class WatchListResult
+{
+    public WatchValue[] Watches { get; set; } = [];
+}
+
+public sealed class RemoveWatchResult
+{
+    /// <summary>Ids that were removed.</summary>
+    public string[] Removed { get; set; } = [];
+}
+
+/// <summary>
+/// One page of a long value (protocol 2.9): a slice of the text Visual Studio shows for it (quotes and escapes included), cut after the whole
+/// text was masked. Offsets are in that text; the pages of one value put together are the whole text.
+/// </summary>
+public sealed class ValuePage
+{
+    public string Value { get; set; } = "";
+    public string? Type { get; set; }
+    public int Offset { get; set; }
+
+    /// <summary>Length of the whole text (after masking).</summary>
+    public int TotalLength { get; set; }
+
+    /// <summary>True when text follows this page.</summary>
+    public bool HasMore { get; set; }
+
+    /// <summary>True when a secret-looking part was replaced before the text was cut; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
+}
+
 public sealed class SetBreakpointResult
 {
     public BreakpointInfo Breakpoint { get; set; } = new();

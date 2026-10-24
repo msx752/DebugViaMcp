@@ -68,6 +68,24 @@ public sealed class SessionState : IDebugBridgeEvents
         }
     }
 
+    private int _watchCount;
+
+    /// <summary>How many entries this agent's watch list has, as the extension last said (watch_add, watch_remove, watch_list). Zero means a stop asks the extension for nothing.</summary>
+    public int WatchCount => Volatile.Read(ref _watchCount);
+
+    public void SetWatchCount(int count) => Volatile.Write(ref _watchCount, Math.Max(count, 0));
+
+    public void AddWatches(int delta)
+    {
+        int current, next;
+        do
+        {
+            current = Volatile.Read(ref _watchCount);
+            next = Math.Max(current + delta, 0);
+        }
+        while (Interlocked.CompareExchange(ref _watchCount, next, current) != current);
+    }
+
     /// <summary>Longest a tool may wait for a break; the user's Options (sent in the handshake) can lower or raise it.</summary>
     public static readonly TimeSpan DefaultMaxWait = TimeSpan.FromSeconds(120);
 

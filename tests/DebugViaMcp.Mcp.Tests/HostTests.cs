@@ -40,7 +40,7 @@ public sealed class HostTests : IDisposable
 
         Assert.Equal(
             ["bp_enable", "bp_list", "bp_remove", "bp_set", "debug_attach", "debug_continue", "debug_pause", "debug_run_to", "debug_start", "debug_status",
-             "debug_step", "debug_stop", "debug_wait", "diag", "errors_list", "eval", "exception", "exception_list", "exception_reset", "exception_set", "frame_select", "output_read", "process_list", "set_value", "stack", "symbol_status", "threads", "vars", "vs_build", "vs_instances", "vs_release", "vs_select"],
+             "debug_step", "debug_stop", "debug_wait", "diag", "errors_list", "eval", "exception", "exception_list", "exception_reset", "exception_set", "frame_select", "output_read", "process_list", "set_value", "stack", "symbol_status", "threads", "vars", "vs_build", "vs_instances", "vs_release", "vs_select", "watch_add", "watch_list", "watch_remove"],
             names);
     }
 

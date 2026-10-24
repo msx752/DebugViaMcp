@@ -6,6 +6,14 @@ namespace DebugViaMcp.Vsix.Core.Tests.Security;
 
 public class PermissionPolicyTests
 {
+    /// <summary>The question was asked when the entry was added: reading it at a stop is covered by that answer, and Deny still blocks it.</summary>
+    [Theory]
+    [InlineData(PermissionLevel.Allow, PermissionLevel.Allow)]
+    [InlineData(PermissionLevel.Ask, PermissionLevel.Allow)]
+    [InlineData(PermissionLevel.Deny, PermissionLevel.Deny)]
+    public void Watch_values_at_a_stop_never_ask_again(PermissionLevel read, PermissionLevel expected) =>
+        Assert.Equal(expected, PermissionPolicy.Decide(Operation.ReadWatchValues, new PermissionSet { Read = read }));
+
     [Fact]
     public void Defaults_allow_read_and_control_and_ask_for_mutate()
     {
@@ -42,6 +50,10 @@ public class PermissionPolicyTests
     [InlineData(Operation.ListExceptionSettings, PermissionTier.Read)]
     [InlineData(Operation.SetExceptionSettings, PermissionTier.Control)]
     [InlineData(Operation.ResetExceptionSettings, PermissionTier.Control)]
+    [InlineData(Operation.AddWatch, PermissionTier.Read)]
+    [InlineData(Operation.ListWatches, PermissionTier.Read)]
+    [InlineData(Operation.ReadWatchValues, PermissionTier.Read)]
+    [InlineData(Operation.RemoveWatch, PermissionTier.Read)]
     [InlineData(Operation.Attach, PermissionTier.Mutate)]
     [InlineData(Operation.OutputRead, PermissionTier.Read)]
     [InlineData(Operation.ErrorList, PermissionTier.Read)]
@@ -84,5 +96,9 @@ public class PermissionPolicyTests
         Assert.Equal("exception_list", PermissionPolicy.ToolName(Operation.ListExceptionSettings));
         Assert.Equal("exception_set", PermissionPolicy.ToolName(Operation.SetExceptionSettings));
         Assert.Equal("exception_reset", PermissionPolicy.ToolName(Operation.ResetExceptionSettings));
+        Assert.Equal("watch_add", PermissionPolicy.ToolName(Operation.AddWatch));
+        Assert.Equal("watch_list", PermissionPolicy.ToolName(Operation.ListWatches));
+        Assert.Equal("watch_values", PermissionPolicy.ToolName(Operation.ReadWatchValues));
+        Assert.Equal("watch_remove", PermissionPolicy.ToolName(Operation.RemoveWatch));
     }
 }

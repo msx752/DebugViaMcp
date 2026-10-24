@@ -192,6 +192,28 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             cancellationToken).ConfigureAwait(false);
     }
 
+    public Task<ValuePage> ReadValuePageAsync(string expression, int offset, int length, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Evaluate, context, () => service.ReadValuePageAsync(expression, offset, length, cancellationToken),
+            Request.Of(expression, ("expression", expression), ("offset", offset.ToString(CultureInfo.InvariantCulture)), ("length", length.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
+
+    // Set once this connection holds a watch list, so letting go of a connection that never had one needs no hop to the UI thread.
+    private int _watchesAdded;
+
+    public async Task<AddWatchResult> AddWatchAsync(string expression, string? name, CallContext context, CancellationToken cancellationToken)
+    {
+        var result = await Guard(Operation.AddWatch, context, () => service.AddWatchAsync(this, expression, name, cancellationToken),
+            Request.Of(expression, ("expression", expression), ("name", name)), null, cancellationToken).ConfigureAwait(false);
+        Volatile.Write(ref _watchesAdded, 1);
+        return result;
+    }
+
+    public Task<WatchListResult> ListWatchesAsync(bool atStop, CallContext context, CancellationToken cancellationToken) =>
+        Guard(atStop ? Operation.ReadWatchValues : Operation.ListWatches, context, () => service.ListWatchesAsync(this, cancellationToken), null, null, cancellationToken);
+
+    public Task<RemoveWatchResult> RemoveWatchAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.RemoveWatch, context, () => service.RemoveWatchAsync(this, id, all, cancellationToken),
+            Request.Of(all ? "all" : id ?? "", ("id", id), ("all", all ? "true" : "false")), null, cancellationToken);
+
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken)
     {
         // Set when the question is prepared: the approval covers the process the question named.
@@ -482,6 +504,11 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
     private void ReleaseLease()
     {
+        // The agent's watch list ends with its hold, whether or not it ever took the lease (a watch needs none).
+        if (Interlocked.Exchange(ref _watchesAdded, 0) == 1)
+            _ = service.ReleaseWatchesAsync(this).ContinueWith(
+                t => log.Warn($"Dropping the watch list of '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         if (!security.Lease.Release(_connectionId)) return;
         AuditLease("released");
         // The agent can no longer call exception_reset: put its Exception Settings changes back now.

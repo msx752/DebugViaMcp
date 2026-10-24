@@ -33,6 +33,18 @@ public enum Operation
     /// <summary>exception_reset: puts back what exception_set changed.</summary>
     ResetExceptionSettings,
 
+    /// <summary>watch_add: puts a side-effect-free expression on the agent's own list (nothing changes in Visual Studio).</summary>
+    AddWatch,
+
+    /// <summary>watch_list: the list with each value read at the current stop.</summary>
+    ListWatches,
+
+    /// <summary>watch_remove: takes entries off the agent's own list.</summary>
+    RemoveWatch,
+
+    /// <summary>The values of the agent's watch list that come with a stop (the host asks for them itself). Covered by the question of watch_add.</summary>
+    ReadWatchValues,
+
     /// <summary>debug_attach: the debugger can read and change the attached process's memory.</summary>
     Attach,
 
@@ -75,7 +87,7 @@ public static class PermissionPolicy
     {
         Operation.Status or Operation.ListBreakpoints or Operation.Stack or Operation.Variables or Operation.Evaluate
             or Operation.Threads or Operation.FrameSelect or Operation.Exception
-            or Operation.ListProcesses or Operation.SymbolStatus or Operation.ListExceptionSettings or Operation.OutputRead or Operation.ErrorList
+            or Operation.ListProcesses or Operation.SymbolStatus or Operation.ListExceptionSettings or Operation.AddWatch or Operation.ListWatches or Operation.RemoveWatch or Operation.ReadWatchValues or Operation.OutputRead or Operation.ErrorList
             or Operation.Connect or Operation.Release or Operation.BuildCheck => PermissionTier.Read,
         Operation.SetBreakpoint or Operation.RemoveBreakpoints or Operation.Start or Operation.Stop
             or Operation.Continue or Operation.Pause or Operation.Step or Operation.EnableBreakpoint
@@ -88,6 +100,8 @@ public static class PermissionPolicy
     public static PermissionLevel Decide(Operation operation, PermissionSet permissions)
     {
         if (permissions is null) throw new ArgumentNullException(nameof(permissions));
+        // The user answered for the entry when it was added; every stop asking again would make Ask unusable. Deny still blocks.
+        if (operation == Operation.ReadWatchValues && permissions.Read == PermissionLevel.Ask) return PermissionLevel.Allow;
         return TierOf(operation) switch
         {
             PermissionTier.Read => permissions.Read,
@@ -121,6 +135,10 @@ public static class PermissionPolicy
         Operation.ListExceptionSettings => "exception_list",
         Operation.SetExceptionSettings => "exception_set",
         Operation.ResetExceptionSettings => "exception_reset",
+        Operation.AddWatch => "watch_add",
+        Operation.ListWatches => "watch_list",
+        Operation.RemoveWatch => "watch_remove",
+        Operation.ReadWatchValues => "watch_values",
         Operation.OutputRead => "output_read",
         Operation.ErrorList => "errors_list",
         Operation.Build => "vs_build",

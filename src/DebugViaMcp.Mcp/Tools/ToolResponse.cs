@@ -89,13 +89,42 @@ internal static class ToolResponse
         return new { index = f.Index, threadId = f.ThreadId };
     }
 
-    public static object FromOutcome(WaitOutcome outcome) => outcome.Kind switch
+    public static object FromOutcome(WaitOutcome outcome, WatchValue[]? watches = null) => outcome.Kind switch
     {
-        WaitOutcomeKind.Break => new { state = "break", snapshot = Snapshot(outcome.Break!.Snapshot) },
+        WaitOutcomeKind.Break => new { state = "break", snapshot = Snapshot(outcome.Break!.Snapshot), watches },
         WaitOutcomeKind.Timeout => new { state = "running", hint = "The program has not stopped yet. Call debug_wait to keep waiting, or debug_pause." },
         WaitOutcomeKind.Ended => new { state = "design", message = "The debugging session ended." },
         _ => new { state = "disconnected", message = "The connection to Visual Studio was lost." },
     };
+
+    /// <summary>The stop answer, with the agent's watch values when it has any (see <see cref="ReadWatchesAsync"/>).</summary>
+    public static async Task<object> StopAnswerAsync(IConnectionManager connections, IDebugBridge bridge, WaitOutcome outcome, CallContext ctx, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(outcome);
+        var watches = outcome.Kind == WaitOutcomeKind.Break ? await ReadWatchesAsync(connections, bridge, ctx, ct).ConfigureAwait(false) : null;
+        return FromOutcome(outcome, watches);
+    }
+
+    /// <summary>
+    /// The values of the agent's watch list now, or null: nothing is asked while the list is known to be empty or the extension is older than 2.9, a failing read
+    /// never fails the answer it belongs to, and entries without any value (the program resumed meanwhile) are left out.
+    /// </summary>
+    public static async Task<WatchValue[]?> ReadWatchesAsync(IConnectionManager connections, IDebugBridge bridge, CallContext ctx, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(connections);
+        var session = connections.Session;
+        if (session.WatchCount == 0 || connections.RemoteProtocolMinor < ProtocolInfo.MinorWatch) return null;
+        try
+        {
+            var list = await bridge.ListWatchesAsync(true, ctx, ct).ConfigureAwait(false);
+            session.SetWatchCount(list.Watches.Length);
+            return list.Watches.Any(w => w.Value is not null || w.Error is not null) ? list.Watches : null;
+        }
+        catch (Exception e) when (e is RemoteInvocationException or ConnectionLostException or McpBridgeException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>Gives the call a callId, logs its completion inside that scope, and turns expected failures into coded errors.</summary>
     public static async Task<CallToolResult> RunAsync(IConnectionManager connections, string tool, Func<CallContext, Task<CallToolResult>> body)
