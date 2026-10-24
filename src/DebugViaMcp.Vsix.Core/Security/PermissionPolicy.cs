@@ -33,6 +33,15 @@ public enum Operation
     /// <summary>exception_reset: puts back what exception_set changed.</summary>
     ResetExceptionSettings,
 
+    /// <summary>watch_add: puts a side-effect-free expression on the agent's own list (nothing changes in Visual Studio).</summary>
+    AddWatch,
+
+    /// <summary>watch_list: the list with each value read at the current stop.</summary>
+    ListWatches,
+
+    /// <summary>watch_remove: takes entries off the agent's own list.</summary>
+    RemoveWatch,
+
     /// <summary>debug_attach: the debugger can read and change the attached process's memory.</summary>
     Attach,
 
@@ -75,7 +84,7 @@ public static class PermissionPolicy
     {
         Operation.Status or Operation.ListBreakpoints or Operation.Stack or Operation.Variables or Operation.Evaluate
             or Operation.Threads or Operation.FrameSelect or Operation.Exception
-            or Operation.ListProcesses or Operation.SymbolStatus or Operation.ListExceptionSettings or Operation.OutputRead or Operation.ErrorList
+            or Operation.ListProcesses or Operation.SymbolStatus or Operation.ListExceptionSettings or Operation.AddWatch or Operation.ListWatches or Operation.RemoveWatch or Operation.OutputRead or Operation.ErrorList
             or Operation.Connect or Operation.Release or Operation.BuildCheck => PermissionTier.Read,
         Operation.SetBreakpoint or Operation.RemoveBreakpoints or Operation.Start or Operation.Stop
             or Operation.Continue or Operation.Pause or Operation.Step or Operation.EnableBreakpoint
@@ -121,6 +130,9 @@ public static class PermissionPolicy
         Operation.ListExceptionSettings => "exception_list",
         Operation.SetExceptionSettings => "exception_set",
         Operation.ResetExceptionSettings => "exception_reset",
+        Operation.AddWatch => "watch_add",
+        Operation.ListWatches => "watch_list",
+        Operation.RemoveWatch => "watch_remove",
         Operation.OutputRead => "output_read",
         Operation.ErrorList => "errors_list",
         Operation.Build => "vs_build",

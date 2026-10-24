@@ -192,6 +192,17 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             cancellationToken).ConfigureAwait(false);
     }
 
+    public Task<AddWatchResult> AddWatchAsync(string expression, string? name, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.AddWatch, context, () => service.AddWatchAsync(this, expression, name, cancellationToken),
+            Request.Of(expression, ("expression", expression), ("name", name)), null, cancellationToken);
+
+    public Task<WatchListResult> ListWatchesAsync(CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.ListWatches, context, () => service.ListWatchesAsync(this, cancellationToken), null, null, cancellationToken);
+
+    public Task<RemoveWatchResult> RemoveWatchAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.RemoveWatch, context, () => service.RemoveWatchAsync(this, id, all, cancellationToken),
+            Request.Of(all ? "all" : id ?? "", ("id", id), ("all", all ? "true" : "false")), null, cancellationToken);
+
     public Task<long> AttachAsync(int pid, CallContext context, CancellationToken cancellationToken)
     {
         // Set when the question is prepared: the approval covers the process the question named.
@@ -482,6 +493,10 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
 
     private void ReleaseLease()
     {
+        // The agent's watch list ends with its hold, whether or not it ever took the lease (a watch needs none).
+        _ = service.ReleaseWatchesAsync(this).ContinueWith(
+            t => log.Warn($"Dropping the watch list of '{_client}' failed: {t.Exception?.GetBaseException().Message}"),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         if (!security.Lease.Release(_connectionId)) return;
         AuditLease("released");
         // The agent can no longer call exception_reset: put its Exception Settings changes back now.

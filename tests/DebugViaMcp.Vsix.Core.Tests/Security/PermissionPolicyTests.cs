@@ -42,6 +42,9 @@ public class PermissionPolicyTests
     [InlineData(Operation.ListExceptionSettings, PermissionTier.Read)]
     [InlineData(Operation.SetExceptionSettings, PermissionTier.Control)]
     [InlineData(Operation.ResetExceptionSettings, PermissionTier.Control)]
+    [InlineData(Operation.AddWatch, PermissionTier.Read)]
+    [InlineData(Operation.ListWatches, PermissionTier.Read)]
+    [InlineData(Operation.RemoveWatch, PermissionTier.Read)]
     [InlineData(Operation.Attach, PermissionTier.Mutate)]
     [InlineData(Operation.OutputRead, PermissionTier.Read)]
     [InlineData(Operation.ErrorList, PermissionTier.Read)]
@@ -84,5 +87,8 @@ public class PermissionPolicyTests
         Assert.Equal("exception_list", PermissionPolicy.ToolName(Operation.ListExceptionSettings));
         Assert.Equal("exception_set", PermissionPolicy.ToolName(Operation.SetExceptionSettings));
         Assert.Equal("exception_reset", PermissionPolicy.ToolName(Operation.ResetExceptionSettings));
+        Assert.Equal("watch_add", PermissionPolicy.ToolName(Operation.AddWatch));
+        Assert.Equal("watch_list", PermissionPolicy.ToolName(Operation.ListWatches));
+        Assert.Equal("watch_remove", PermissionPolicy.ToolName(Operation.RemoveWatch));
     }
 }

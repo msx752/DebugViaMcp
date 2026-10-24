@@ -87,6 +87,33 @@ public class DtoRoundTripTests
     }
 
     [Fact]
+    public void Watch_wire_format()
+    {
+        Assert.Equal(
+            "{\"id\":\"w1\",\"expression\":\"order.Total\",\"name\":\"total\",\"value\":\"12\",\"type\":\"decimal\",\"changed\":true}",
+            ProtocolJson.Serialize(new WatchValue { Id = "w1", Expression = "order.Total", Name = "total", Value = "12", Type = "decimal", Changed = true }));
+        Assert.Equal(
+            "{\"id\":\"w2\",\"expression\":\"x\",\"changed\":false,\"error\":\"not in scope\"}",
+            ProtocolJson.Serialize(new WatchValue { Id = "w2", Expression = "x", Error = "not in scope" }));
+        Assert.Equal("{\"watches\":[]}", ProtocolJson.Serialize(new WatchListResult()));
+        Assert.Equal("{\"removed\":[]}", ProtocolJson.Serialize(new RemoveWatchResult()));
+        Assert.Equal(
+            "{\"watch\":{\"id\":\"w1\",\"expression\":\"i\",\"changed\":false},\"alreadyExisted\":true}",
+            ProtocolJson.Serialize(new AddWatchResult { Watch = new WatchValue { Id = "w1", Expression = "i" }, AlreadyExisted = true }));
+    }
+
+    [Fact]
+    public void Watch_round_trip()
+    {
+        var copy = RoundTrip(new WatchListResult { Watches = [new WatchValue { Id = "w1", Expression = "i", Value = "3", Type = "int", Changed = true }] });
+
+        Assert.Equal("w1", copy.Watches[0].Id);
+        Assert.Equal("3", copy.Watches[0].Value);
+        Assert.True(copy.Watches[0].Changed);
+        Assert.Null(copy.Watches[0].Error);
+    }
+
+    [Fact]
     public void A_minor_7_payload_still_deserializes()
     {
         var old = ProtocolJson.Deserialize<SymbolStatus>("{\"justMyCode\":true,\"unbound\":[],\"notes\":[]}")!;

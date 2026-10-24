@@ -405,6 +405,55 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
     /// <summary>Puts back what the owner changed and forgets it (the owner's hold on Visual Studio ended).</summary>
     public Task ReleaseExceptionSettingsAsync(object owner) => ui.RunAsync(() => { _exceptions.Release(owner); return true; }, CancellationToken.None);
 
+    private readonly WatchList _watches = new();
+    private const int MaxWatchValueLength = 200;
+
+    public Task<AddWatchResult> AddWatchAsync(object owner, string expression, string? name, CancellationToken ct) => ui.RunAsync(() =>
+    {
+        var (entry, existed) = _watches.Add(owner, expression, name);
+        return new AddWatchResult { Watch = ReadWatch(entry), AlreadyExisted = existed };
+    }, ct);
+
+    /// <summary>Every entry of the owner with its value read now in the selected frame; without values outside Break mode.</summary>
+    public Task<WatchListResult> ListWatchesAsync(object owner, CancellationToken ct) =>
+        ui.RunAsync(() => new WatchListResult { Watches = _watches.Entries(owner).Select(ReadWatch).ToArray() }, ct);
+
+    public Task<RemoveWatchResult> RemoveWatchAsync(object owner, string? id, bool all, CancellationToken ct) =>
+        ui.RunAsync(() => new RemoveWatchResult { Removed = _watches.Remove(owner, id, all) }, ct);
+
+    /// <summary>The owner's hold on Visual Studio ended: its watch list is forgotten.</summary>
+    public Task ReleaseWatchesAsync(object owner) => ui.RunAsync(() => { _watches.Clear(owner); return true; }, CancellationToken.None);
+
+    private WatchValue ReadWatch(WatchList.Entry entry)
+    {
+        var watch = new WatchValue { Id = entry.Id, Expression = entry.Expression, Name = entry.Name };
+        if (dte.Mode != DebuggerMode.Break) return watch;
+#pragma warning disable CA1031 // One entry that cannot be read must not fail the others: its message becomes its error.
+        try
+        {
+            var raw = dte.Evaluate(ExpressionPolicy.PrepareSideEffectFree(entry.Expression));
+            var shaped = Shape(entry.Expression, raw);
+            var (text, _) = ValueShaper.Truncate(shaped.Value, MaxWatchValueLength);
+            if (!shaped.IsValid)
+            {
+                watch.Error = text;
+                return watch;
+            }
+
+            watch.Value = text;
+            watch.Type = shaped.Type;
+            watch.Changed = entry.LastText is not null && !string.Equals(entry.LastText, text, StringComparison.Ordinal);
+            entry.LastText = text;
+        }
+        catch (Exception e)
+        {
+            watch.Error = ValueShaper.Truncate(e.Message, MaxWatchValueLength).Value;
+        }
+#pragma warning restore CA1031
+
+        return watch;
+    }
+
     /// <summary>The process name for the consent question; validates mode and target first, so a doomed request never asks.</summary>
     public Task<string> DescribeAttachTargetAsync(int pid, CancellationToken ct) => ui.RunAsync(() => RequireAttachable(pid).Name, ct);
 

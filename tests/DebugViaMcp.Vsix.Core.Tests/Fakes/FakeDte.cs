@@ -38,7 +38,7 @@ public sealed class FakeDte : IDteFacade
     public List<string> Calls { get; } = [];
     public List<RawFrame> Frames { get; set; } = [new() { Function = "Demo.OrderService.Submit(Demo.Order order)", File = @"C:\src\Demo\OrderService.cs", Line = 9, Language = "C#" }];
     public List<VariableInfo> Locals { get; set; } = [];
-    public string? LastEvaluated { get; private set; }
+    public string? LastEvaluated { get; set; }
     public RawBreakpoint? LastHitBreakpoint { get; set; }
     public Func<string, bool> FileExistsFunc { get; set; } = _ => true;
 
