@@ -20,6 +20,7 @@ It works with Visual Studio 2022 (17.14+) and Visual Studio 2026.
   (detach on stop)
 - Inspection: status (`debug_status` with `detail` adds the top Call Stack frames, Locals and exception of a stop), threads, call stack, frame selection (`frame_select`), the current exception, locals/arguments, drill-down by path or several levels in one call (`vars` with `depth` and `expand`), side-effect-free evaluation, `set_value`, and
   evaluation with side effects (`eval` with `allowSideEffects`)
+- Watch list (`watch_add`, `watch_list`, `watch_remove`): expressions the agent follows; every answer that reports a stop carries their values and whether each changed since the previous stop. The list is the agent's own, kept in memory and dropped when it lets go or disconnects; your Watch windows are not touched
 - IDE state: Output window panes (`output_read`), Error List (`errors_list`), Visual Studio builds (`vs_build`), why a breakpoint may not bind (`symbol_status`), which exceptions the debugger stops on when thrown (`exception_list`, `exception_set`, `exception_reset`); `debug_start` builds first and returns a failed build (read it with `errors_list`) instead of opening Visual Studio's build-error dialog
 - Diagnostics: `diag` returns the MCP server's recent log lines
 - Safety: permission tiers (Read / Control / Mutate) in **Tools → Options → All Settings → Debugging → Debugging via MCP** (Visual Studio 2022 17.14 has no All Settings page for

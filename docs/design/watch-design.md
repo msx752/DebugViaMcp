@@ -1,6 +1,6 @@
 # Watch (F10) — design
 
-Roadmap item F10 in `vs-feature-roadmap.md`. Status: draft for approval. Not part of 0.6.0; it gets its own release.
+Roadmap item F10 in `vs-feature-roadmap.md`. Status: approved and implemented on `develop`; not part of 0.6.0, it ships with the next release.
 
 ## Why
 `eval` answers one question about one moment. An agent that steps through code asks the same few questions at every stop
