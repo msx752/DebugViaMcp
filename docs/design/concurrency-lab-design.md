@@ -1,6 +1,6 @@
 # Concurrency lab (sample and e2e scenarios) — design
 
-Status: draft for approval. No code yet.
+Status: approved and implemented (`samples/ConcurrencyLab`, `tests/e2e/concurrency-lab.cs`). What the run showed is in `docs/testing/concurrency-lab-manual-e2e.md`.
 
 ## Why
 `OrderDemo` and `FaultDemo` run on one thread and break in simple ways. What an agent meets in real debugging is different: two workers
@@ -26,7 +26,7 @@ driver writes it before `debug_start` and deletes it afterwards; nothing is left
 |---|---|---|
 | `race` | Two workers claim the same order: both read `Status == Pending`, both charge. `order.ChargeCount` ends at 2. | A `Barrier` between the check and the charge |
 | `deadlock` | Worker 1 takes lock A then B (`Transfer`), worker 2 takes B then A. The program hangs. | A `Barrier` after the first lock |
-| `crash` | The 7th order throws `InvalidOperationException` inside `Validate`, on a thread-pool task; a wrapper catches it and rethrows it as a different exception, so the default stop is far from the cause. | The order number |
+| `crash` | The 7th order throws `InvalidOperationException` inside `Validate`, on a thread-pool task; `Handle` catches it and rethrows it as `OrderFailedException`, so the default stop is at the wrapper, not at the cause. (Planned as a stop on the main thread at `Wait()`: Visual Studio stops earlier, at the wrapper, because it is user-unhandled.) | The order number |
 
 After the bug the program stays alive (`race`: a 5 s wait, then exit; `deadlock`: hangs on purpose; `crash`: waits) so the driver has time; the driver always ends the debug session.
 
@@ -34,8 +34,8 @@ After the bug the program stays alive (`race`: a 5 s wait, then exit; `deadlock`
 Each scenario uses only the tools an agent has and asserts the diagnosis, not the steps.
 
 1. **race:** breakpoint on the charge line, `watch_add order.ChargeCount`, `debug_start`; the stop answer says which thread; `debug_continue` stops again on **another thread** at the same order. Assert: two different `threadId`s for one order id, `ChargeCount` 0 then 1 seen in `watches`, and at the second stop `eval order.Status` is still `Pending`.
-2. **deadlock:** `debug_start`, `debug_wait` returns `running`, `debug_pause`, `threads`, `stack` of every thread. Assert: two threads with `Transfer` in their stacks, each waiting inside a lock acquisition (`Monitor.Enter` or `Lock`), at different lock lines; the driver names the lock order inversion.
-3. **crash:** run it with Break When Thrown off: the stop is at the wrapper. Then `exception_set` for `System.InvalidOperationException`, restart: the stop is in `Validate`. Assert: the location function, `exception` message, order id 7 via `vars`; `exception_reset` puts the setting back; nothing stays changed.
+2. **deadlock:** `debug_start` returns `running`, `debug_pause`, `threads`, `stack` of every thread. Assert: two threads with `Transfer` in their stacks, and Visual Studio's own stack lines `[Waiting on lock owned by Thread 0x...]` forming a cycle (each waits for the other). Variables and expressions of a blocked frame cannot be read: the tools say so and point to `stack`.
+3. **crash:** run it with Break When Thrown off: the stop is at the wrapper (`Handle`), the exception's `inner` holds the cause. Then `exception_set` for `System.InvalidOperationException`, restart: the stop is in `Validate`. Assert: the location function, `exception` message, order id 7 via `vars`; `exception_reset` puts the setting back; nothing stays changed.
 
 ## What it will show about the tools (to be written into `docs/testing/` after the run)
 Questions the run answers: is one `threads` plus one `stack` per thread enough to see a deadlock without a Parallel Stacks window? Does `frame_select` with a thread id make

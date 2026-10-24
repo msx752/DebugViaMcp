@@ -13,7 +13,7 @@
   run scripts/reinstall-vsix.ps1 -Build first. A run that cannot start leaves one screenshot, %TEMP%\debugviamcp-failure-<driver>.png.
 
 .PARAMETER Driver
-  watch (default) or value-paging.
+  watch (default), value-paging or concurrency-lab (three reproducible concurrency bugs found with the tools alone; needs samples/ConcurrencyLab).
 
 .PARAMETER McpDll
   The DebugViaMcp.Mcp.dll the driver talks to (default: the Debug build in this repository).
@@ -25,7 +25,7 @@
   powershell -File tests\e2e\watch.ps1
 #>
 param(
-    [ValidateSet('watch', 'value-paging')][string]$Driver = 'watch',
+    [ValidateSet('watch', 'value-paging', 'concurrency-lab')][string]$Driver = 'watch',
     [string]$McpDll,
     [int]$ReadyTimeoutSeconds = 120
 )
@@ -121,11 +121,13 @@ catch {
 }
 finally {
     if ($startedId -ne 0) { Stop-OwnVs $startedId }
+    # A program the debugger started is stopped with the session; one left behind is ours only if it started after Visual Studio did.
+    Get-Process ConcurrencyLab -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt $vs.StartTime } | Stop-Process -Force -ErrorAction SilentlyContinue
 }
 
 # Hygiene: the run must leave the machine as it found it.
 $leftovers = [System.Collections.Generic.List[string]]::new()
-Get-Process devenv -ErrorAction SilentlyContinue | ForEach-Object { $leftovers.Add("devenv process $($_.Id) is still running") }
+foreach ($name in 'devenv', 'ConcurrencyLab') { Get-Process $name -ErrorAction SilentlyContinue | ForEach-Object { $leftovers.Add("$name process $($_.Id) is still running") } }
 Get-CimInstance Win32_Process -Filter "Name='dotnet.exe'" | Where-Object { $_.CommandLine -match 'DebugViaMcp\.Mcp\.dll' } |
     ForEach-Object { $leftovers.Add("MCP server process $($_.ProcessId) is still running") }
 Get-ChildItem ([IO.Path]::GetTempPath()) -Directory -Filter 'debugviamcp-e2e-*' -ErrorAction SilentlyContinue |
