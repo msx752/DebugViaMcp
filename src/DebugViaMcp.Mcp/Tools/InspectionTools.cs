@@ -103,15 +103,33 @@ public sealed class InspectionTools(IConnectionManager connections)
         return result;
     }
 
+    internal const int DefaultPageLength = 4096;
+    internal const int MaxPageLength = 16384;
+
     [McpServerTool(Name = "eval"),
      Description("Evaluates a C# expression in the current frame (QuickWatch). Side-effect free by default. With allowSideEffects=true, method calls and assignments really run: " + ConsentNote + " " + UntrustedNote)]
     public Task<CallToolResult> Eval(
         [Description("C# expression, e.g. order.Lines.Count.")] string expression,
         [Description("Let the expression change program state (needs the user's approval).")] bool allowSideEffects = false,
+        [Description("To read a long value in pages: where to start in the text Visual Studio shows for it (quotes and escapes included). Without offset and length a value is cut at about 1000 characters.")] int offset = 0,
+        [Description("To read a long value in pages: how many characters (at most 16384; 4096 when only offset is given). The answer has totalLength and hasMore; the pages put together are the whole text, which you unescape yourself. Not with allowSideEffects.")] int length = 0,
         CancellationToken ct = default) => InBreak("eval", async (bridge, ctx) =>
     {
         if (string.IsNullOrWhiteSpace(expression))
             return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "expression is empty.");
+        if (offset != 0 || length != 0)
+        {
+            if (allowSideEffects) return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "Paging reads a value without side effects: use offset and length without allowSideEffects.", "Run the expression first, then page a variable that holds the result.");
+            if (offset < 0 || length < 0) return ToolResponse.Error(BridgeErrorCode.InvalidArgument, "offset and length must be 0 or more.");
+            if (ToolResponse.RequireMinor(connections, ProtocolInfo.MinorWatch) is { } unsupported) return unsupported;
+            var page = await bridge.ReadValuePageAsync(expression, offset, length == 0 ? DefaultPageLength : Math.Min(length, MaxPageLength), ctx, ct).ConfigureAwait(false);
+            return ToolResponse.Ok(new
+            {
+                data = new { value = page.Value, type = page.Type, offset = page.Offset, totalLength = page.TotalLength, hasMore = page.HasMore, masked = page.Masked },
+                frame = ToolResponse.Frame(connections.Session.Frame),
+            });
+        }
+
         var r = await bridge.EvaluateAsync(expression, allowSideEffects, ctx, ct).ConfigureAwait(false);
         return r.IsValid
             ? ToolResponse.Ok(new { data = new { value = r.Value, type = r.Type, truncated = r.Truncated, masked = r.Masked }, frame = ToolResponse.Frame(connections.Session.Frame) })

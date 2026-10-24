@@ -192,6 +192,10 @@ public sealed class BridgeConnectionHandler(DebugBridgeService service, string t
             cancellationToken).ConfigureAwait(false);
     }
 
+    public Task<ValuePage> ReadValuePageAsync(string expression, int offset, int length, CallContext context, CancellationToken cancellationToken) =>
+        Guard(Operation.Evaluate, context, () => service.ReadValuePageAsync(expression, offset, length, cancellationToken),
+            Request.Of(expression, ("expression", expression), ("offset", offset.ToString(CultureInfo.InvariantCulture)), ("length", length.ToString(CultureInfo.InvariantCulture))), null, cancellationToken);
+
     public Task<AddWatchResult> AddWatchAsync(string expression, string? name, CallContext context, CancellationToken cancellationToken) =>
         Guard(Operation.AddWatch, context, () => service.AddWatchAsync(this, expression, name, cancellationToken),
             Request.Of(expression, ("expression", expression), ("name", name)), null, cancellationToken);

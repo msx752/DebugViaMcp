@@ -1,15 +1,19 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  End-to-end test of watch_add / watch_list / watch_remove and the values that come with a stop, against a real Visual Studio.
+  End-to-end test of watch_add / watch_list / watch_remove and the values that come with a stop (driver watch), or of eval with offset and
+  length on long values (driver value-paging), against a real Visual Studio.
 
 .DESCRIPTION
-  Starts Visual Studio (minimized, real profile) with this repository's solution, runs tests/e2e/watch.cs against it with the
+  Starts Visual Studio (minimized, real profile) with this repository's solution, runs tests/e2e/<driver>.cs against it with the
   OrderDemo sample, and closes that Visual Studio again. It never answers a consent question and never clicks anything: Read and
   Control must be Allow (the defaults), which the driver checks first.
   It changes nothing in Visual Studio's settings. It refuses to run while any devenv.exe is running, and ends with a hygiene check
   (no Visual Studio, MCP server, temp folder or instance file left behind). The installed extension must be the build under test:
-  run scripts/reinstall-vsix.ps1 -Build first. A run that cannot start leaves one screenshot, %TEMP%\debugviamcp-failure-watch.png.
+  run scripts/reinstall-vsix.ps1 -Build first. A run that cannot start leaves one screenshot, %TEMP%\debugviamcp-failure-<driver>.png.
+
+.PARAMETER Driver
+  watch (default) or value-paging.
 
 .PARAMETER McpDll
   The DebugViaMcp.Mcp.dll the driver talks to (default: the Debug build in this repository).
@@ -21,6 +25,7 @@
   powershell -File tests\e2e\watch.ps1
 #>
 param(
+    [ValidateSet('watch', 'value-paging')][string]$Driver = 'watch',
     [string]$McpDll,
     [int]$ReadyTimeoutSeconds = 120
 )
@@ -66,7 +71,7 @@ function Save-FailureScreenshot {
         $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         $graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bitmap.Size)
-        $file = Join-Path ([IO.Path]::GetTempPath()) 'debugviamcp-failure-watch.png'
+        $file = Join-Path ([IO.Path]::GetTempPath()) "debugviamcp-failure-$Driver.png"
         $bitmap.Save($file)
         $graphics.Dispose(); $bitmap.Dispose()
         Write-Host "screenshot of the screen at the failure: $file (delete it when you have looked)" -ForegroundColor Yellow
@@ -81,6 +86,8 @@ function Stop-OwnVs([int]$ProcessId) {
     if (-not $p.WaitForExit(60000)) {
         Write-Warning "Visual Studio $ProcessId did not close in 60 s (a dialog may be open); stopping that process."
         Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        Wait-Process -Id $ProcessId -Timeout 15 -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $instances "$ProcessId.json") -Force -ErrorAction SilentlyContinue   # a stopped Visual Studio cannot delete its own
     }
 }
 
@@ -105,7 +112,7 @@ try {
     Write-Host "Visual Studio $($ready.vsVersion), extension $($ready.vsixVersion), protocol $($ready.protocolMajor).$($ready.protocolMinor), solution $($ready.solutionPath)"
 
     Push-Location $root
-    try { & dotnet run tests/e2e/watch.cs -- $McpDll; $exit = $LASTEXITCODE }
+    try { & dotnet run "tests/e2e/$Driver.cs" -- $McpDll; $exit = $LASTEXITCODE }
     finally { Pop-Location }
 }
 catch {
@@ -130,5 +137,5 @@ foreach ($l in $leftovers) { Write-Host "LEFT BEHIND: $l" -ForegroundColor Red }
 if ($leftovers.Count -eq 0) { Write-Host 'Hygiene: no process, temp folder or instance file left behind.' -ForegroundColor Green }
 
 Write-Host ''
-Write-Host $(if ($exit -eq 0) { 'watch  PASSED' } else { "watch  FAILED (exit $exit)" }) -ForegroundColor $(if ($exit -eq 0) { 'Green' } else { 'Red' })
+Write-Host $(if ($exit -eq 0) { "$Driver  PASSED" } else { "$Driver  FAILED (exit $exit)" }) -ForegroundColor $(if ($exit -eq 0) { 'Green' } else { 'Red' })
 if ($exit -ne 0 -or $leftovers.Count -gt 0) { exit 1 }

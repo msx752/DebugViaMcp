@@ -97,6 +97,12 @@ public interface IDebugBridge
     /// <summary>Protocol 2.9. Removes one entry by id, or all of them (tier read).</summary>
     Task<RemoveWatchResult> RemoveWatchAsync(string? id, bool all, CallContext context, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Protocol 2.9. Reads one page of the value of a side-effect-free expression: <paramref name="length"/> characters of the text Visual Studio shows,
+    /// from <paramref name="offset"/> (tier read, like evaluate). Masked as a whole before it is cut.
+    /// </summary>
+    Task<ValuePage> ReadValuePageAsync(string expression, int offset, int length, CallContext context, CancellationToken cancellationToken);
+
     /// <summary>Protocol 2.2. Gives up this connection's hold on the Visual Studio so another agent can use it.</summary>
     Task ReleaseAsync(CallContext context, CancellationToken cancellationToken);
 

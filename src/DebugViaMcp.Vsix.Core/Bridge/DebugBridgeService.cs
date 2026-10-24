@@ -740,6 +740,43 @@ public sealed class DebugBridgeService(IDteFacade dte, IUiThread ui, EventSeq se
         }, ct);
     }
 
+    public const int MaxPageLength = 16384;
+
+    /// <summary>The longest text that can be paged: each page reads the whole value again, so the cost grows with it.</summary>
+    public const int MaxPagedTotal = 2_000_000;
+
+    /// <summary>
+    /// A page of the displayed text of a side-effect-free expression. The text is read once and masked as a whole, then cut: a secret that a page
+    /// boundary would split is still hidden. One evaluation per page, none of it with side effects.
+    /// </summary>
+    public Task<ValuePage> ReadValuePageAsync(string expression, int offset, int length, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, "expression is empty.");
+        if (offset < 0)
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, "offset must be 0 or more.");
+        if (length < 1 || length > MaxPageLength)
+            throw new BridgeException(BridgeErrorCode.InvalidArgument, $"length must be between 1 and {MaxPageLength}.");
+        var prepared = ExpressionPolicy.PrepareSideEffectFree(expression);
+        return InBreak(() =>
+        {
+            var raw = dte.Evaluate(prepared);
+            if (!raw.IsValid) throw new BridgeException(BridgeErrorCode.EvalFailed, raw.Value, "Check the expression against the frame's variables (vars).");
+            if (raw.Value.Length > MaxPagedTotal)   // before masking: that reads the whole text
+                throw new BridgeException(BridgeErrorCode.InvalidArgument, $"The value is longer than {MaxPagedTotal} characters, the most that can be paged.",
+                    "Read a part of it with an expression such as Substring(start, count), or let the program write it to a file.");
+            var masked = MaskOn ? SensitiveValueMask.MaskValue(expression, raw.Value, raw.Type) : new MaskedValue(raw.Value, false);
+            var text = masked.Value ?? "";
+            var start = Math.Min(offset, text.Length);
+            var take = Math.Min(length, text.Length - start);
+            return new ValuePage
+            {
+                Value = text.Substring(start, take), Type = raw.Type, Offset = offset, TotalLength = text.Length,
+                HasMore = start + take < text.Length, Masked = masked.Masked ? true : null,
+            };
+        }, ct);
+    }
+
     public Task<EvaluateResult> SetValueAsync(string expression, string value, CancellationToken ct) =>
         SetValueAsync(expression, value, expected: null, ct);
 

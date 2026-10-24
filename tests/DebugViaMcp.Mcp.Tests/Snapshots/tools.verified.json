@@ -298,6 +298,16 @@
           "description": "Let the expression change program state (needs the user\u0027s approval).",
           "type": "boolean",
           "default": false
+        },
+        "offset": {
+          "description": "To read a long value in pages: where to start in the text Visual Studio shows for it (quotes and escapes included). Without offset and length a value is cut at about 1000 characters.",
+          "type": "integer",
+          "default": 0
+        },
+        "length": {
+          "description": "To read a long value in pages: how many characters (at most 16384; 4096 when only offset is given). The answer has totalLength and hasMore; the pages put together are the whole text, which you unescape yourself. Not with allowSideEffects.",
+          "type": "integer",
+          "default": 0
         }
       },
       "required": [

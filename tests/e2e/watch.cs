@@ -138,7 +138,15 @@ catch (Exception e)
 }
 finally
 {
-    // Leave nothing behind, also after a failure: the server process, then its private copy.
+    // Leave nothing behind, also after a failure: end the debug session (Visual Studio closes by itself without a question), the server process, then its private copy.
+    if (agent is not null)
+    {
+#pragma warning disable CA1031
+        try { await agent.CallToolAsync("debug_stop", new Dictionary<string, object?>()); await agent.CallToolAsync("bp_remove", new Dictionary<string, object?> { ["all"] = true }); await agent.CallToolAsync("vs_release", new Dictionary<string, object?>()); }
+        catch (Exception) { /* nothing more to do */ }
+#pragma warning restore CA1031
+    }
+
     if (agent is not null) await agent.DisposeAsync();
     try { Directory.Delete(copy, recursive: true); }
     catch (IOException) { Console.WriteLine($"(could not remove {copy})"); }

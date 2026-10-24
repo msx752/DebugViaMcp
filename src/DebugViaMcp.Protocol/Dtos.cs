@@ -253,6 +253,26 @@ public sealed class RemoveWatchResult
     public string[] Removed { get; set; } = [];
 }
 
+/// <summary>
+/// One page of a long value (protocol 2.9): a slice of the text Visual Studio shows for it (quotes and escapes included), cut after the whole
+/// text was masked. Offsets are in that text; the pages of one value put together are the whole text.
+/// </summary>
+public sealed class ValuePage
+{
+    public string Value { get; set; } = "";
+    public string? Type { get; set; }
+    public int Offset { get; set; }
+
+    /// <summary>Length of the whole text (after masking).</summary>
+    public int TotalLength { get; set; }
+
+    /// <summary>True when text follows this page.</summary>
+    public bool HasMore { get; set; }
+
+    /// <summary>True when a secret-looking part was replaced before the text was cut; omitted otherwise.</summary>
+    public bool? Masked { get; set; }
+}
+
 public sealed class SetBreakpointResult
 {
     public BreakpointInfo Breakpoint { get; set; } = new();

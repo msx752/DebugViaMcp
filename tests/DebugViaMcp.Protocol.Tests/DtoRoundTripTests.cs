@@ -103,6 +103,17 @@ public class DtoRoundTripTests
     }
 
     [Fact]
+    public void Value_page_wire_format()
+    {
+        Assert.Equal(
+            "{\"value\":\"\\\"abc\",\"type\":\"string\",\"offset\":0,\"totalLength\":5,\"hasMore\":true,\"masked\":true}",
+            ProtocolJson.Serialize(new ValuePage { Value = "\"abc", Type = "string", Offset = 0, TotalLength = 5, HasMore = true, Masked = true }));
+        Assert.Equal(
+            "{\"value\":\"\",\"offset\":9,\"totalLength\":5,\"hasMore\":false}",
+            ProtocolJson.Serialize(new ValuePage { Offset = 9, TotalLength = 5 }));
+    }
+
+    [Fact]
     public void Watch_round_trip()
     {
         var copy = RoundTrip(new WatchListResult { Watches = [new WatchValue { Id = "w1", Expression = "i", Value = "3", Type = "int", Changed = true }] });

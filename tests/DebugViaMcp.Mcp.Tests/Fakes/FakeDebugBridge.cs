@@ -58,6 +58,8 @@ public sealed class FakeDebugBridge : IDebugBridge
 
     public Func<string, string?, AddWatchResult> OnAddWatch { get; set; } =
         (e, n) => new AddWatchResult { Watch = new WatchValue { Id = "w1", Expression = e, Name = n } };
+    public Func<string, int, int, ValuePage> OnReadValuePage { get; set; } = (e, o, l) => new ValuePage { Value = "page", Type = "string", Offset = o, TotalLength = 4 };
+    public Task<ValuePage> ReadValuePageAsync(string expression, int offset, int length, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add($"ReadValuePage:{expression}:{offset}:{length}"); return Task.FromResult(OnReadValuePage(expression, offset, length)); }
     public Func<WatchListResult> OnListWatches { get; set; } = () => new WatchListResult();
     public Func<string?, bool, RemoveWatchResult> OnRemoveWatch { get; set; } = (id, all) => new RemoveWatchResult { Removed = id is null ? [] : [id] };
     public Task<AddWatchResult> AddWatchAsync(string expression, string? name, CallContext context, CancellationToken cancellationToken) { CallIds.Add(context.CallId); Calls.Add("AddWatch:" + expression); return Task.FromResult(OnAddWatch(expression, name)); }
