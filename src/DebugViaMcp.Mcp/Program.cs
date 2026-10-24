@@ -52,7 +52,8 @@ builder.Services
     .WithTools<ExecutionTools>()
     .WithTools<InspectionTools>()
     .WithTools<IdeTools>()
-    .WithTools<ExceptionSettingsTools>();
+    .WithTools<ExceptionSettingsTools>()
+    .WithTools<WatchTools>();
 
 await builder.Build().RunAsync().ConfigureAwait(false);
 return 0;

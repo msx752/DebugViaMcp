@@ -68,16 +68,16 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
     }
 
     [McpServerTool(Name = "debug_wait", ReadOnly = true), Description("Waits for the next break (breakpoint, exception, pause) up to timeoutSec (at most the limit set in Options, 120 by default). " + InspectionTools.UntrustedNote)]
-    public Task<CallToolResult> Wait(int timeoutSec = 30, CancellationToken ct = default) => ToolResponse.RunAsync(connections, "debug_wait", async _ =>
+    public Task<CallToolResult> Wait(int timeoutSec = 30, CancellationToken ct = default) => ToolResponse.RunAsync(connections, "debug_wait", async ctx =>
     {
-        await connections.GetBridgeAsync(ct).ConfigureAwait(false);
+        var bridge = await connections.GetBridgeAsync(ct).ConfigureAwait(false);
         var session = connections.Session;
         if (session.Mode == DebuggerMode.Design)
             return ToolResponse.WrongMode(DebuggerMode.Run, session.Mode, "Start debugging with debug_start.");
         // Wait for a break after the last resume command, so a break that landed after a timed-out
         // debug_continue (but before this call) is returned instead of being skipped.
         var outcome = await session.WaitForBreakAfterAsync(session.LastResumeSeq, ClampWait(timeoutSec, session.MaxWait), ct).ConfigureAwait(false);
-        return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
+        return ToolResponse.Ok(await ToolResponse.StopAnswerAsync(connections, bridge, outcome, ctx, ct).ConfigureAwait(false));
     });
 
     [McpServerTool(Name = "debug_stop", Destructive = true), Description("Stops debugging (Shift+F5).")]
@@ -108,7 +108,7 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
             return ToolResponse.Ok(new { state = session.Mode, bindError = r.BindError, hint = "Pick a line with executable code." });
         session.MarkResumed(r.Seq);
         var outcome = await session.WaitForBreakAfterAsync(r.Seq, ResumeWait(session), ct).ConfigureAwait(false);
-        return ToolResponse.Ok(ToolResponse.FromOutcome(outcome));
+        return ToolResponse.Ok(await ToolResponse.StopAnswerAsync(connections, bridge, outcome, ctx, ct).ConfigureAwait(false));
     });
 
     public const int ProcessListDefault = 100;
@@ -200,6 +200,6 @@ public sealed class ExecutionTools(IConnectionManager connections, TimeSpan wait
             var warnings = check is null ? [] : await check(bridge, ctx).ConfigureAwait(false);
             var seq = await session.IssueAsync(() => command(bridge, ctx)).ConfigureAwait(false);
             var outcome = await session.WaitForBreakAfterAsync(seq, ResumeWait(session), ct).ConfigureAwait(false);
-            return ToolResponse.OkWithWarnings(ToolResponse.FromOutcome(outcome), warnings);
+            return ToolResponse.OkWithWarnings(await ToolResponse.StopAnswerAsync(connections, bridge, outcome, ctx, ct).ConfigureAwait(false), warnings);
         });
 }
